@@ -37,7 +37,7 @@ If present, read defaults from `~/.openclaw/openclaw.json` under:
         "config": {
           "accessCode": "sk-xxx",
           "repoDir": "/path/to/OpenMAIC",
-          "url": "http://localhost:3000"
+          "url": "http://localhost:10050/bingo-agent-class"
         }
       }
     }

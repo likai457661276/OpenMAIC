@@ -2,6 +2,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import type { NextRequest } from 'next/server';
 import type { Scene, Stage } from '@/lib/types/stage';
+import { appPath } from '@/lib/app-paths';
 
 export const CLASSROOMS_DIR = path.join(process.cwd(), 'data', 'classrooms');
 export const CLASSROOM_JOBS_DIR = path.join(process.cwd(), 'data', 'classroom-jobs');
@@ -32,6 +33,10 @@ export function buildRequestOrigin(req: NextRequest): string {
   return req.headers.get('x-forwarded-host')
     ? `${req.headers.get('x-forwarded-proto') || 'http'}://${req.headers.get('x-forwarded-host')}`
     : req.nextUrl.origin;
+}
+
+export function buildRequestBaseUrl(req: NextRequest): string {
+  return `${buildRequestOrigin(req)}${appPath('/')}`.replace(/\/$/, '');
 }
 
 export interface PersistedClassroomData {

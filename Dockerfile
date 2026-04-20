@@ -1,8 +1,19 @@
 # ---- Stage 1: Base ----
 FROM node:22-alpine AS base
 
+ARG ALPINE_MIRROR=https://mirrors.aliyun.com/alpine
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+
+ENV COREPACK_NPM_REGISTRY=${NPM_REGISTRY} \
+    NPM_CONFIG_REGISTRY=${NPM_REGISTRY} \
+    PNPM_REGISTRY=${NPM_REGISTRY}
+
+RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR}|g" /etc/apk/repositories
 RUN apk add --no-cache libc6-compat
-RUN corepack enable && corepack prepare pnpm@10.28.0 --activate
+RUN npm config set registry "${NPM_REGISTRY}" && \
+    corepack enable && \
+    corepack prepare pnpm@10.28.0 --activate && \
+    pnpm config set registry "${NPM_REGISTRY}"
 
 WORKDIR /app
 
@@ -29,12 +40,15 @@ RUN pnpm build
 # ---- Stage 4: Runner ----
 FROM node:22-alpine AS runner
 
+ARG ALPINE_MIRROR=https://mirrors.aliyun.com/alpine
+
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
-ENV PORT=3000
+ENV PORT=10050
 
+RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR}|g" /etc/apk/repositories
 RUN apk add --no-cache libc6-compat cairo pango jpeg giflib librsvg
 
 RUN addgroup --system --gid 1001 nodejs && \
@@ -46,6 +60,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs
 
-EXPOSE 3000
+EXPOSE 10050
 
 CMD ["node", "server.js"]

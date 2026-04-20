@@ -1,9 +1,15 @@
 import type { NextConfig } from 'next';
 
+const BASE_PATH = '/bingo-agent-class';
+
 const nextConfig: NextConfig = {
+  basePath: BASE_PATH,
   output: process.env.VERCEL ? undefined : 'standalone',
   transpilePackages: ['mathml2omml', 'pptxgenjs'],
   serverExternalPackages: [],
+  env: {
+    NEXT_PUBLIC_BASE_PATH: BASE_PATH,
+  },
   experimental: {
     proxyClientMaxBodySize: '200mb',
   },

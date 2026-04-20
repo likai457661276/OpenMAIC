@@ -259,6 +259,11 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
               />
             </div>
           </div>
+          {isDoubao && (
+            <p className="text-xs text-muted-foreground">
+              {t('settings.doubaoAuthHint')}
+            </p>
+          )}
           {/* Request URL Preview */}
           {(() => {
             const effectiveBaseUrl =

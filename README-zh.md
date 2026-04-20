@@ -82,6 +82,7 @@ https://github.com/user-attachments/assets/dbd013f6-9fab-43c5-a788-b47126cff7a8
 
 - **Node.js** >= 20
 - **pnpm** >= 10
+- 推荐使用 **Volta**；本项目已在 `package.json` 中固定 Node.js 与 pnpm 版本。
 
 ### 1. 克隆 & 安装
 
@@ -106,6 +107,15 @@ GOOGLE_API_KEY=...
 GROK_API_KEY=xai-...
 ```
 
+硅基流动快速示例：
+
+```env
+SILICONFLOW_API_KEY=...
+SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1
+SILICONFLOW_MODELS=Pro/MiniMaxAI/MiniMax-M2.5
+DEFAULT_MODEL=siliconflow:Pro/MiniMaxAI/MiniMax-M2.5
+```
+
 也可以通过 `server-providers.yml` 配置服务商：
 
 ```yaml
@@ -116,7 +126,7 @@ providers:
     apiKey: sk-ant-...
 ```
 
-支持的服务商：**OpenAI**、**Anthropic**、**Google Gemini**、**DeepSeek**、**MiniMax**、**Grok (xAI)**、**豆包**、**智谱 GLM**、**Ollama**（本地）以及任何兼容 OpenAI API 的服务。
+支持的服务商：**OpenAI**、**Anthropic**、**Google Gemini**、**DeepSeek**、**MiniMax**、**Grok (xAI)**、**硅基流动**、**豆包**、**智谱 GLM**、**Ollama**（本地）以及任何兼容 OpenAI API 的服务。
 
 MiniMax 快速示例：
 
@@ -161,7 +171,7 @@ DEFAULT_MODEL=glm:glm-5.1
 pnpm dev
 ```
 
-打开 **http://localhost:3000** 开始学习！
+打开 **http://localhost:10050/bingo-agent-class** 开始学习！
 
 ### 4. 生产环境构建
 
@@ -457,7 +467,7 @@ cp -R /path/to/OpenMAIC/skills/openmaic ~/.openclaw/skills/openmaic
           "accessCode": "sk-xxx",
           // 本地部署模式：本地仓库路径和地址
           "repoDir": "/path/to/OpenMAIC",
-          "url": "http://localhost:3000"
+          "url": "http://localhost:10050/bingo-agent-class"
         }
       }
     }

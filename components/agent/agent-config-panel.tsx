@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { PlusIcon, Trash2Icon, EditIcon } from 'lucide-react';
+import { appPath } from '@/lib/app-paths';
 
 export function AgentConfigPanel() {
   const { listAgents, deleteAgent } = useAgentRegistry();
@@ -61,7 +62,7 @@ export function AgentConfigPanel() {
                         borderWidth: 2,
                       }}
                     >
-                      <AvatarImage src={agent.avatar} alt={agent.name} />
+                      <AvatarImage src={appPath(agent.avatar)} alt={agent.name} />
                       <AvatarFallback
                         style={{
                           backgroundColor: `${agent.color}20`,

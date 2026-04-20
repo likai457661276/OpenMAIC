@@ -58,7 +58,7 @@ Tradeoff:
 After startup, verify:
 
 ```bash
-curl -fsS http://localhost:3000/api/health
+curl -fsS http://localhost:10050/bingo-agent-class/api/health
 ```
 
 If the skill config provides a custom `url`, use that instead.

@@ -497,26 +497,42 @@ async function generateDoubaoTTS(
   config: TTSModelConfig,
   text: string,
 ): Promise<TTSGenerationResult> {
-  const colonIdx = (config.apiKey || '').indexOf(':');
-  if (colonIdx <= 0) {
-    throw new Error(
-      'Doubao TTS requires API key in format "appId:accessKey". Get both from the Volcengine console.',
-    );
+  const rawApiKey = (config.apiKey || '').trim();
+  if (!rawApiKey) {
+    throw new Error('Doubao TTS requires a Volcengine API Key or "appId:accessKey".');
   }
-  const appId = config.apiKey!.slice(0, colonIdx);
-  const accessKey = config.apiKey!.slice(colonIdx + 1);
+  const colonIdx = rawApiKey.indexOf(':');
 
   const baseUrl = config.baseUrl || TTS_PROVIDERS['doubao-tts'].defaultBaseUrl;
   const speechRate = Math.round(((config.speed || 1.0) - 1.0) * 100);
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Api-Resource-Id': 'seed-tts-2.0',
+    'X-Api-Request-Id': crypto.randomUUID(),
+  };
+
+  if (colonIdx > 0) {
+    const appId = rawApiKey.slice(0, colonIdx).trim();
+    const accessKey = rawApiKey.slice(colonIdx + 1).trim();
+    if (!accessKey) {
+      throw new Error('Doubao TTS Access Key cannot be empty.');
+    }
+
+    if (appId.startsWith('api-key-')) {
+      // New Volcengine console API keys are named "api-key-..."; that name is not an App ID.
+      headers['X-Api-Key'] = accessKey;
+    } else {
+      headers.Authorization = `Bearer;${accessKey}`;
+      headers['X-Api-App-Id'] = appId;
+      headers['X-Api-Access-Key'] = accessKey;
+    }
+  } else {
+    headers['X-Api-Key'] = rawApiKey;
+  }
 
   const response = await fetch(`${baseUrl}/unidirectional`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Api-App-Id': appId,
-      'X-Api-Access-Key': accessKey,
-      'X-Api-Resource-Id': 'seed-tts-2.0',
-    },
+    headers,
     body: JSON.stringify({
       user: { uid: 'openmaic' },
       req_params: {
@@ -529,6 +545,11 @@ async function generateDoubaoTTS(
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => response.statusText);
+    if (response.status === 401 && errorText.includes('grant')) {
+      throw new Error(
+        'Doubao TTS API error (401): authorization grant not found. If you use the new Volcengine console, leave App ID empty and paste the API Key into Access Key. If you use the old console, enter the real App ID and Access Token, not the API Key name.',
+      );
+    }
     throw new Error(`Doubao TTS API error (${response.status}): ${errorText}`);
   }
 

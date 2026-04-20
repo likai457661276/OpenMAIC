@@ -26,7 +26,7 @@ const { values: args } = parseArgs({
   options: {
     scenario: { type: 'string' },
     repeat: { type: 'string', default: '1' },
-    'base-url': { type: 'string', default: 'http://localhost:3000' },
+    'base-url': { type: 'string', default: 'http://localhost:10050/bingo-agent-class' },
     'output-dir': { type: 'string', default: 'eval/whiteboard-layout/results' },
     rescore: { type: 'string' }, // Path to existing run dir — rescore only, no chat
   },

@@ -1,0 +1,30 @@
+services:
+  openmaic:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    working_dir: /app
+    ports:
+      - "10050:10050"
+    env_file:
+      - .env.local
+    environment:
+      NODE_ENV: development
+      HOSTNAME: 0.0.0.0
+      PORT: 10050
+      NEXT_TELEMETRY_DISABLED: "1"
+    volumes:
+      - .:/app
+      - openmaic-node-modules:/app/node_modules
+      - openmaic-next-cache:/app/.next
+      - openmaic-pnpm-store:/pnpm/store
+    command: >
+      sh -lc "pnpm config set store-dir /pnpm/store &&
+      pnpm config set registry https://registry.npmmirror.com &&
+      pnpm install --frozen-lockfile &&
+      pnpm dev:docker"
+
+volumes:
+  openmaic-node-modules:
+  openmaic-next-cache:
+  openmaic-pnpm-store:

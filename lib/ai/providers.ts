@@ -857,6 +857,13 @@ export const PROVIDERS: Record<ProviderId, ProviderConfig> = {
         outputWindow: 131072,
         capabilities: { streaming: true, tools: true, vision: false },
       },
+      {
+        id: 'Pro/MiniMaxAI/MiniMax-M2.5',
+        name: 'MiniMax-M2.5 Pro',
+        contextWindow: 204800,
+        outputWindow: 131072,
+        capabilities: { streaming: true, tools: true, vision: false },
+      },
       // Kimi Series
       {
         id: 'Pro/moonshotai/Kimi-K2.5',

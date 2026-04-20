@@ -4,7 +4,7 @@ import {
   isValidClassroomJobId,
   readClassroomGenerationJob,
 } from '@/lib/server/classroom-job-store';
-import { buildRequestOrigin } from '@/lib/server/classroom-storage';
+import { buildRequestBaseUrl } from '@/lib/server/classroom-storage';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('ClassroomJob API');
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ jobId: 
       return apiError('INVALID_REQUEST', 404, 'Classroom generation job not found');
     }
 
-    const pollUrl = `${buildRequestOrigin(req)}/api/generate-classroom/${jobId}`;
+    const pollUrl = `${buildRequestBaseUrl(req)}/api/generate-classroom/${jobId}`;
 
     return apiSuccess({
       jobId: job.id,

@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { ASR_PROVIDERS } from '@/lib/audio/constants';
 import { createLogger } from '@/lib/logger';
+import { apiPath } from '@/lib/app-paths';
 
 const log = createLogger('AudioRecorder');
 
@@ -70,7 +71,7 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
           }
         }
 
-        const response = await fetch('/api/transcription', {
+        const response = await fetch(apiPath('/api/transcription'), {
           method: 'POST',
           body: formData,
         });

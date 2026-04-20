@@ -74,7 +74,7 @@ Treat the `POST` response as job submission only. Expect fields such as:
   "jobId": "abc123",
   "status": "queued",
   "step": "queued",
-  "pollUrl": "http://localhost:3000/api/generate-classroom/abc123",
+  "pollUrl": "http://localhost:10050/bingo-agent-class/api/generate-classroom/abc123",
   "pollIntervalMs": 5000
 }
 ```

@@ -11,6 +11,7 @@ import {
 import type { AgentConfig } from '@/lib/orchestration/registry/types';
 import type { TTSProviderId } from '@/lib/audio/types';
 import type { AudioIndicatorState } from '@/components/roundtable/audio-indicator';
+import { apiPath } from '@/lib/app-paths';
 
 interface DiscussionTTSOptions {
   enabled: boolean;
@@ -148,7 +149,7 @@ export function useDiscussionTTS({ enabled, agents, onAudioStateChange }: Discus
 
     try {
       const providerConfig = ttsProvidersConfig[item.providerId];
-      const res = await fetch('/api/generate/tts', {
+      const res = await fetch(apiPath('/api/generate/tts'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

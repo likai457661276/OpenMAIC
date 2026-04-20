@@ -21,6 +21,7 @@ import type { WebSearchProviderId } from '@/lib/web-search/types';
 import type { ProviderId } from '@/lib/ai/providers';
 import type { SettingsSection } from '@/lib/types/settings';
 import { MediaPopover } from '@/components/generation/media-popover';
+import { appPath } from '@/lib/app-paths';
 
 // ─── Constants ───────────────────────────────────────────────
 const MAX_PDF_SIZE_MB = 50;
@@ -186,7 +187,11 @@ export function GenerationToolbar({
                     <SelectItem key={provider.id} value={provider.id} disabled={!available}>
                       <div className={cn('flex items-center gap-1.5', !available && 'opacity-50')}>
                         {provider.icon && (
-                          <img src={provider.icon} alt={provider.name} className="w-3.5 h-3.5" />
+                          <img
+                            src={appPath(provider.icon)}
+                            alt={provider.name}
+                            className="w-3.5 h-3.5"
+                          />
                         )}
                         {provider.name}
                         {cfg?.isServerConfigured && (
@@ -357,7 +362,7 @@ export function GenerationToolbar({
       <div className="w-px h-4 bg-border/60 mx-1" />
 
       {/* ── Media popover ── */}
-      <MediaPopover onSettingsOpen={onSettingsOpen} />
+      <MediaPopover />
     </div>
   );
 }
@@ -416,7 +421,7 @@ function ModelSelectorPopover({
             >
               {currentProviderConfig?.icon ? (
                 <img
-                  src={currentProviderConfig.icon}
+                  src={appPath(currentProviderConfig.icon)}
                   alt={currentProviderConfig.name}
                   className="size-4 rounded-sm"
                 />
@@ -455,7 +460,7 @@ function ModelSelectorPopover({
                 >
                   {provider.icon ? (
                     <img
-                      src={provider.icon}
+                      src={appPath(provider.icon)}
                       alt={provider.name}
                       className="size-5 rounded-sm shrink-0"
                     />
@@ -492,7 +497,7 @@ function ModelSelectorPopover({
               <ChevronLeft className="size-3.5 text-muted-foreground" />
               {activeProvider.icon ? (
                 <img
-                  src={activeProvider.icon}
+                  src={appPath(activeProvider.icon)}
                   alt={activeProvider.name}
                   className="size-4 rounded-sm"
                 />

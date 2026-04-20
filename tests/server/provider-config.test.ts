@@ -5,6 +5,29 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 // the mock scoped to what provider-config actually reads.
 let yamlOverride: string | null = null;
 
+const LLM_ENV_PREFIXES = [
+  'OPENAI',
+  'ANTHROPIC',
+  'GOOGLE',
+  'DEEPSEEK',
+  'QWEN',
+  'KIMI',
+  'MINIMAX',
+  'GLM',
+  'SILICONFLOW',
+  'DOUBAO',
+  'GROK',
+  'OLLAMA',
+];
+
+function clearLocalLLMEnv() {
+  for (const prefix of LLM_ENV_PREFIXES) {
+    vi.stubEnv(`${prefix}_API_KEY`, undefined);
+    vi.stubEnv(`${prefix}_BASE_URL`, undefined);
+    vi.stubEnv(`${prefix}_MODELS`, undefined);
+  }
+}
+
 vi.mock('fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('fs')>();
   const isYaml = (p: unknown) => typeof p === 'string' && p.endsWith('server-providers.yml');
@@ -28,6 +51,7 @@ describe('provider-config', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.unstubAllEnvs();
+    clearLocalLLMEnv();
     yamlOverride = null;
   });
 
@@ -131,6 +155,23 @@ providers:
 
       expect(Object.keys(providers)).toContain('openai');
       expect(Object.keys(providers)).toContain('anthropic');
+    });
+
+    it('loads SiliconFlow MiniMax provider from env', async () => {
+      vi.stubEnv('SILICONFLOW_API_KEY', 'sk-siliconflow');
+      vi.stubEnv('SILICONFLOW_BASE_URL', 'https://api.siliconflow.cn/v1');
+      vi.stubEnv('SILICONFLOW_MODELS', 'Pro/MiniMaxAI/MiniMax-M2.5');
+      const { getServerProviders, resolveApiKey, resolveBaseUrl } = await import(
+        '@/lib/server/provider-config'
+      );
+      const providers = getServerProviders();
+
+      expect(providers.siliconflow).toEqual({
+        baseUrl: 'https://api.siliconflow.cn/v1',
+        models: ['Pro/MiniMaxAI/MiniMax-M2.5'],
+      });
+      expect(resolveApiKey('siliconflow')).toBe('sk-siliconflow');
+      expect(resolveBaseUrl('siliconflow')).toBe('https://api.siliconflow.cn/v1');
     });
 
     it('omits providers without API key', async () => {

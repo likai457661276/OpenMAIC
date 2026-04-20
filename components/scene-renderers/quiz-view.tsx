@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import { createLogger } from '@/lib/logger';
+import { apiPath } from '@/lib/app-paths';
 
 const log = createLogger('QuizView');
 import type { QuizQuestion } from '@/lib/types/stage';
@@ -96,7 +97,7 @@ async function gradeShortAnswerQuestion(
     if (modelConfig.baseUrl) headers['x-base-url'] = modelConfig.baseUrl;
     if (modelConfig.providerType) headers['x-provider-type'] = modelConfig.providerType;
 
-    const res = await fetch('/api/quiz-grade', {
+    const res = await fetch(apiPath('/api/quiz-grade'), {
       method: 'POST',
       headers,
       body: JSON.stringify({

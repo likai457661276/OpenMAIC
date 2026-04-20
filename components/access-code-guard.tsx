@@ -2,6 +2,7 @@
 
 import { useEffect, useState, ReactNode } from 'react';
 import { AccessCodeModal } from '@/components/access-code-modal';
+import { apiPath } from '@/lib/app-paths';
 
 export function AccessCodeGuard({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<{
@@ -12,7 +13,7 @@ export function AccessCodeGuard({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/access-code/status')
+    fetch(apiPath('/api/access-code/status'))
       .then((res) => res.json())
       .then((data) => {
         if (!cancelled) {

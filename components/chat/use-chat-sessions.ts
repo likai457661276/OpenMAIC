@@ -29,6 +29,7 @@ import {
 import { ActionEngine } from '@/lib/action/engine';
 import { toast } from 'sonner';
 import { createLogger } from '@/lib/logger';
+import { apiPath } from '@/lib/app-paths';
 
 const log = createLogger('ChatSessions');
 
@@ -509,7 +510,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
           },
 
           fetchChat: (body, signal) =>
-            fetch('/api/chat', {
+            fetch(apiPath('/api/chat'), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(body),

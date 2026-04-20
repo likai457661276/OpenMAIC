@@ -31,6 +31,7 @@ import {
   FileText,
   Send,
 } from 'lucide-react';
+import { apiPath } from '@/lib/app-paths';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import type { ProviderConfig } from '@/lib/ai/providers';
 import type { ProvidersConfig } from '@/lib/types/settings';
@@ -122,7 +123,7 @@ export function ProviderConfigPanel({
     const testModelId = availableModels[0].id;
 
     try {
-      const response = await fetch('/api/verify-model', {
+      const response = await fetch(apiPath('/api/verify-model'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(

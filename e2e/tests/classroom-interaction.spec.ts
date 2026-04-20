@@ -16,7 +16,7 @@ async function seedDatabase(page: import('@playwright/test').Page) {
 
   // Navigate to home page first — this causes Dexie to open/create the DB at v8
   // with the correct schema. We wait for network idle to ensure Dexie is done.
-  await page.goto('/', { waitUntil: 'networkidle' });
+  await page.goto('/bingo-agent-class', { waitUntil: 'networkidle' });
 
   // Now seed data by opening the DB at its current version (no upgrade).
   // Opening without a version number returns the current version without triggering

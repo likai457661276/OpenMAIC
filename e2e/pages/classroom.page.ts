@@ -12,7 +12,7 @@ export class ClassroomPage {
   }
 
   async goto(stageId: string) {
-    await this.page.goto(`/classroom/${stageId}`);
+    await this.page.goto(`/bingo-agent-class/classroom/${stageId}`);
   }
 
   async waitForLoaded() {

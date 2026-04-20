@@ -8,7 +8,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? 'html' : 'list',
   use: {
-    baseURL: 'http://localhost:3002',
+    baseURL: 'http://localhost:10050',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -20,9 +20,9 @@ export default defineConfig({
   ],
   webServer: {
     command: process.env.CI ? 'pnpm build && pnpm start' : 'pnpm dev',
-    url: 'http://localhost:3002',
+    url: 'http://localhost:10050/bingo-agent-class',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
-    env: { PORT: '3002' },
+    env: { PORT: '10050' },
   },
 });

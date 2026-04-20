@@ -12,7 +12,7 @@ export class GenerationPreviewPage {
   }
 
   async goto() {
-    await this.page.goto('/generation-preview');
+    await this.page.goto('/bingo-agent-class/generation-preview');
   }
 
   async waitForRedirectToClassroom() {

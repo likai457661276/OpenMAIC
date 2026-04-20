@@ -8,7 +8,6 @@ import {
   Volume2,
   Mic,
   SlidersHorizontal,
-  ChevronRight,
   Play,
   Loader2,
 } from 'lucide-react';
@@ -37,11 +36,7 @@ import { ASR_PROVIDERS, getASRSupportedLanguages } from '@/lib/audio/constants';
 import type { ImageProviderId, VideoProviderId } from '@/lib/media/types';
 import type { TTSProviderId, ASRProviderId } from '@/lib/audio/types';
 import { isCustomASRProvider } from '@/lib/audio/types';
-import type { SettingsSection } from '@/lib/types/settings';
-
-interface MediaPopoverProps {
-  onSettingsOpen: (section: SettingsSection) => void;
-}
+import { appPath } from '@/lib/app-paths';
 
 // ─── Provider icon maps ───
 const IMAGE_PROVIDER_ICONS: Record<string, string> = {
@@ -106,7 +101,7 @@ function getVoiceDisplayName(name: string, lang: string): string {
   return name;
 }
 
-export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
+export function MediaPopover() {
   const { t, locale } = useI18n();
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('image');
@@ -462,19 +457,6 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
           )}
         </div>
 
-        {/* ── Footer ── */}
-        <div className="border-t border-border/40">
-          <button
-            onClick={() => {
-              setOpen(false);
-              onSettingsOpen(activeTab);
-            }}
-            className="w-full flex items-center justify-between px-3.5 py-2.5 text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
-          >
-            <span>{t('toolbar.advancedSettings')}</span>
-            <ChevronRight className="size-3" />
-          </button>
-        </div>
       </PopoverContent>
     </Popover>
   );
@@ -562,7 +544,11 @@ function GroupedSelect({
       <SelectTrigger className="h-8 w-full rounded-lg border-border/40 bg-background/80 hover:bg-muted/40 shadow-none text-xs focus:ring-1 focus:ring-ring/30 px-2.5">
         <span className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
           {selectedGroup?.groupIcon && (
-            <img src={selectedGroup.groupIcon} alt="" className="size-4 rounded-sm shrink-0" />
+            <img
+              src={appPath(selectedGroup.groupIcon)}
+              alt=""
+              className="size-4 rounded-sm shrink-0"
+            />
           )}
           <span className="font-medium truncate">{selectedGroup?.groupName}</span>
           <span className="text-muted-foreground/40">/</span>
@@ -579,7 +565,7 @@ function GroupedSelect({
               <SelectLabel className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider">
                 {group.groupIcon && (
                   <img
-                    src={group.groupIcon}
+                    src={appPath(group.groupIcon)}
                     alt=""
                     className={cn('size-3.5 rounded-sm', !group.available && 'opacity-40')}
                   />

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { VideoProviderId } from '@/lib/media/types';
+import { apiPath } from '@/lib/app-paths';
 
 interface VideoSettingsProps {
   selectedProviderId: VideoProviderId;
@@ -73,7 +74,7 @@ export function VideoSettings({ selectedProviderId }: VideoSettingsProps) {
     setTestStatus('idle');
     setTestMessage('');
     try {
-      const response = await fetch('/api/verify-video-provider', {
+      const response = await fetch(apiPath('/api/verify-video-provider'), {
         method: 'POST',
         headers: {
           'x-video-provider': selectedProviderId,

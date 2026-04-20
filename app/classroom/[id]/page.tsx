@@ -12,6 +12,7 @@ import { useWhiteboardHistoryStore } from '@/lib/store/whiteboard-history';
 import { createLogger } from '@/lib/logger';
 import { MediaStageProvider } from '@/lib/contexts/media-stage-context';
 import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
+import { apiPath } from '@/lib/app-paths';
 
 const log = createLogger('Classroom');
 
@@ -40,7 +41,7 @@ export default function ClassroomDetailPage() {
       if (!useStageStore.getState().stage) {
         log.info('No IndexedDB data, trying server-side storage for:', classroomId);
         try {
-          const res = await fetch(`/api/classroom?id=${encodeURIComponent(classroomId)}`);
+          const res = await fetch(apiPath(`/api/classroom?id=${encodeURIComponent(classroomId)}`));
           if (res.ok) {
             const json = await res.json();
             if (json.success && json.classroom) {

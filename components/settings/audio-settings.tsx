@@ -23,6 +23,7 @@ import {
 import type { TTSProviderId, ASRProviderId } from '@/lib/audio/types';
 import { isCustomASRProvider } from '@/lib/audio/types';
 import { Volume2, Mic, MicOff, CheckCircle2, XCircle, Eye, EyeOff } from 'lucide-react';
+import { apiPath, appPath } from '@/lib/app-paths';
 import { cn } from '@/lib/utils';
 import azureVoicesData from '@/lib/audio/azure.json';
 import { createLogger } from '@/lib/logger';
@@ -338,7 +339,7 @@ export function AudioSettings({ onSave }: AudioSettingsProps = {}) {
             }
 
             try {
-              const response = await fetch('/api/transcription', {
+              const response = await fetch(apiPath('/api/transcription'), {
                 method: 'POST',
                 body: formData,
               });
@@ -442,7 +443,11 @@ export function AudioSettings({ onSave }: AudioSettingsProps = {}) {
                   <SelectItem key={provider.id} value={provider.id}>
                     <div className="flex items-center gap-2">
                       {provider.icon && (
-                        <img src={provider.icon} alt={provider.name} className="w-4 h-4" />
+                        <img
+                          src={appPath(provider.icon)}
+                          alt={provider.name}
+                          className="w-4 h-4"
+                        />
                       )}
                       {getTTSProviderName(provider.id, t)}
                       {ttsProvidersConfig[provider.id]?.isServerConfigured && (
@@ -570,7 +575,11 @@ export function AudioSettings({ onSave }: AudioSettingsProps = {}) {
                   <SelectItem key={provider.id} value={provider.id}>
                     <div className="flex items-center gap-2">
                       {provider.icon && (
-                        <img src={provider.icon} alt={provider.name} className="w-4 h-4" />
+                        <img
+                          src={appPath(provider.icon)}
+                          alt={provider.name}
+                          className="w-4 h-4"
+                        />
                       )}
                       {getASRProviderName(provider.id, t)}
                       {asrProvidersConfig[provider.id]?.isServerConfigured && (

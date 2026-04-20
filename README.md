@@ -106,6 +106,15 @@ GOOGLE_API_KEY=...
 GROK_API_KEY=xai-...
 ```
 
+SiliconFlow quick example:
+
+```env
+SILICONFLOW_API_KEY=...
+SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1
+SILICONFLOW_MODELS=Pro/MiniMaxAI/MiniMax-M2.5
+DEFAULT_MODEL=siliconflow:Pro/MiniMaxAI/MiniMax-M2.5
+```
+
 You can also configure providers via `server-providers.yml`:
 
 ```yaml
@@ -116,7 +125,7 @@ providers:
     apiKey: sk-ant-...
 ```
 
-Supported providers: **OpenAI**, **Anthropic**, **Google Gemini**, **DeepSeek**, **MiniMax**, **Grok (xAI)**, **Doubao**, **GLM (Zhipu)**, **Ollama** (local), and any OpenAI-compatible API.
+Supported providers: **OpenAI**, **Anthropic**, **Google Gemini**, **DeepSeek**, **MiniMax**, **Grok (xAI)**, **SiliconFlow**, **Doubao**, **GLM (Zhipu)**, **Ollama** (local), and any OpenAI-compatible API.
 
 MiniMax quick examples:
 
@@ -161,7 +170,7 @@ DEFAULT_MODEL=glm:glm-5.1
 pnpm dev
 ```
 
-Open **http://localhost:3000** and start learning!
+Open **http://localhost:10050/bingo-agent-class** and start learning!
 
 ### 4. Build for Production
 
@@ -459,7 +468,7 @@ Optional config in `~/.openclaw/openclaw.json`:
           "accessCode": "sk-xxx",
           // Self-hosted mode: local repo path and URL
           "repoDir": "/path/to/OpenMAIC",
-          "url": "http://localhost:3000"
+          "url": "http://localhost:10050/bingo-agent-class"
         }
       }
     }
@@ -639,4 +648,3 @@ If you find OpenMAIC useful in your research, please consider citing:
 ## 📄 License
 
 This project is licensed under the [GNU Affero General Public License v3.0](LICENSE).
-

@@ -22,6 +22,7 @@ import type { ProviderId } from '@/lib/ai/providers';
 import { MONO_LOGO_PROVIDERS } from '@/lib/ai/providers';
 import type { ProvidersConfig } from '@/lib/types/settings';
 import { createVerifyModelRequest, formatContextWindow } from './utils';
+import { apiPath, appPath } from '@/lib/app-paths';
 
 interface ModelSelectorProps {
   providerId: ProviderId;
@@ -158,7 +159,7 @@ export function ModelSelector({
       setTestingModelId(mid);
 
       try {
-        const response = await fetch('/api/verify-model', {
+        const response = await fetch(apiPath('/api/verify-model'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(
@@ -219,7 +220,7 @@ export function ModelSelector({
               >
                 {provider.icon ? (
                   <img
-                    src={provider.icon}
+                    src={appPath(provider.icon)}
                     alt={getProviderDisplayName(provider.id, provider.name)}
                     className={cn(
                       'w-5 h-5 shrink-0',

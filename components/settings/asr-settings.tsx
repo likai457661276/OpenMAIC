@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
+import { apiPath } from '@/lib/app-paths';
 import { ASR_PROVIDERS } from '@/lib/audio/constants';
 import type { ASRProviderId } from '@/lib/audio/types';
 import { isCustomASRProvider } from '@/lib/audio/types';
@@ -146,7 +147,7 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
             if (baseUrlValue?.trim()) formData.append('baseUrl', baseUrlValue);
 
             try {
-              const response = await fetch('/api/transcription', {
+              const response = await fetch(apiPath('/api/transcription'), {
                 method: 'POST',
                 body: formData,
               });
