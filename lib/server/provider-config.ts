@@ -90,6 +90,7 @@ const PDF_ENV_MAP: Record<string, string> = {
 
 const IMAGE_ENV_MAP: Record<string, string> = {
   IMAGE_SEEDREAM: 'seedream',
+  IMAGE_SILICONFLOW: 'siliconflow-image',
   IMAGE_QWEN_IMAGE: 'qwen-image',
   IMAGE_NANO_BANANA: 'nano-banana',
   IMAGE_MINIMAX: 'minimax-image',
@@ -216,14 +217,27 @@ const DEFAULT_FILENAME = 'server-providers.yml';
 const _configs: Map<string, ServerConfig> = new Map();
 
 function buildConfig(yamlData: YamlData): ServerConfig {
+  const providers = loadEnvSection(LLM_ENV_MAP, yamlData.providers, {
+    keylessProviders: new Set(['ollama']),
+  });
+  const image = loadEnvSection(IMAGE_ENV_MAP, yamlData.image);
+
+  const siliconflowLlm = providers.siliconflow;
+  if (siliconflowLlm) {
+    image['siliconflow-image'] = {
+      apiKey: image['siliconflow-image']?.apiKey || siliconflowLlm.apiKey,
+      baseUrl: image['siliconflow-image']?.baseUrl || siliconflowLlm.baseUrl,
+      models: image['siliconflow-image']?.models,
+      proxy: image['siliconflow-image']?.proxy,
+    };
+  }
+
   return {
-    providers: loadEnvSection(LLM_ENV_MAP, yamlData.providers, {
-      keylessProviders: new Set(['ollama']),
-    }),
+    providers,
     tts: loadEnvSection(TTS_ENV_MAP, yamlData.tts),
     asr: loadEnvSection(ASR_ENV_MAP, yamlData.asr),
     pdf: loadEnvSection(PDF_ENV_MAP, yamlData.pdf, { requiresBaseUrl: true }),
-    image: loadEnvSection(IMAGE_ENV_MAP, yamlData.image),
+    image,
     video: loadEnvSection(VIDEO_ENV_MAP, yamlData.video),
     webSearch: loadEnvSection(WEB_SEARCH_ENV_MAP, yamlData['web-search']),
   };

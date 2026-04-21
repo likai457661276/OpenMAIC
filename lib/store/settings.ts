@@ -133,6 +133,7 @@ export interface SettingsState {
   // Media generation toggles
   imageGenerationEnabled: boolean;
   videoGenerationEnabled: boolean;
+  imageGenerationTouched: boolean;
 
   // Web Search settings
   webSearchProviderId: WebSearchProviderId;
@@ -346,10 +347,11 @@ const getDefaultPDFConfig = () => ({
 
 // Initialize default Image config
 const getDefaultImageConfig = () => ({
-  imageProviderId: 'seedream' as ImageProviderId,
-  imageModelId: 'doubao-seedream-5-0-260128',
+  imageProviderId: 'siliconflow-image' as ImageProviderId,
+  imageModelId: 'Qwen/Qwen-Image',
   imageProvidersConfig: {
     seedream: { apiKey: '', baseUrl: '', enabled: false },
+    'siliconflow-image': { apiKey: '', baseUrl: '', enabled: false },
     'qwen-image': { apiKey: '', baseUrl: '', enabled: false },
     'nano-banana': { apiKey: '', baseUrl: '', enabled: false },
     'minimax-image': { apiKey: '', baseUrl: '', enabled: false },
@@ -521,6 +523,36 @@ function ensureBuiltInVideoProviders(state: Partial<SettingsState>): void {
   });
 }
 
+function canUseSelectedImageModel(
+  providerId: ImageProviderId | undefined,
+  modelId: string | undefined,
+  imageProvidersConfig: Partial<SettingsState['imageProvidersConfig']> | undefined,
+): boolean {
+  if (!providerId || !modelId || !imageProvidersConfig) return false;
+
+  const provider = IMAGE_PROVIDERS[providerId];
+  const config = imageProvidersConfig[providerId];
+  if (!provider || !config) return false;
+
+  const availableModels = [...provider.models, ...(config.customModels || [])];
+  if (!availableModels.some((model) => model.id === modelId)) return false;
+
+  return isProviderUsable({ ...config, requiresApiKey: provider.requiresApiKey });
+}
+
+function shouldAutoEnableImageGeneration(
+  state: Pick<
+    SettingsState,
+    'imageProviderId' | 'imageModelId' | 'imageProvidersConfig' | 'imageGenerationEnabled' | 'imageGenerationTouched'
+  >,
+): boolean {
+  return (
+    !state.imageGenerationTouched &&
+    !state.imageGenerationEnabled &&
+    canUseSelectedImageModel(state.imageProviderId, state.imageModelId, state.imageProvidersConfig)
+  );
+}
+
 // Migrate from old localStorage format
 const migrateFromOldStorage = () => {
   if (typeof window === 'undefined') return null;
@@ -637,6 +669,7 @@ export const useSettingsStore = create<SettingsState>()(
         // Media generation toggles (off by default)
         imageGenerationEnabled: false,
         videoGenerationEnabled: false,
+        imageGenerationTouched: false,
 
         // Audio feature toggles (on by default)
         ttsEnabled: true,
@@ -759,19 +792,43 @@ export const useSettingsStore = create<SettingsState>()(
           })),
 
         // Image Generation actions
-        setImageProvider: (providerId) => set({ imageProviderId: providerId }),
-        setImageModelId: (modelId) => set({ imageModelId: modelId }),
+        setImageProvider: (providerId) =>
+          set((state) => {
+            const nextState = { ...state, imageProviderId: providerId };
+            return {
+              imageProviderId: providerId,
+              ...(shouldAutoEnableImageGeneration(nextState) && { imageGenerationEnabled: true }),
+            };
+          }),
+        setImageModelId: (modelId) =>
+          set((state) => {
+            const nextState = { ...state, imageModelId: modelId };
+            return {
+              imageModelId: modelId,
+              ...(shouldAutoEnableImageGeneration(nextState) && { imageGenerationEnabled: true }),
+            };
+          }),
 
         setImageProviderConfig: (providerId, config) =>
-          set((state) => ({
-            imageProvidersConfig: {
+          set((state) => {
+            const nextImageProvidersConfig = {
               ...state.imageProvidersConfig,
               [providerId]: {
                 ...state.imageProvidersConfig[providerId],
                 ...config,
               },
-            },
-          })),
+            };
+
+            const nextState = {
+              ...state,
+              imageProvidersConfig: nextImageProvidersConfig,
+            };
+
+            return {
+              imageProvidersConfig: nextImageProvidersConfig,
+              ...(shouldAutoEnableImageGeneration(nextState) && { imageGenerationEnabled: true }),
+            };
+          }),
 
         // Video Generation actions
         setVideoProvider: (providerId) => set({ videoProviderId: providerId }),
@@ -795,7 +852,7 @@ export const useSettingsStore = create<SettingsState>()(
             const hasUsable = Object.values(cfg).some((c) => c.isServerConfigured || c.apiKey);
             if (!hasUsable) return;
           }
-          set({ imageGenerationEnabled: enabled });
+          set({ imageGenerationEnabled: enabled, imageGenerationTouched: true });
         },
         setVideoGenerationEnabled: (enabled) => {
           if (enabled) {
@@ -1286,6 +1343,14 @@ export const useSettingsStore = create<SettingsState>()(
               // Auto-disable image/video generation when no provider is usable
               const shouldDisableImage = !validImageProvider && state.imageGenerationEnabled;
               const shouldDisableVideo = !validVideoProvider && state.videoGenerationEnabled;
+              const shouldAutoEnableSelectedImage =
+                !state.imageGenerationTouched &&
+                !state.imageGenerationEnabled &&
+                canUseSelectedImageModel(
+                  validImageProvider as ImageProviderId | undefined,
+                  validImageModel,
+                  newImageConfig,
+                );
 
               // === Auto-select / auto-enable (only on first run) ===
               let autoTtsProvider: TTSProviderId | undefined;
@@ -1465,6 +1530,7 @@ export const useSettingsStore = create<SettingsState>()(
                 }),
                 ...(shouldDisableImage && { imageGenerationEnabled: false }),
                 ...(shouldDisableVideo && { videoGenerationEnabled: false }),
+                ...(shouldAutoEnableSelectedImage && { imageGenerationEnabled: true }),
                 // First-run auto-select overrides validation (autoConfigApplied guard).
                 // On first sync, auto-select picks the best provider. On subsequent syncs,
                 // auto* variables stay undefined so only validation spreads take effect.
@@ -1627,6 +1693,9 @@ export const useSettingsStore = create<SettingsState>()(
         if (state.imageGenerationEnabled === undefined) {
           state.imageGenerationEnabled = false;
         }
+        if ((state as Record<string, unknown>).imageGenerationTouched === undefined) {
+          (state as Record<string, unknown>).imageGenerationTouched = false;
+        }
         if (state.videoGenerationEnabled === undefined) {
           state.videoGenerationEnabled = false;
         }
@@ -1683,6 +1752,16 @@ export const useSettingsStore = create<SettingsState>()(
         ensureBuiltInImageProviders(merged as Partial<SettingsState>);
         ensureBuiltInVideoProviders(merged as Partial<SettingsState>);
         ensureValidProviderSelections(merged as Partial<SettingsState>);
+        if (
+          shouldAutoEnableImageGeneration(
+            merged as Pick<
+              SettingsState,
+              'imageProviderId' | 'imageModelId' | 'imageProvidersConfig' | 'imageGenerationEnabled' | 'imageGenerationTouched'
+            >,
+          )
+        ) {
+          (merged as SettingsState).imageGenerationEnabled = true;
+        }
         return merged as SettingsState;
       },
     },

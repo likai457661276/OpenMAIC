@@ -71,6 +71,7 @@
  */
 export type ImageProviderId =
   | 'seedream'
+  | 'siliconflow-image'
   | 'qwen-image'
   | 'nano-banana'
   | 'minimax-image'

@@ -826,6 +826,7 @@
     "imageProvider": "مزوّد توليد الصور",
     "imageModel": "نموذج توليد الصور",
     "providerSeedream": "Seedream (ByteDance)",
+    "providerSiliconFlowImage": "SiliconFlow Image",
     "providerQwenImage": "Qwen Image (Alibaba)",
     "providerNanoBanana": "Nano Banana (Gemini)",
     "providerMiniMaxImage": "MiniMax Image",

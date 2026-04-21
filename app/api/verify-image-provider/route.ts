@@ -26,7 +26,8 @@ const log = createLogger('VerifyImageProvider');
 
 export async function POST(request: NextRequest) {
   try {
-    const providerId = (request.headers.get('x-image-provider') || 'seedream') as ImageProviderId;
+    const providerId = (request.headers.get('x-image-provider') ||
+      'siliconflow-image') as ImageProviderId;
     const model = request.headers.get('x-image-model') || undefined;
     const clientApiKey = request.headers.get('x-api-key') || undefined;
     const clientBaseUrl = request.headers.get('x-base-url') || undefined;
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
     return apiSuccess({ message: result.message });
   } catch (err) {
     log.error(
-      `Image provider verification failed [provider=${request.headers.get('x-image-provider') ?? 'seedream'}]:`,
+      `Image provider verification failed [provider=${request.headers.get('x-image-provider') ?? 'siliconflow-image'}]:`,
       err,
     );
     return apiError('INTERNAL_ERROR', 500, `Connectivity test error: ${err}`);

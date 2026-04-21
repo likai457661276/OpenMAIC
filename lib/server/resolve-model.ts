@@ -30,7 +30,15 @@ export async function resolveModel(params: {
   baseUrl?: string;
   providerType?: string;
 }): Promise<ResolvedModel> {
-  const modelString = params.modelString || process.env.DEFAULT_MODEL || 'gpt-4o-mini';
+  const requestedModelString = params.modelString?.trim();
+  const defaultModelString = process.env.DEFAULT_MODEL || 'gpt-4o-mini';
+  const parsedRequestedModel = requestedModelString
+    ? parseModelString(requestedModelString)
+    : undefined;
+  const modelString =
+    requestedModelString && parsedRequestedModel?.modelId.trim()
+      ? requestedModelString
+      : defaultModelString;
   const { providerId, modelId } = parseModelString(modelString);
 
   // SSRF validation applies only to client-supplied base URLs.

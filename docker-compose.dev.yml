@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile.dev
     working_dir: /app
     ports:
-      - "10050:10050"
+      - "10051:10050"
     env_file:
       - .env.local
     environment:
@@ -13,6 +13,10 @@ services:
       HOSTNAME: 0.0.0.0
       PORT: 10050
       NEXT_TELEMETRY_DISABLED: "1"
+      SILICONFLOW_API_KEY: ${SILICONFLOW_API_KEY:-}
+      SILICONFLOW_BASE_URL: ${SILICONFLOW_BASE_URL:-https://api.siliconflow.cn/v1}
+      DEFAULT_IMAGE_PROVIDER: ${DEFAULT_IMAGE_PROVIDER:-siliconflow-image}
+      DEFAULT_IMAGE_MODEL: ${DEFAULT_IMAGE_MODEL:-Qwen/Qwen-Image}
     volumes:
       - .:/app
       - openmaic-node-modules:/app/node_modules

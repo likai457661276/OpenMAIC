@@ -145,6 +145,11 @@ vi.mock('@/lib/media/image-providers', () => ({
       requiresApiKey: true,
       models: [{ id: 'doubao-seedream-5-0-260128', name: 'Seedream 5.0' }],
     },
+    'siliconflow-image': {
+      id: 'siliconflow-image',
+      requiresApiKey: true,
+      models: [{ id: 'Qwen/Qwen-Image', name: 'Qwen / Qwen-Image' }],
+    },
     'qwen-image': {
       id: 'qwen-image',
       requiresApiKey: true,
@@ -766,16 +771,16 @@ describe('fetchServerProviders — Image stale selection', () => {
   it('falls back to another server-configured image provider', async () => {
     const store = await getStore();
 
-    mockServerResponse({ image: { seedream: {}, 'qwen-image': {} } });
+    mockServerResponse({ image: { seedream: {}, 'siliconflow-image': {} } });
     await store.getState().fetchServerProviders();
     store.getState().setImageProvider('seedream');
     store.getState().setImageModelId('doubao-seedream-5-0-260128');
 
-    mockServerResponse({ image: { 'qwen-image': {} } });
+    mockServerResponse({ image: { 'siliconflow-image': {} } });
     await store.getState().fetchServerProviders();
 
-    expect(store.getState().imageProviderId).toBe('qwen-image');
-    expect(store.getState().imageModelId).toBe('qwen-image-max');
+    expect(store.getState().imageProviderId).toBe('siliconflow-image');
+    expect(store.getState().imageModelId).toBe('Qwen/Qwen-Image');
   });
 
   it('auto-selects provider and model when server adds image provider after empty state', async () => {
@@ -788,27 +793,26 @@ describe('fetchServerProviders — Image stale selection', () => {
     expect(store.getState().imageModelId).toBe('');
     expect(store.getState().imageGenerationEnabled).toBe(false);
 
-    // Server adds seedream
-    mockServerResponse({ image: { seedream: {} } });
+    // Server adds siliconflow-image
+    mockServerResponse({ image: { 'siliconflow-image': {} } });
     await store.getState().fetchServerProviders();
 
-    expect(store.getState().imageProviderId).toBe('seedream');
-    expect(store.getState().imageModelId).toBe('doubao-seedream-5-0-260128');
-    // Provider recovered but generation stays off — user enables manually
-    expect(store.getState().imageGenerationEnabled).toBe(false);
+    expect(store.getState().imageProviderId).toBe('siliconflow-image');
+    expect(store.getState().imageModelId).toBe('Qwen/Qwen-Image');
+    expect(store.getState().imageGenerationEnabled).toBe(true);
   });
 
   it('auto-enables image generation on first load when server has image provider', async () => {
     const store = await getStore();
 
-    // First ever fetchServerProviders — server has seedream
-    // Default state: imageProviderId='seedream', imageGenerationEnabled=false, autoConfigApplied=false
-    mockServerResponse({ image: { seedream: {} } });
+    // First ever fetchServerProviders — server has siliconflow-image
+    // Default state: imageProviderId='siliconflow-image', imageGenerationEnabled=false, autoConfigApplied=false
+    mockServerResponse({ image: { 'siliconflow-image': {} } });
     await store.getState().fetchServerProviders();
 
     expect(store.getState().imageGenerationEnabled).toBe(true);
-    expect(store.getState().imageProviderId).toBe('seedream');
-    expect(store.getState().imageModelId).toBe('doubao-seedream-5-0-260128');
+    expect(store.getState().imageProviderId).toBe('siliconflow-image');
+    expect(store.getState().imageModelId).toBe('Qwen/Qwen-Image');
   });
 
   it('applies env-configured default image provider and model on first sync', async () => {
@@ -816,19 +820,19 @@ describe('fetchServerProviders — Image stale selection', () => {
 
     mockServerResponse({
       defaults: {
-        imageProvider: 'qwen-image',
-        imageModel: 'qwen-image-max',
+        imageProvider: 'siliconflow-image',
+        imageModel: 'Qwen/Qwen-Image',
       },
-      image: { seedream: {}, 'qwen-image': {} },
+      image: { seedream: {}, 'siliconflow-image': {} },
     });
 
     await store.getState().fetchServerProviders();
 
-    expect(store.getState().imageProviderId).toBe('qwen-image');
-    expect(store.getState().imageModelId).toBe('qwen-image-max');
+    expect(store.getState().imageProviderId).toBe('siliconflow-image');
+    expect(store.getState().imageModelId).toBe('Qwen/Qwen-Image');
   });
 
-  it('does not force-enable when provider is already set but generation was disabled', async () => {
+  it('does not force-enable when provider is already set but generation was manually disabled', async () => {
     const store = await getStore();
 
     // autoConfigApplied=true, provider already set, generation off (user choice)
@@ -836,18 +840,43 @@ describe('fetchServerProviders — Image stale selection', () => {
     await store.getState().fetchServerProviders(); // sets autoConfigApplied=true
 
     store.setState({
-      imageProviderId: 'seedream',
-      imageModelId: '',
-      imageGenerationEnabled: false,
+      imageProviderId: 'siliconflow-image',
+      imageModelId: 'Qwen/Qwen-Image',
     });
+    store.getState().setImageGenerationEnabled(false);
 
-    // Server has seedream — should NOT force-enable (provider was already set)
-    mockServerResponse({ image: { seedream: {} } });
+    // Server has siliconflow-image — should NOT force-enable after a manual disable
+    mockServerResponse({ image: { 'siliconflow-image': {} } });
     await store.getState().fetchServerProviders();
 
     expect(store.getState().imageGenerationEnabled).toBe(false);
-    // But model should be auto-filled
-    expect(store.getState().imageModelId).toBe('doubao-seedream-5-0-260128');
+    expect(store.getState().imageModelId).toBe('Qwen/Qwen-Image');
+  });
+
+  it('auto-enables image generation when the selected image model becomes locally usable', async () => {
+    const store = await getStore();
+
+    store.getState().setImageProvider('siliconflow-image');
+    store.getState().setImageModelId('Qwen/Qwen-Image');
+    expect(store.getState().imageGenerationEnabled).toBe(false);
+
+    store.getState().setImageProviderConfig('siliconflow-image', { apiKey: 'sk-local-image' });
+
+    expect(store.getState().imageGenerationEnabled).toBe(true);
+  });
+
+  it('respects a manual disable after image generation was auto-enabled', async () => {
+    const store = await getStore();
+
+    store.getState().setImageProvider('siliconflow-image');
+    store.getState().setImageModelId('Qwen/Qwen-Image');
+    store.getState().setImageProviderConfig('siliconflow-image', { apiKey: 'sk-local-image' });
+    expect(store.getState().imageGenerationEnabled).toBe(true);
+
+    store.getState().setImageGenerationEnabled(false);
+    store.getState().setImageProviderConfig('siliconflow-image', { apiKey: 'sk-local-image-2' });
+
+    expect(store.getState().imageGenerationEnabled).toBe(false);
   });
 });
 

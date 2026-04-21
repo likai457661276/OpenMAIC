@@ -114,7 +114,15 @@ SILICONFLOW_API_KEY=...
 SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1
 SILICONFLOW_MODELS=Pro/MiniMaxAI/MiniMax-M2.5
 DEFAULT_MODEL=siliconflow:Pro/MiniMaxAI/MiniMax-M2.5
+
+IMAGE_SILICONFLOW_API_KEY=...
+IMAGE_SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1
+DEFAULT_IMAGE_PROVIDER=siliconflow-image
+DEFAULT_IMAGE_MODEL=Qwen/Qwen-Image
 ```
+
+其中 `IMAGE_SILICONFLOW_API_KEY` 可省略；未设置时，图片生成会自动复用 `SILICONFLOW_API_KEY`，并在设置首次同步后默认开启图片生成。
+如果希望指定默认图片 provider / model，建议写在你本地的 `.env.local` 中。
 
 也可以通过 `server-providers.yml` 配置服务商：
 

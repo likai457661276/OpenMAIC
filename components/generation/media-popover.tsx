@@ -41,8 +41,10 @@ import { appPath } from '@/lib/app-paths';
 // ─── Provider icon maps ───
 const IMAGE_PROVIDER_ICONS: Record<string, string> = {
   seedream: '/logos/doubao.svg',
+  'siliconflow-image': '/logos/siliconflow.svg',
   'qwen-image': '/logos/bailian.svg',
   'nano-banana': '/logos/gemini.svg',
+  'minimax-image': '/logos/minimax.svg',
   'grok-image': '/logos/grok.svg',
 };
 const VIDEO_PROVIDER_ICONS: Record<string, string> = {

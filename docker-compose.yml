@@ -2,9 +2,14 @@ services:
   openmaic:
     build: .
     ports:
-      - "10050:10050"
+      - "10051:10050"
     env_file:
       - .env.local
+    environment:
+      SILICONFLOW_API_KEY: ${SILICONFLOW_API_KEY:-}
+      SILICONFLOW_BASE_URL: ${SILICONFLOW_BASE_URL:-https://api.siliconflow.cn/v1}
+      DEFAULT_IMAGE_PROVIDER: ${DEFAULT_IMAGE_PROVIDER:-siliconflow-image}
+      DEFAULT_IMAGE_MODEL: ${DEFAULT_IMAGE_MODEL:-Qwen/Qwen-Image}
     volumes:
       # Optional: mount server-providers.yml for provider config
       # - ./server-providers.yml:/app/server-providers.yml:ro

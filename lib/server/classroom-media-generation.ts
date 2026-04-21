@@ -17,6 +17,7 @@ import { IMAGE_PROVIDERS } from '@/lib/media/image-providers';
 import { VIDEO_PROVIDERS } from '@/lib/media/video-providers';
 import { isMediaPlaceholder } from '@/lib/store/media-generation';
 import {
+  getServerDefaultSelections,
   getServerImageProviders,
   getServerVideoProviders,
   getServerTTSProviders,
@@ -81,6 +82,18 @@ export async function generateMediaForClassroom(
   // Resolve providers
   const imageProviderIds = Object.keys(getServerImageProviders());
   const videoProviderIds = Object.keys(getServerVideoProviders());
+  const serverDefaults = getServerDefaultSelections();
+  const defaultImageProvider = serverDefaults.imageProvider as ImageProviderId | undefined;
+  const preferredImageProvider =
+    defaultImageProvider && imageProviderIds.includes(defaultImageProvider)
+      ? defaultImageProvider
+      : (imageProviderIds[0] as ImageProviderId | undefined);
+  const preferredImageModels = preferredImageProvider
+    ? IMAGE_PROVIDERS[preferredImageProvider]?.models ?? []
+    : [];
+  const preferredImageModel =
+    preferredImageModels.find((model) => model.id === serverDefaults.imageModel)?.id ||
+    preferredImageModels[0]?.id;
 
   const mediaMap: Record<string, string> = {};
 
@@ -92,17 +105,21 @@ export async function generateMediaForClassroom(
   const generateImages = async () => {
     for (const req of imageRequests) {
       try {
-        const providerId = imageProviderIds[0] as ImageProviderId;
+        if (!preferredImageProvider) continue;
+        const providerId = preferredImageProvider;
         const apiKey = resolveImageApiKey(providerId);
         if (!apiKey) {
           log.warn(`No API key for image provider "${providerId}", skipping ${req.elementId}`);
           continue;
         }
-        const providerConfig = IMAGE_PROVIDERS[providerId];
-        const model = providerConfig?.models?.[0]?.id;
 
         const result = await generateImage(
-          { providerId, apiKey, baseUrl: resolveImageBaseUrl(providerId), model },
+          {
+            providerId,
+            apiKey,
+            baseUrl: resolveImageBaseUrl(providerId),
+            model: preferredImageModel,
+          },
           { prompt: req.prompt, aspectRatio: req.aspectRatio || '16:9' },
         );
 

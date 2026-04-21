@@ -248,4 +248,54 @@ pdf:
       expect(providers.mineru).toBeUndefined();
     });
   });
+
+  describe('image providers', () => {
+    it('reuses SILICONFLOW_API_KEY for siliconflow-image when image-specific key is absent', async () => {
+      vi.stubEnv('SILICONFLOW_API_KEY', 'sk-siliconflow-shared');
+      vi.stubEnv('SILICONFLOW_BASE_URL', 'https://api.siliconflow.cn/v1');
+      vi.stubEnv('DEFAULT_IMAGE_PROVIDER', 'siliconflow-image');
+      vi.stubEnv('DEFAULT_IMAGE_MODEL', 'Qwen/Qwen-Image');
+
+      const {
+        getServerDefaultSelections,
+        getServerImageProviders,
+        resolveImageApiKey,
+        resolveImageBaseUrl,
+      } = await import('@/lib/server/provider-config');
+
+      const providers = getServerImageProviders();
+
+      expect(providers['siliconflow-image']).toEqual({});
+      expect(getServerDefaultSelections()).toMatchObject({
+        imageProvider: 'siliconflow-image',
+        imageModel: 'Qwen/Qwen-Image',
+      });
+      expect(resolveImageApiKey('siliconflow-image')).toBe('sk-siliconflow-shared');
+      expect(resolveImageBaseUrl('siliconflow-image')).toBe('https://api.siliconflow.cn/v1');
+    });
+
+    it('loads SiliconFlow image provider from env without exposing apiKey', async () => {
+      vi.stubEnv('IMAGE_SILICONFLOW_API_KEY', 'sk-image-siliconflow');
+      vi.stubEnv('IMAGE_SILICONFLOW_BASE_URL', 'https://api.siliconflow.cn/v1');
+      vi.stubEnv('DEFAULT_IMAGE_PROVIDER', 'siliconflow-image');
+      vi.stubEnv('DEFAULT_IMAGE_MODEL', 'Qwen/Qwen-Image');
+
+      const {
+        getServerDefaultSelections,
+        getServerImageProviders,
+        resolveImageApiKey,
+        resolveImageBaseUrl,
+      } = await import('@/lib/server/provider-config');
+
+      const providers = getServerImageProviders();
+
+      expect(providers['siliconflow-image']).toEqual({});
+      expect(getServerDefaultSelections()).toMatchObject({
+        imageProvider: 'siliconflow-image',
+        imageModel: 'Qwen/Qwen-Image',
+      });
+      expect(resolveImageApiKey('siliconflow-image')).toBe('sk-image-siliconflow');
+      expect(resolveImageBaseUrl('siliconflow-image')).toBe('https://api.siliconflow.cn/v1');
+    });
+  });
 });

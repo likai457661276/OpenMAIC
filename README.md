@@ -113,7 +113,15 @@ SILICONFLOW_API_KEY=...
 SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1
 SILICONFLOW_MODELS=Pro/MiniMaxAI/MiniMax-M2.5
 DEFAULT_MODEL=siliconflow:Pro/MiniMaxAI/MiniMax-M2.5
+
+IMAGE_SILICONFLOW_API_KEY=...
+IMAGE_SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1
+DEFAULT_IMAGE_PROVIDER=siliconflow-image
+DEFAULT_IMAGE_MODEL=Qwen/Qwen-Image
 ```
+
+`IMAGE_SILICONFLOW_API_KEY` is optional. When omitted, image generation automatically reuses `SILICONFLOW_API_KEY`, and image generation will auto-enable on the first settings sync.
+If you want to pin the default image provider/model, prefer setting it in your local `.env.local`.
 
 You can also configure providers via `server-providers.yml`:
 

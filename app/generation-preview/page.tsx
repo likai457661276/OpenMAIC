@@ -27,7 +27,8 @@ import type { Stage } from '@/lib/types/stage';
 import type { SceneOutline, PdfImage, ImageMapping } from '@/lib/types/generation';
 import { AgentRevealModal } from '@/components/agent/agent-reveal-modal';
 import { createLogger } from '@/lib/logger';
-import { apiPath } from '@/lib/app-paths';
+import { apiPath, assetPath } from '@/lib/app-paths';
+import { isProviderUsable } from '@/lib/store/settings-validation';
 import { type GenerationSessionState, ALL_STEPS, getActiveSteps } from './types';
 import { StepVisualizer } from './components/visualizers';
 
@@ -38,6 +39,10 @@ function GenerationPreviewContent() {
   const { t } = useI18n();
   const hasStartedRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const providerId = useSettingsStore((state) => state.providerId);
+  const modelId = useSettingsStore((state) => state.modelId);
+  const providersConfig = useSettingsStore((state) => state.providersConfig);
+  const autoConfigApplied = useSettingsStore((state) => state.autoConfigApplied);
 
   const [session, setSession] = useState<GenerationSessionState | null>(null);
   const [sessionLoaded, setSessionLoaded] = useState(false);
@@ -63,6 +68,9 @@ function GenerationPreviewContent() {
     }>
   >([]);
   const agentRevealResolveRef = useRef<(() => void) | null>(null);
+  const activeProviderConfig = providersConfig[providerId];
+  const hasUsableModelSelection =
+    !!providerId && !!modelId && isProviderUsable(activeProviderConfig);
 
   // Compute active steps based on session state
   const activeSteps = getActiveSteps(session);
@@ -120,12 +128,32 @@ function GenerationPreviewContent() {
 
   // Auto-start generation when session is loaded
   useEffect(() => {
-    if (session && !hasStartedRef.current) {
+    if (session && sessionLoaded && hasUsableModelSelection && !hasStartedRef.current) {
       hasStartedRef.current = true;
       startGeneration();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session]);
+  }, [session, sessionLoaded, hasUsableModelSelection]);
+
+  useEffect(() => {
+    if (!sessionLoaded || !session || hasUsableModelSelection || !autoConfigApplied) {
+      return;
+    }
+    setError(t('generation.sceneGenerateFailed'));
+    log.error('Generation blocked: no usable model selection after provider initialization', {
+      providerId,
+      modelId,
+      autoConfigApplied,
+    });
+  }, [
+    autoConfigApplied,
+    hasUsableModelSelection,
+    modelId,
+    providerId,
+    session,
+    sessionLoaded,
+    t,
+  ]);
 
   // Main generation flow
   const startGeneration = async () => {
@@ -505,51 +533,51 @@ function GenerationPreviewContent() {
         try {
           const allAvatars = [
             {
-              path: '/avatars/teacher.png',
+              path: assetPath('/avatars/teacher.png'),
               desc: 'Male teacher with glasses, holding a book, green background',
             },
             {
-              path: '/avatars/teacher-2.png',
+              path: assetPath('/avatars/teacher-2.png'),
               desc: 'Female teacher with long dark hair, blue traditional outfit, gentle expression',
             },
             {
-              path: '/avatars/assist.png',
+              path: assetPath('/avatars/assist.png'),
               desc: 'Young female assistant with glasses, pink background, friendly smile',
             },
             {
-              path: '/avatars/assist-2.png',
+              path: assetPath('/avatars/assist-2.png'),
               desc: 'Young female in orange top and purple overalls, cheerful and approachable',
             },
             {
-              path: '/avatars/clown.png',
+              path: assetPath('/avatars/clown.png'),
               desc: 'Energetic girl with glasses pointing up, green shirt, lively and fun',
             },
             {
-              path: '/avatars/clown-2.png',
+              path: assetPath('/avatars/clown-2.png'),
               desc: 'Playful girl with curly hair doing rock gesture, blue shirt, humorous vibe',
             },
             {
-              path: '/avatars/curious.png',
+              path: assetPath('/avatars/curious.png'),
               desc: 'Surprised boy with glasses, hand on cheek, curious expression',
             },
             {
-              path: '/avatars/curious-2.png',
+              path: assetPath('/avatars/curious-2.png'),
               desc: 'Boy with backpack holding a book and question mark bubble, inquisitive',
             },
             {
-              path: '/avatars/note-taker.png',
+              path: assetPath('/avatars/note-taker.png'),
               desc: 'Studious boy with glasses, blue shirt, calm and organized',
             },
             {
-              path: '/avatars/note-taker-2.png',
+              path: assetPath('/avatars/note-taker-2.png'),
               desc: 'Active boy with yellow backpack waving, blue outfit, enthusiastic learner',
             },
             {
-              path: '/avatars/thinker.png',
+              path: assetPath('/avatars/thinker.png'),
               desc: 'Thoughtful girl with hand on chin, purple background, contemplative',
             },
             {
-              path: '/avatars/thinker-2.png',
+              path: assetPath('/avatars/thinker-2.png'),
               desc: 'Girl reading a book intently, long dark hair, intellectual and focused',
             },
           ];

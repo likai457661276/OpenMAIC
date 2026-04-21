@@ -10,6 +10,10 @@ import type {
   ImageProviderConfig,
 } from './types';
 import { generateWithSeedream, testSeedreamConnectivity } from './adapters/seedream-adapter';
+import {
+  generateWithSiliconFlowImage,
+  testSiliconFlowImageConnectivity,
+} from './adapters/siliconflow-image-adapter';
 import { generateWithQwenImage, testQwenImageConnectivity } from './adapters/qwen-image-adapter';
 import { generateWithNanoBanana, testNanoBananaConnectivity } from './adapters/nano-banana-adapter';
 import {
@@ -29,6 +33,19 @@ export const IMAGE_PROVIDERS: Record<ImageProviderId, ImageProviderConfig> = {
       { id: 'doubao-seedream-4-5-251128', name: 'Seedream 4.5' },
       { id: 'doubao-seedream-4-0-250828', name: 'Seedream 4.0' },
       { id: 'doubao-seedream-3-0-t2i-250415', name: 'Seedream 3.0' },
+    ],
+    supportedAspectRatios: ['16:9', '4:3', '1:1', '9:16'],
+  },
+  'siliconflow-image': {
+    id: 'siliconflow-image',
+    name: 'SiliconFlow Image',
+    requiresApiKey: true,
+    defaultBaseUrl: 'https://api.siliconflow.cn/v1',
+    icon: '/logos/siliconflow.svg',
+    models: [
+      { id: 'Qwen/Qwen-Image', name: 'Qwen / Qwen-Image' },
+      { id: 'Qwen/Qwen-Image-Edit', name: 'Qwen / Qwen-Image-Edit' },
+      { id: 'Qwen/Qwen-Image-Edit-2509', name: 'Qwen / Qwen-Image-Edit-2509' },
     ],
     supportedAspectRatios: ['16:9', '4:3', '1:1', '9:16'],
   },
@@ -101,6 +118,8 @@ export async function testImageConnectivity(
   switch (config.providerId) {
     case 'seedream':
       return testSeedreamConnectivity(config);
+    case 'siliconflow-image':
+      return testSiliconFlowImageConnectivity(config);
     case 'qwen-image':
       return testQwenImageConnectivity(config);
     case 'nano-banana':
@@ -124,6 +143,8 @@ export async function generateImage(
   switch (config.providerId) {
     case 'seedream':
       return generateWithSeedream(config, options);
+    case 'siliconflow-image':
+      return generateWithSiliconFlowImage(config, options);
     case 'qwen-image':
       return generateWithQwenImage(config, options);
     case 'nano-banana':

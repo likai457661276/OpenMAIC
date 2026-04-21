@@ -827,6 +827,7 @@
     "imageProvider": "画像生成プロバイダー",
     "imageModel": "画像生成モデル",
     "providerSeedream": "Seedream（ByteDance）",
+    "providerSiliconFlowImage": "SiliconFlow Image",
     "providerQwenImage": "Qwen Image（Alibaba）",
     "providerNanoBanana": "Nano Banana（Gemini）",
     "providerMiniMaxImage": "MiniMax Image",
