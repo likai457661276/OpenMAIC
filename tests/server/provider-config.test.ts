@@ -161,15 +161,20 @@ providers:
       vi.stubEnv('SILICONFLOW_API_KEY', 'sk-siliconflow');
       vi.stubEnv('SILICONFLOW_BASE_URL', 'https://api.siliconflow.cn/v1');
       vi.stubEnv('SILICONFLOW_MODELS', 'Pro/MiniMaxAI/MiniMax-M2.5');
-      const { getServerProviders, resolveApiKey, resolveBaseUrl } = await import(
-        '@/lib/server/provider-config'
-      );
+      vi.stubEnv('DEFAULT_MODEL', 'siliconflow:Pro/MiniMaxAI/MiniMax-M2.5');
+      const {
+        getServerProviders,
+        getServerDefaultModel,
+        resolveApiKey,
+        resolveBaseUrl,
+      } = await import('@/lib/server/provider-config');
       const providers = getServerProviders();
 
       expect(providers.siliconflow).toEqual({
         baseUrl: 'https://api.siliconflow.cn/v1',
         models: ['Pro/MiniMaxAI/MiniMax-M2.5'],
       });
+      expect(getServerDefaultModel()).toBe('siliconflow:Pro/MiniMaxAI/MiniMax-M2.5');
       expect(resolveApiKey('siliconflow')).toBe('sk-siliconflow');
       expect(resolveBaseUrl('siliconflow')).toBe('https://api.siliconflow.cn/v1');
     });

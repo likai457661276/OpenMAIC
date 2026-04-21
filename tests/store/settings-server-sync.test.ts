@@ -15,6 +15,19 @@ import { isProviderUsable } from '@/lib/store/settings-validation';
 
 // Minimal built-in provider registry used by the store
 vi.mock('@/lib/ai/providers', () => ({
+  parseModelString: (modelString: string) => {
+    const colonIndex = modelString.indexOf(':');
+    if (colonIndex > 0) {
+      return {
+        providerId: modelString.slice(0, colonIndex),
+        modelId: modelString.slice(colonIndex + 1),
+      };
+    }
+    return {
+      providerId: 'openai',
+      modelId: modelString,
+    };
+  },
   PROVIDERS: {
     openai: {
       id: 'openai',
@@ -27,6 +40,18 @@ vi.mock('@/lib/ai/providers', () => ({
         { id: 'gpt-4o', name: 'GPT-4o' },
         { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
         { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' },
+      ],
+    },
+    siliconflow: {
+      id: 'siliconflow',
+      name: 'SiliconFlow',
+      type: 'openai',
+      defaultBaseUrl: 'https://api.siliconflow.cn/v1',
+      requiresApiKey: true,
+      icon: '/logos/siliconflow.svg',
+      models: [
+        { id: 'Pro/MiniMaxAI/MiniMax-M2.5', name: 'MiniMax-M2.5 Pro' },
+        { id: 'deepseek-ai/DeepSeek-V3.2', name: 'DeepSeek V3.2' },
       ],
     },
     anthropic: {
@@ -171,6 +196,20 @@ vi.stubGlobal('localStorage', {
 /** Full server response shape */
 interface MockServerResponse {
   providers?: Record<string, { models?: string[]; baseUrl?: string }>;
+  defaultModel?: string;
+  defaults?: {
+    model?: string;
+    ttsProvider?: string;
+    ttsVoice?: string;
+    asrProvider?: string;
+    asrLanguage?: string;
+    pdfProvider?: string;
+    imageProvider?: string;
+    imageModel?: string;
+    videoProvider?: string;
+    videoModel?: string;
+    webSearchProvider?: string;
+  };
   tts?: Record<string, { baseUrl?: string }>;
   asr?: Record<string, { baseUrl?: string }>;
   pdf?: Record<string, { baseUrl?: string }>;
@@ -184,6 +223,7 @@ function mockServerResponse(overrides: MockServerResponse = {}) {
     ok: true,
     json: async () => ({
       providers: {},
+      defaults: {},
       tts: {},
       asr: {},
       pdf: {},
@@ -418,6 +458,44 @@ describe('fetchServerProviders — provider availability sync', () => {
     expect(store.getState().modelId).toBe('gpt-4o');
   });
 
+  it('applies server default model on first sync', async () => {
+    const store = await getStore();
+
+    mockServerResponse({
+      providers: {
+        siliconflow: { models: ['Pro/MiniMaxAI/MiniMax-M2.5'] },
+      },
+      defaultModel: 'siliconflow:Pro/MiniMaxAI/MiniMax-M2.5',
+    });
+
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().providerId).toBe('siliconflow');
+    expect(store.getState().modelId).toBe('Pro/MiniMaxAI/MiniMax-M2.5');
+  });
+
+  it('uses server default model to recover when current model is empty', async () => {
+    const store = await getStore();
+
+    store.setState({
+      providerId: 'siliconflow',
+      modelId: '',
+      autoConfigApplied: true,
+    });
+
+    mockServerResponse({
+      providers: {
+        siliconflow: { models: ['Pro/MiniMaxAI/MiniMax-M2.5'] },
+      },
+      defaultModel: 'siliconflow:Pro/MiniMaxAI/MiniMax-M2.5',
+    });
+
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().providerId).toBe('siliconflow');
+    expect(store.getState().modelId).toBe('Pro/MiniMaxAI/MiniMax-M2.5');
+  });
+
   it('keeps modelId when selected model is still available after server sync', async () => {
     const store = await getStore();
 
@@ -509,6 +587,23 @@ describe('fetchServerProviders — TTS stale selection', () => {
 
     expect(store.getState().ttsProviderId).toBe('openai-tts');
   });
+
+  it('applies env-configured default TTS provider and voice on first sync', async () => {
+    const store = await getStore();
+
+    mockServerResponse({
+      defaults: {
+        ttsProvider: 'azure-tts',
+        ttsVoice: 'zh-CN-XiaoxiaoNeural',
+      },
+      tts: { 'openai-tts': {}, 'azure-tts': {} },
+    });
+
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().ttsProviderId).toBe('azure-tts');
+    expect(store.getState().ttsVoice).toBe('zh-CN-XiaoxiaoNeural');
+  });
 });
 
 describe('fetchServerProviders — ASR stale selection', () => {
@@ -548,6 +643,23 @@ describe('fetchServerProviders — ASR stale selection', () => {
     await store.getState().fetchServerProviders();
 
     expect(store.getState().asrProviderId).toBe('openai-whisper');
+  });
+
+  it('applies env-configured default ASR provider and language on first sync', async () => {
+    const store = await getStore();
+
+    mockServerResponse({
+      defaults: {
+        asrProvider: 'openai-whisper',
+        asrLanguage: 'auto',
+      },
+      asr: { 'openai-whisper': {} },
+    });
+
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().asrProviderId).toBe('openai-whisper');
+    expect(store.getState().asrLanguage).toBe('auto');
   });
 });
 
@@ -697,6 +809,23 @@ describe('fetchServerProviders — Image stale selection', () => {
     expect(store.getState().imageGenerationEnabled).toBe(true);
     expect(store.getState().imageProviderId).toBe('seedream');
     expect(store.getState().imageModelId).toBe('doubao-seedream-5-0-260128');
+  });
+
+  it('applies env-configured default image provider and model on first sync', async () => {
+    const store = await getStore();
+
+    mockServerResponse({
+      defaults: {
+        imageProvider: 'qwen-image',
+        imageModel: 'qwen-image-max',
+      },
+      image: { seedream: {}, 'qwen-image': {} },
+    });
+
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().imageProviderId).toBe('qwen-image');
+    expect(store.getState().imageModelId).toBe('qwen-image-max');
   });
 
   it('does not force-enable when provider is already set but generation was disabled', async () => {

@@ -9,6 +9,7 @@ import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
 import { createLogger } from '@/lib/logger';
+import { parseModelString } from '@/lib/ai/providers';
 
 const log = createLogger('ServerProviderConfig');
 
@@ -31,6 +32,20 @@ interface ServerConfig {
   image: Record<string, ServerProviderEntry>;
   video: Record<string, ServerProviderEntry>;
   webSearch: Record<string, ServerProviderEntry>;
+}
+
+export interface ServerDefaultSelections {
+  model?: string;
+  ttsProvider?: string;
+  ttsVoice?: string;
+  asrProvider?: string;
+  asrLanguage?: string;
+  pdfProvider?: string;
+  imageProvider?: string;
+  imageModel?: string;
+  videoProvider?: string;
+  videoModel?: string;
+  webSearchProvider?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -242,6 +257,11 @@ function getConfig(): ServerConfig {
   return config;
 }
 
+function getTrimmedEnv(name: string): string | undefined {
+  const value = process.env[name]?.trim();
+  return value ? value : undefined;
+}
+
 // ---------------------------------------------------------------------------
 // Public API — LLM
 // ---------------------------------------------------------------------------
@@ -256,6 +276,34 @@ export function getServerProviders(): Record<string, { models?: string[]; baseUr
     if (entry.baseUrl) result[id].baseUrl = entry.baseUrl;
   }
   return result;
+}
+
+export function getServerDefaultModel(): string | undefined {
+  const defaultModel = process.env.DEFAULT_MODEL?.trim();
+  if (!defaultModel) return undefined;
+
+  const { providerId, modelId } = parseModelString(defaultModel);
+  const provider = getConfig().providers[providerId];
+  if (!provider) return undefined;
+  if (provider.models?.length && !provider.models.includes(modelId)) return undefined;
+
+  return defaultModel;
+}
+
+export function getServerDefaultSelections(): ServerDefaultSelections {
+  return {
+    model: getServerDefaultModel(),
+    ttsProvider: getTrimmedEnv('DEFAULT_TTS_PROVIDER'),
+    ttsVoice: getTrimmedEnv('DEFAULT_TTS_VOICE'),
+    asrProvider: getTrimmedEnv('DEFAULT_ASR_PROVIDER'),
+    asrLanguage: getTrimmedEnv('DEFAULT_ASR_LANGUAGE'),
+    pdfProvider: getTrimmedEnv('DEFAULT_PDF_PROVIDER'),
+    imageProvider: getTrimmedEnv('DEFAULT_IMAGE_PROVIDER'),
+    imageModel: getTrimmedEnv('DEFAULT_IMAGE_MODEL'),
+    videoProvider: getTrimmedEnv('DEFAULT_VIDEO_PROVIDER'),
+    videoModel: getTrimmedEnv('DEFAULT_VIDEO_MODEL'),
+    webSearchProvider: getTrimmedEnv('DEFAULT_WEB_SEARCH_PROVIDER'),
+  };
 }
 
 /** Resolve API key: client key > server key > empty string */

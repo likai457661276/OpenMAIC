@@ -1,4 +1,5 @@
 import {
+  getServerDefaultSelections,
   getServerProviders,
   getServerTTSProviders,
   getServerASRProviders,
@@ -14,8 +15,11 @@ const log = createLogger('ServerProviders');
 
 export async function GET() {
   try {
+    const defaults = getServerDefaultSelections();
     return apiSuccess({
       providers: getServerProviders(),
+      defaultModel: defaults.model,
+      defaults,
       tts: getServerTTSProviders(),
       asr: getServerASRProviders(),
       pdf: getServerPDFProviders(),

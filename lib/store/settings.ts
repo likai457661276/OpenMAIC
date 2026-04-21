@@ -19,8 +19,9 @@ import { VIDEO_PROVIDERS } from '@/lib/media/video-providers';
 import { WEB_SEARCH_PROVIDERS } from '@/lib/web-search/constants';
 import type { WebSearchProviderId } from '@/lib/web-search/types';
 import { createLogger } from '@/lib/logger';
-import { validateProvider, validateModel } from '@/lib/store/settings-validation';
+import { isProviderUsable, validateProvider, validateModel } from '@/lib/store/settings-validation';
 import { apiPath } from '@/lib/app-paths';
+import { parseModelString } from '@/lib/ai/providers';
 
 const log = createLogger('Settings');
 
@@ -892,6 +893,20 @@ export const useSettingsStore = create<SettingsState>()(
             if (!res.ok) return;
             const data = (await res.json()) as {
               providers: Record<string, { models?: string[]; baseUrl?: string }>;
+              defaultModel?: string;
+              defaults?: {
+                model?: string;
+                ttsProvider?: string;
+                ttsVoice?: string;
+                asrProvider?: string;
+                asrLanguage?: string;
+                pdfProvider?: string;
+                imageProvider?: string;
+                imageModel?: string;
+                videoProvider?: string;
+                videoModel?: string;
+                webSearchProvider?: string;
+              };
               tts: Record<string, { baseUrl?: string }>;
               asr: Record<string, { baseUrl?: string }>;
               pdf: Record<string, { baseUrl?: string }>;
@@ -1092,6 +1107,7 @@ export const useSettingsStore = create<SettingsState>()(
               const pdfFallback = buildFallback<PDFProviderId>(newPDFConfig);
               const imageFallback = buildFallback<ImageProviderId>(newImageConfig);
               const videoFallback = buildFallback<VideoProviderId>(newVideoConfig);
+              const webSearchFallback = buildFallback<WebSearchProviderId>(newWebSearchConfig);
 
               const validLLMProvider = validateProvider(
                 state.providerId,
@@ -1115,6 +1131,11 @@ export const useSettingsStore = create<SettingsState>()(
                 newPDFConfig,
                 pdfFallback,
                 'unpdf' as PDFProviderId,
+              );
+              const validWebSearchProvider = validateProvider(
+                state.webSearchProviderId,
+                newWebSearchConfig,
+                webSearchFallback,
               );
               let validImageProvider = validateProvider(
                 state.imageProviderId,
@@ -1147,6 +1168,20 @@ export const useSettingsStore = create<SettingsState>()(
                     newProvidersConfig[validLLMProvider as ProviderId]?.models ?? [],
                   )
                 : '';
+              const parsedServerDefault = data.defaultModel
+                ? parseModelString(data.defaultModel)
+                : undefined;
+              const serverDefaults = data.defaults;
+              const serverDefaultProvider = parsedServerDefault?.providerId;
+              const serverDefaultModelId = parsedServerDefault?.modelId;
+              const serverDefaultProviderConfig = serverDefaultProvider
+                ? newProvidersConfig[serverDefaultProvider]
+                : undefined;
+              const serverDefaultIsUsable =
+                !!serverDefaultProvider &&
+                !!serverDefaultModelId &&
+                !!serverDefaultProviderConfig?.isServerConfigured &&
+                !!serverDefaultProviderConfig.models?.some((m) => m.id === serverDefaultModelId);
               const imageModels =
                 IMAGE_PROVIDERS[validImageProvider as ImageProviderId]?.models ?? [];
               const validImageModel = validImageProvider
@@ -1164,6 +1199,84 @@ export const useSettingsStore = create<SettingsState>()(
                   videoModels[0]?.id ||
                   ''
                 : '';
+
+              const requestedDefaultTTSProvider = serverDefaults?.ttsProvider as
+                | TTSProviderId
+                | undefined;
+              const serverDefaultTTSProvider =
+                requestedDefaultTTSProvider &&
+                hasProviderId(TTS_PROVIDERS, requestedDefaultTTSProvider) &&
+                isProviderUsable(newTTSConfig[requestedDefaultTTSProvider])
+                  ? requestedDefaultTTSProvider
+                  : undefined;
+              const serverDefaultTTSVoice = serverDefaults?.ttsVoice?.trim();
+
+              const requestedDefaultASRProvider = serverDefaults?.asrProvider as
+                | ASRProviderId
+                | undefined;
+              const serverDefaultASRProvider =
+                requestedDefaultASRProvider &&
+                hasProviderId(ASR_PROVIDERS, requestedDefaultASRProvider) &&
+                isProviderUsable(newASRConfig[requestedDefaultASRProvider])
+                  ? requestedDefaultASRProvider
+                  : undefined;
+              const serverDefaultASRLanguage = serverDefaults?.asrLanguage?.trim();
+
+              const requestedDefaultPDFProvider = serverDefaults?.pdfProvider as
+                | PDFProviderId
+                | undefined;
+              const serverDefaultPDFProvider =
+                requestedDefaultPDFProvider &&
+                hasProviderId(PDF_PROVIDERS, requestedDefaultPDFProvider) &&
+                isProviderUsable(newPDFConfig[requestedDefaultPDFProvider])
+                  ? requestedDefaultPDFProvider
+                  : undefined;
+
+              const requestedDefaultImageProvider = serverDefaults?.imageProvider as
+                | ImageProviderId
+                | undefined;
+              const serverDefaultImageProvider =
+                requestedDefaultImageProvider &&
+                hasProviderId(IMAGE_PROVIDERS, requestedDefaultImageProvider) &&
+                isProviderUsable(newImageConfig[requestedDefaultImageProvider])
+                  ? requestedDefaultImageProvider
+                  : undefined;
+              const serverDefaultImageModels = serverDefaultImageProvider
+                ? IMAGE_PROVIDERS[serverDefaultImageProvider]?.models ?? []
+                : [];
+              const serverDefaultImageModel = serverDefaultImageProvider
+                ? validateModel(serverDefaults?.imageModel || '', serverDefaultImageModels) ||
+                  serverDefaultImageModels[0]?.id ||
+                  ''
+                : '';
+
+              const requestedDefaultVideoProvider = serverDefaults?.videoProvider as
+                | VideoProviderId
+                | undefined;
+              const serverDefaultVideoProvider =
+                requestedDefaultVideoProvider &&
+                hasProviderId(VIDEO_PROVIDERS, requestedDefaultVideoProvider) &&
+                isProviderUsable(newVideoConfig[requestedDefaultVideoProvider])
+                  ? requestedDefaultVideoProvider
+                  : undefined;
+              const serverDefaultVideoModels = serverDefaultVideoProvider
+                ? VIDEO_PROVIDERS[serverDefaultVideoProvider]?.models ?? []
+                : [];
+              const serverDefaultVideoModel = serverDefaultVideoProvider
+                ? validateModel(serverDefaults?.videoModel || '', serverDefaultVideoModels) ||
+                  serverDefaultVideoModels[0]?.id ||
+                  ''
+                : '';
+
+              const requestedDefaultWebSearchProvider = serverDefaults?.webSearchProvider as
+                | WebSearchProviderId
+                | undefined;
+              const serverDefaultWebSearchProvider =
+                requestedDefaultWebSearchProvider &&
+                hasProviderId(WEB_SEARCH_PROVIDERS, requestedDefaultWebSearchProvider) &&
+                isProviderUsable(newWebSearchConfig[requestedDefaultWebSearchProvider])
+                  ? requestedDefaultWebSearchProvider
+                  : undefined;
 
               const validTTSVoice =
                 validTTSProvider !== state.ttsProviderId
@@ -1185,6 +1298,8 @@ export const useSettingsStore = create<SettingsState>()(
               let autoVideoModel: string | undefined;
               let autoImageEnabled: boolean | undefined;
               let autoVideoEnabled: boolean | undefined;
+              let autoLLMProvider: ProviderId | undefined;
+              let autoLLMModel: string | undefined;
 
               if (!state.autoConfigApplied) {
                 // PDF: unpdf → mineru-cloud or mineru if server has it
@@ -1243,27 +1358,71 @@ export const useSettingsStore = create<SettingsState>()(
                 if (serverVideoIds.length > 0 && !state.videoGenerationEnabled) {
                   autoVideoEnabled = true;
                 }
-              }
-
-              // LLM auto-select: only on true first load (no provider selected yet)
-              let autoProviderId: ProviderId | undefined;
-              let autoModelId: string | undefined;
-              if (!state.providerId && !state.modelId) {
-                for (const [pid, cfg] of Object.entries(newProvidersConfig)) {
-                  if (cfg.isServerConfigured) {
-                    // Prefer server-restricted models, fall back to built-in list
-                    const serverModels = cfg.serverModels;
-                    const modelId = serverModels?.length
-                      ? serverModels[0]
-                      : PROVIDERS[pid as ProviderId]?.models[0]?.id;
-                    if (modelId) {
-                      autoProviderId = pid as ProviderId;
-                      autoModelId = modelId;
-                      break;
+                if (serverDefaultIsUsable) {
+                  autoLLMProvider = serverDefaultProvider;
+                  autoLLMModel = serverDefaultModelId;
+                } else {
+                  for (const [pid, cfg] of Object.entries(newProvidersConfig)) {
+                    if (cfg.isServerConfigured) {
+                      // Prefer server-restricted models, fall back to built-in list
+                      const serverModels = cfg.serverModels;
+                      const modelId = serverModels?.length
+                        ? serverModels[0]
+                        : PROVIDERS[pid as ProviderId]?.models[0]?.id;
+                      if (modelId) {
+                        autoLLMProvider = pid as ProviderId;
+                        autoLLMModel = modelId;
+                        break;
+                      }
                     }
                   }
                 }
               }
+
+              const shouldApplyServerDefault =
+                serverDefaultIsUsable &&
+                (!validLLMProvider ||
+                  !validLLMModel ||
+                  (!state.autoConfigApplied &&
+                    (state.providerId !== serverDefaultProvider ||
+                      state.modelId !== serverDefaultModelId)));
+              const shouldApplyServerDefaultTTS =
+                !!serverDefaultTTSProvider &&
+                (!validTTSProvider ||
+                  validTTSProvider !== state.ttsProviderId ||
+                  (!state.autoConfigApplied && state.ttsProviderId !== serverDefaultTTSProvider));
+              const shouldApplyServerDefaultASR =
+                !!serverDefaultASRProvider &&
+                (!validASRProvider ||
+                  validASRProvider !== state.asrProviderId ||
+                  (!state.autoConfigApplied && state.asrProviderId !== serverDefaultASRProvider));
+              const shouldApplyServerDefaultPDF =
+                !!serverDefaultPDFProvider &&
+                (!validPDFProvider ||
+                  validPDFProvider !== state.pdfProviderId ||
+                  (!state.autoConfigApplied && state.pdfProviderId !== serverDefaultPDFProvider));
+              const shouldApplyServerDefaultImage =
+                !!serverDefaultImageProvider &&
+                (!validImageProvider ||
+                  !validImageModel ||
+                  validImageProvider !== state.imageProviderId ||
+                  (!state.autoConfigApplied &&
+                    (state.imageProviderId !== serverDefaultImageProvider ||
+                      state.imageModelId !== serverDefaultImageModel)));
+              const shouldApplyServerDefaultVideo =
+                !!serverDefaultVideoProvider &&
+                (!validVideoProvider ||
+                  !validVideoModel ||
+                  validVideoProvider !== state.videoProviderId ||
+                  (!state.autoConfigApplied &&
+                    (state.videoProviderId !== serverDefaultVideoProvider ||
+                      state.videoModelId !== serverDefaultVideoModel)));
+              const shouldApplyServerDefaultWebSearch =
+                !!serverDefaultWebSearchProvider &&
+                (!validWebSearchProvider ||
+                  validWebSearchProvider !== state.webSearchProviderId ||
+                  (!state.autoConfigApplied &&
+                    state.webSearchProviderId !== serverDefaultWebSearchProvider));
 
               return {
                 providersConfig: newProvidersConfig,
@@ -1288,6 +1447,9 @@ export const useSettingsStore = create<SettingsState>()(
                 }),
                 ...(validPDFProvider !== state.pdfProviderId && {
                   pdfProviderId: validPDFProvider as PDFProviderId,
+                }),
+                ...(validWebSearchProvider !== state.webSearchProviderId && {
+                  webSearchProviderId: validWebSearchProvider as WebSearchProviderId,
                 }),
                 ...(validImageProvider !== state.imageProviderId && {
                   imageProviderId: validImageProvider as ImageProviderId,
@@ -1326,8 +1488,39 @@ export const useSettingsStore = create<SettingsState>()(
                 ...(autoVideoEnabled !== undefined && {
                   videoGenerationEnabled: autoVideoEnabled,
                 }),
-                ...(autoProviderId && { providerId: autoProviderId }),
-                ...(autoModelId && { modelId: autoModelId }),
+                ...(shouldApplyServerDefault && {
+                  providerId: serverDefaultProvider,
+                  modelId: serverDefaultModelId,
+                }),
+                ...(shouldApplyServerDefaultTTS && {
+                  ttsProviderId: serverDefaultTTSProvider,
+                  ttsVoice:
+                    serverDefaultTTSVoice ||
+                    DEFAULT_TTS_VOICES[serverDefaultTTSProvider as BuiltInTTSProviderId] ||
+                    'default',
+                }),
+                ...(shouldApplyServerDefaultASR && {
+                  asrProviderId: serverDefaultASRProvider,
+                  ...(serverDefaultASRLanguage && { asrLanguage: serverDefaultASRLanguage }),
+                }),
+                ...(shouldApplyServerDefaultPDF && {
+                  pdfProviderId: serverDefaultPDFProvider,
+                }),
+                ...(shouldApplyServerDefaultImage && {
+                  imageProviderId: serverDefaultImageProvider,
+                  imageModelId: serverDefaultImageModel,
+                }),
+                ...(shouldApplyServerDefaultVideo && {
+                  videoProviderId: serverDefaultVideoProvider,
+                  videoModelId: serverDefaultVideoModel,
+                }),
+                ...(shouldApplyServerDefaultWebSearch && {
+                  webSearchProviderId: serverDefaultWebSearchProvider,
+                }),
+                ...(!shouldApplyServerDefault &&
+                  autoLLMProvider && { providerId: autoLLMProvider }),
+                ...(!shouldApplyServerDefault &&
+                  autoLLMModel && { modelId: autoLLMModel }),
               };
             });
           } catch (e) {
