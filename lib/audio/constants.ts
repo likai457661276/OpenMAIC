@@ -42,19 +42,8 @@ import type {
  * A practical subset of commonly used languages + auto-detect.
  */
 export const CUSTOM_ASR_DEFAULT_LANGUAGES = [
-  'auto',
   'zh',
   'en',
-  'ja',
-  'ko',
-  'es',
-  'fr',
-  'de',
-  'ru',
-  'ar',
-  'pt',
-  'it',
-  'hi',
 ];
 
 /**
@@ -942,68 +931,8 @@ export const ASR_PROVIDERS: Record<BuiltInASRProviderId, ASRProviderConfig> = {
     ],
     defaultModelId: 'gpt-4o-mini-transcribe',
     supportedLanguages: [
-      // OpenAI Whisper supports 58 languages (as of official docs)
-      // Source: https://platform.openai.com/docs/guides/speech-to-text
-      'auto', // Auto-detect
-      // Hot languages (commonly used)
       'zh', // Chinese
       'en', // English
-      'ja', // Japanese
-      'ko', // Korean
-      'es', // Spanish
-      'fr', // French
-      'de', // German
-      'ru', // Russian
-      'ar', // Arabic
-      'pt', // Portuguese
-      'it', // Italian
-      'hi', // Hindi
-      // Other languages (alphabetical)
-      'af', // Afrikaans
-      'hy', // Armenian
-      'az', // Azerbaijani
-      'be', // Belarusian
-      'bs', // Bosnian
-      'bg', // Bulgarian
-      'ca', // Catalan
-      'hr', // Croatian
-      'cs', // Czech
-      'da', // Danish
-      'nl', // Dutch
-      'et', // Estonian
-      'fi', // Finnish
-      'gl', // Galician
-      'el', // Greek
-      'he', // Hebrew
-      'hu', // Hungarian
-      'is', // Icelandic
-      'id', // Indonesian
-      'kn', // Kannada
-      'kk', // Kazakh
-      'lv', // Latvian
-      'lt', // Lithuanian
-      'mk', // Macedonian
-      'ms', // Malay
-      'mr', // Marathi
-      'mi', // Maori
-      'ne', // Nepali
-      'no', // Norwegian
-      'fa', // Persian
-      'pl', // Polish
-      'ro', // Romanian
-      'sr', // Serbian
-      'sk', // Slovak
-      'sl', // Slovenian
-      'sw', // Swahili
-      'sv', // Swedish
-      'tl', // Tagalog
-      'ta', // Tamil
-      'th', // Thai
-      'tr', // Turkish
-      'uk', // Ukrainian
-      'ur', // Urdu
-      'vi', // Vietnamese
-      'cy', // Welsh
     ],
     supportedFormats: ['mp3', 'mp4', 'mpeg', 'mpga', 'm4a', 'wav', 'webm'],
   },
@@ -1017,38 +946,8 @@ export const ASR_PROVIDERS: Record<BuiltInASRProviderId, ASRProviderConfig> = {
     models: [{ id: 'qwen3-asr-flash', name: 'Qwen3 ASR Flash' }],
     defaultModelId: 'qwen3-asr-flash',
     supportedLanguages: [
-      // Qwen ASR supports 27 languages + auto-detect
-      // If language is uncertain or mixed (e.g. Chinese-English-Japanese-Korean), use "auto" (do not specify language parameter)
-      'auto', // Auto-detect (do not specify language parameter)
-      // Hot languages (commonly used)
       'zh', // Chinese (Mandarin, Sichuanese, Minnan, Wu dialects)
-      'yue', // Cantonese
       'en', // English
-      'ja', // Japanese
-      'ko', // Korean
-      'de', // German
-      'fr', // French
-      'ru', // Russian
-      'es', // Spanish
-      'pt', // Portuguese
-      'ar', // Arabic
-      'it', // Italian
-      'hi', // Hindi
-      // Other languages (alphabetical)
-      'cs', // Czech
-      'da', // Danish
-      'fi', // Finnish
-      'fil', // Filipino
-      'id', // Indonesian
-      'is', // Icelandic
-      'ms', // Malay
-      'no', // Norwegian
-      'pl', // Polish
-      'sv', // Swedish
-      'th', // Thai
-      'tr', // Turkish
-      'uk', // Ukrainian
-      'vi', // Vietnamese
     ],
     supportedFormats: ['mp3', 'wav', 'webm', 'm4a', 'flac'],
   },
@@ -1061,61 +960,8 @@ export const ASR_PROVIDERS: Record<BuiltInASRProviderId, ASRProviderConfig> = {
     models: [],
     defaultModelId: '',
     supportedLanguages: [
-      // Chinese variants
       'zh-CN', // Mandarin (Simplified, China)
-      'zh-TW', // Mandarin (Traditional, Taiwan)
-      'zh-HK', // Cantonese (Hong Kong)
-      'yue-Hant-HK', // Cantonese (Traditional)
-      // English variants
       'en-US', // English (United States)
-      'en-GB', // English (United Kingdom)
-      'en-AU', // English (Australia)
-      'en-CA', // English (Canada)
-      'en-IN', // English (India)
-      'en-NZ', // English (New Zealand)
-      'en-ZA', // English (South Africa)
-      // Japanese & Korean
-      'ja-JP', // Japanese (Japan)
-      'ko-KR', // Korean (South Korea)
-      // European languages
-      'de-DE', // German (Germany)
-      'fr-FR', // French (France)
-      'es-ES', // Spanish (Spain)
-      'es-MX', // Spanish (Mexico)
-      'es-AR', // Spanish (Argentina)
-      'es-CO', // Spanish (Colombia)
-      'it-IT', // Italian (Italy)
-      'pt-BR', // Portuguese (Brazil)
-      'pt-PT', // Portuguese (Portugal)
-      'ru-RU', // Russian (Russia)
-      'nl-NL', // Dutch (Netherlands)
-      'pl-PL', // Polish (Poland)
-      'cs-CZ', // Czech (Czech Republic)
-      'da-DK', // Danish (Denmark)
-      'fi-FI', // Finnish (Finland)
-      'sv-SE', // Swedish (Sweden)
-      'no-NO', // Norwegian (Norway)
-      'tr-TR', // Turkish (Turkey)
-      'el-GR', // Greek (Greece)
-      'hu-HU', // Hungarian (Hungary)
-      'ro-RO', // Romanian (Romania)
-      'sk-SK', // Slovak (Slovakia)
-      'bg-BG', // Bulgarian (Bulgaria)
-      'hr-HR', // Croatian (Croatia)
-      'ca-ES', // Catalan (Spain)
-      // Middle East & Asia
-      'ar-SA', // Arabic (Saudi Arabia)
-      'ar-EG', // Arabic (Egypt)
-      'he-IL', // Hebrew (Israel)
-      'hi-IN', // Hindi (India)
-      'th-TH', // Thai (Thailand)
-      'vi-VN', // Vietnamese (Vietnam)
-      'id-ID', // Indonesian (Indonesia)
-      'ms-MY', // Malay (Malaysia)
-      'fil-PH', // Filipino (Philippines)
-      // Other
-      'af-ZA', // Afrikaans (South Africa)
-      'uk-UA', // Ukrainian (Ukraine)
     ],
     supportedFormats: ['webm'], // MediaRecorder format
   },

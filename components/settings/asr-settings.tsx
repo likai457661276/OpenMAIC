@@ -42,6 +42,7 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
   const { t } = useI18n();
 
   const asrLanguage = useSettingsStore((state) => state.asrLanguage);
+  const asrSelectionLocked = useSettingsStore((state) => state.asrSelectionLocked);
   const asrProvidersConfig = useSettingsStore((state) => state.asrProvidersConfig);
   const setASRProviderConfig = useSettingsStore((state) => state.setASRProviderConfig);
   const removeCustomASRProvider = useSettingsStore((state) => state.removeCustomASRProvider);
@@ -194,9 +195,11 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
   return (
     <div className="space-y-6 max-w-3xl">
       {/* Server-configured notice */}
-      {isServerConfigured && (
+      {(isServerConfigured || asrSelectionLocked) && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 p-3 text-sm text-blue-700 dark:text-blue-300">
-          {t('settings.serverConfiguredNotice')}
+          {asrSelectionLocked
+            ? t('settings.asrManagedByConfig')
+            : t('settings.serverConfiguredNotice')}
         </div>
       )}
 
@@ -225,6 +228,7 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
                     isServerConfigured ? t('settings.optionalOverride') : t('settings.enterApiKey')
                   }
                   value={asrProvidersConfig[selectedProviderId]?.apiKey || ''}
+                  disabled={asrSelectionLocked}
                   onChange={(e) =>
                     setASRProviderConfig(selectedProviderId, {
                       apiKey: e.target.value,
@@ -255,6 +259,7 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
                     : asrProvider?.defaultBaseUrl || t('settings.enterCustomBaseUrl')
                 }
                 value={asrProvidersConfig[selectedProviderId]?.baseUrl || ''}
+                disabled={asrSelectionLocked}
                 onChange={(e) =>
                   setASRProviderConfig(selectedProviderId, {
                     baseUrl: e.target.value,
@@ -358,6 +363,7 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
           <Label className="text-sm">{t('settings.defaultModel')}</Label>
           <Select
             value={asrProvidersConfig[selectedProviderId]?.modelId || asrProvider?.defaultModelId}
+            disabled={asrSelectionLocked}
             onValueChange={(value) => setASRProviderConfig(selectedProviderId, { modelId: value })}
           >
             <SelectTrigger>

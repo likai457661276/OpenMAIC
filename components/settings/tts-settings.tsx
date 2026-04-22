@@ -36,6 +36,7 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
 
   const ttsVoice = useSettingsStore((state) => state.ttsVoice);
   const ttsSpeed = useSettingsStore((state) => state.ttsSpeed);
+  const ttsSelectionLocked = useSettingsStore((state) => state.ttsSelectionLocked);
   const ttsProvidersConfig = useSettingsStore((state) => state.ttsProvidersConfig);
   const setTTSProviderConfig = useSettingsStore((state) => state.setTTSProviderConfig);
   const activeProviderId = useSettingsStore((state) => state.ttsProviderId);
@@ -133,9 +134,11 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
   return (
     <div className="space-y-6 max-w-3xl">
       {/* Server-configured notice */}
-      {isServerConfigured && (
+      {(isServerConfigured || ttsSelectionLocked) && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 p-3 text-sm text-blue-700 dark:text-blue-300">
-          {t('settings.serverConfiguredNotice')}
+          {ttsSelectionLocked
+            ? t('settings.ttsManagedByConfig')
+            : t('settings.serverConfiguredNotice')}
         </div>
       )}
 
@@ -161,6 +164,7 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
                           : t('settings.enterApiKey')
                       }
                       value={doubaoAppId}
+                      disabled={ttsSelectionLocked}
                       onChange={(e) => setDoubaoCompoundKey(e.target.value, doubaoAccessKey)}
                       className="font-mono text-sm pr-10"
                     />
@@ -189,6 +193,7 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
                           : t('settings.enterApiKey')
                       }
                       value={doubaoAccessKey}
+                      disabled={ttsSelectionLocked}
                       onChange={(e) => setDoubaoCompoundKey(doubaoAppId, e.target.value)}
                       className="font-mono text-sm pr-10"
                     />
@@ -219,6 +224,7 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
                         : t('settings.enterApiKey')
                     }
                     value={ttsProvidersConfig[selectedProviderId]?.apiKey || ''}
+                    disabled={ttsSelectionLocked}
                     onChange={(e) =>
                       setTTSProviderConfig(selectedProviderId, {
                         apiKey: e.target.value,
@@ -250,6 +256,7 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
                     : ttsProvider?.defaultBaseUrl || t('settings.enterCustomBaseUrl')
                 }
                 value={ttsProvidersConfig[selectedProviderId]?.baseUrl || ''}
+                disabled={ttsSelectionLocked}
                 onChange={(e) =>
                   setTTSProviderConfig(selectedProviderId, {
                     baseUrl: e.target.value,

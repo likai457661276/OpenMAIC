@@ -599,6 +599,8 @@
     "asrNotSupported": "Browser does not support Speech Recognition API",
     "browserTTSNotSupported": "Browser does not support Speech Synthesis API",
     "browserTTSNoVoices": "Current browser has no available TTS voices",
+    "ttsManagedByConfig": "TTS is managed by the config file, so this page does not allow changing the provider, voice, or connection overrides.",
+    "asrManagedByConfig": "ASR is managed by the config file, so this page does not allow changing the provider, language, or connection overrides.",
     "microphoneAccessDenied": "Microphone access denied",
     "microphoneAccessFailed": "Failed to access microphone",
     "asrResultPlaceholder": "Recognition result will be displayed after recording",

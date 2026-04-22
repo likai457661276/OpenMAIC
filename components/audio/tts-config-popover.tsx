@@ -37,6 +37,7 @@ export function TtsConfigPopover() {
   const setTTSEnabled = useSettingsStore((s) => s.setTTSEnabled);
   const ttsProviderId = useSettingsStore((s) => s.ttsProviderId);
   const ttsVoice = useSettingsStore((s) => s.ttsVoice);
+  const ttsSelectionLocked = useSettingsStore((s) => s.ttsSelectionLocked);
   const ttsSpeed = useSettingsStore((s) => s.ttsSpeed);
   const ttsProvidersConfig = useSettingsStore((s) => s.ttsProvidersConfig);
   const setTTSVoice = useSettingsStore((s) => s.setTTSVoice);
@@ -146,7 +147,11 @@ export function TtsConfigPopover() {
           <div className="px-3.5 py-3 space-y-3">
             {/* Voice + Preview row */}
             <div className="flex items-center gap-2">
-              <Select value={ttsVoice} onValueChange={setTTSVoice}>
+              <Select
+                value={ttsVoice}
+                onValueChange={setTTSVoice}
+                disabled={ttsSelectionLocked}
+              >
                 <SelectTrigger className="h-7 text-xs flex-1 min-w-0">
                   <SelectValue />
                 </SelectTrigger>

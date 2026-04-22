@@ -141,6 +141,7 @@ export function MediaPopover() {
 
   const asrProviderId = useSettingsStore((s) => s.asrProviderId);
   const asrLanguage = useSettingsStore((s) => s.asrLanguage);
+  const asrSelectionLocked = useSettingsStore((s) => s.asrSelectionLocked);
   const asrProvidersConfig = useSettingsStore((s) => s.asrProvidersConfig);
   const setASRProvider = useSettingsStore((s) => s.setASRProvider);
   const setASRLanguage = useSettingsStore((s) => s.setASRLanguage);
@@ -450,6 +451,7 @@ export function MediaPopover() {
                 groups={asrGroups}
                 selectedGroupId={asrProviderId}
                 selectedItemId={asrLanguage}
+                disabled={asrSelectionLocked}
                 onSelect={(gid, iid) => {
                   setASRProvider(gid as ASRProviderId);
                   setASRLanguage(iid);
@@ -519,11 +521,13 @@ function GroupedSelect({
   groups,
   selectedGroupId,
   selectedItemId,
+  disabled = false,
   onSelect,
 }: {
   groups: SelectGroupData[];
   selectedGroupId: string;
   selectedItemId: string;
+  disabled?: boolean;
   onSelect: (groupId: string, itemId: string) => void;
 }) {
   const composite = `${selectedGroupId}::${selectedItemId}`;
@@ -537,6 +541,7 @@ function GroupedSelect({
   return (
     <Select
       value={composite}
+      disabled={disabled}
       onValueChange={(v) => {
         const sep = v.indexOf('::');
         if (sep === -1) return;

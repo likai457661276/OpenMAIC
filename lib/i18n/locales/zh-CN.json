@@ -599,6 +599,8 @@
     "asrNotSupported": "浏览器不支持语音识别 API",
     "browserTTSNotSupported": "浏览器不支持语音合成 API",
     "browserTTSNoVoices": "当前浏览器没有可用的 TTS voice",
+    "ttsManagedByConfig": "当前 TTS 由配置文件统一控制，设置页中不支持修改提供商、音色或覆盖连接配置。",
+    "asrManagedByConfig": "当前 ASR 由配置文件统一控制，设置页中不支持修改提供商、识别语言或覆盖连接配置。",
     "microphoneAccessDenied": "麦克风访问被拒绝",
     "microphoneAccessFailed": "无法访问麦克风",
     "asrResultPlaceholder": "录音后将显示识别结果",

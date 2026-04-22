@@ -231,8 +231,10 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
   const videoProviderId = useSettingsStore((state) => state.videoProviderId);
   const videoProvidersConfig = useSettingsStore((state) => state.videoProvidersConfig);
   const ttsProviderId = useSettingsStore((state) => state.ttsProviderId);
+  const ttsSelectionLocked = useSettingsStore((state) => state.ttsSelectionLocked);
   const ttsProvidersConfig = useSettingsStore((state) => state.ttsProvidersConfig);
   const asrProviderId = useSettingsStore((state) => state.asrProviderId);
+  const asrSelectionLocked = useSettingsStore((state) => state.asrSelectionLocked);
   const asrProvidersConfig = useSettingsStore((state) => state.asrProvidersConfig);
 
   // Store actions
@@ -1053,10 +1055,10 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
                   ]}
                   configs={ttsProvidersConfig}
                   selectedId={ttsProviderId}
-                  onSelect={setTTSProvider}
+                  onSelect={ttsSelectionLocked ? (() => {}) : setTTSProvider}
                   width={providerListWidth}
                   t={t}
-                  onAdd={() => setShowAddTTSProviderDialog(true)}
+                  onAdd={ttsSelectionLocked ? undefined : () => setShowAddTTSProviderDialog(true)}
                 />
                 <div
                   onMouseDown={(e) => handleResizeStart(e, 'providerList')}
@@ -1086,10 +1088,10 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
                   ]}
                   configs={asrProvidersConfig}
                   selectedId={asrProviderId}
-                  onSelect={setASRProvider}
+                  onSelect={asrSelectionLocked ? (() => {}) : setASRProvider}
                   width={providerListWidth}
                   t={t}
-                  onAdd={() => setShowAddASRProviderDialog(true)}
+                  onAdd={asrSelectionLocked ? undefined : () => setShowAddASRProviderDialog(true)}
                 />
                 <div
                   onMouseDown={(e) => handleResizeStart(e, 'providerList')}

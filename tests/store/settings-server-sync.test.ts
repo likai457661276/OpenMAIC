@@ -107,7 +107,7 @@ vi.mock('@/lib/audio/constants', () => ({
       requiresApiKey: true,
       defaultModelId: 'gpt-4o-mini-transcribe',
       models: [{ id: 'gpt-4o-mini-transcribe', name: 'GPT-4o Mini Transcribe' }],
-      supportedLanguages: ['auto', 'zh'],
+      supportedLanguages: ['zh', 'en'],
       supportedFormats: ['webm'],
     },
     'browser-native': {
@@ -116,7 +116,7 @@ vi.mock('@/lib/audio/constants', () => ({
       requiresApiKey: false,
       defaultModelId: '',
       models: [],
-      supportedLanguages: ['zh'],
+      supportedLanguages: ['zh-CN', 'en-US'],
       supportedFormats: ['browser'],
     },
   },
@@ -608,6 +608,51 @@ describe('fetchServerProviders — TTS stale selection', () => {
 
     expect(store.getState().ttsProviderId).toBe('azure-tts');
     expect(store.getState().ttsVoice).toBe('zh-CN-XiaoxiaoNeural');
+    expect(store.getState().ttsSelectionLocked).toBe(true);
+  });
+
+  it('overrides persisted local TTS selection when env-configured default is present', async () => {
+    const store = await getStore();
+
+    store.setState({
+      ttsProviderId: 'openai-tts',
+      ttsVoice: 'alloy',
+      autoConfigApplied: true,
+    });
+
+    mockServerResponse({
+      defaults: {
+        ttsProvider: 'browser-native-tts',
+        ttsVoice: 'default',
+      },
+      tts: { 'openai-tts': {} },
+    });
+
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().ttsProviderId).toBe('browser-native-tts');
+    expect(store.getState().ttsVoice).toBe('default');
+    expect(store.getState().ttsSelectionLocked).toBe(true);
+  });
+
+  it('rejects local TTS selection changes after env-configured default locks TTS', async () => {
+    const store = await getStore();
+
+    mockServerResponse({
+      defaults: {
+        ttsProvider: 'browser-native-tts',
+        ttsVoice: 'default',
+      },
+      tts: { 'openai-tts': {} },
+    });
+
+    await store.getState().fetchServerProviders();
+
+    store.getState().setTTSProvider('openai-tts');
+    store.getState().setTTSVoice('alloy');
+
+    expect(store.getState().ttsProviderId).toBe('browser-native-tts');
+    expect(store.getState().ttsVoice).toBe('default');
   });
 
   it('keeps browser-native-tts after sync even when server TTS providers are available', async () => {
@@ -676,7 +721,7 @@ describe('fetchServerProviders — ASR stale selection', () => {
     mockServerResponse({
       defaults: {
         asrProvider: 'openai-whisper',
-        asrLanguage: 'auto',
+        asrLanguage: 'en',
       },
       asr: { 'openai-whisper': {} },
     });
@@ -684,7 +729,69 @@ describe('fetchServerProviders — ASR stale selection', () => {
     await store.getState().fetchServerProviders();
 
     expect(store.getState().asrProviderId).toBe('openai-whisper');
-    expect(store.getState().asrLanguage).toBe('auto');
+    expect(store.getState().asrLanguage).toBe('en');
+    expect(store.getState().asrSelectionLocked).toBe(true);
+  });
+
+  it('overrides persisted local ASR selection when env-configured default is present', async () => {
+    const store = await getStore();
+
+    store.setState({
+      asrProviderId: 'browser-native',
+      asrLanguage: 'zh',
+      autoConfigApplied: true,
+    });
+
+    mockServerResponse({
+      defaults: {
+        asrProvider: 'openai-whisper',
+        asrLanguage: 'en',
+      },
+      asr: { 'openai-whisper': {} },
+    });
+
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().asrProviderId).toBe('openai-whisper');
+    expect(store.getState().asrLanguage).toBe('en');
+    expect(store.getState().asrSelectionLocked).toBe(true);
+  });
+
+  it('rejects local ASR selection changes after env-configured default locks ASR', async () => {
+    const store = await getStore();
+
+    mockServerResponse({
+      defaults: {
+        asrProvider: 'openai-whisper',
+        asrLanguage: 'en',
+      },
+      asr: { 'openai-whisper': {} },
+    });
+
+    await store.getState().fetchServerProviders();
+
+    store.getState().setASRProvider('browser-native');
+    store.getState().setASRLanguage('zh-CN');
+
+    expect(store.getState().asrProviderId).toBe('openai-whisper');
+    expect(store.getState().asrLanguage).toBe('en');
+  });
+
+  it('falls back to Chinese when env-configured ASR language is outside the whitelist', async () => {
+    const store = await getStore();
+
+    mockServerResponse({
+      defaults: {
+        asrProvider: 'openai-whisper',
+        asrLanguage: 'ja',
+      },
+      asr: { 'openai-whisper': {} },
+    });
+
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().asrProviderId).toBe('openai-whisper');
+    expect(store.getState().asrLanguage).toBe('zh');
   });
 });
 

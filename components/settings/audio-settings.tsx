@@ -73,6 +73,7 @@ export function AudioSettings({ onSave }: AudioSettingsProps = {}) {
   // TTS state
   const ttsProviderId = useSettingsStore((state) => state.ttsProviderId);
   const ttsVoice = useSettingsStore((state) => state.ttsVoice);
+  const ttsSelectionLocked = useSettingsStore((state) => state.ttsSelectionLocked);
   const ttsProvidersConfig = useSettingsStore((state) => state.ttsProvidersConfig);
   const setTTSProvider = useSettingsStore((state) => state.setTTSProvider);
   const setTTSVoice = useSettingsStore((state) => state.setTTSVoice);
@@ -81,6 +82,7 @@ export function AudioSettings({ onSave }: AudioSettingsProps = {}) {
   // ASR state
   const asrProviderId = useSettingsStore((state) => state.asrProviderId);
   const asrLanguage = useSettingsStore((state) => state.asrLanguage);
+  const asrSelectionLocked = useSettingsStore((state) => state.asrSelectionLocked);
   const asrProvidersConfig = useSettingsStore((state) => state.asrProvidersConfig);
   const setASRProvider = useSettingsStore((state) => state.setASRProvider);
   const setASRLanguage = useSettingsStore((state) => state.setASRLanguage);
@@ -433,6 +435,7 @@ export function AudioSettings({ onSave }: AudioSettingsProps = {}) {
             <Label className="text-sm">{t('settings.ttsProvider')}</Label>
             <Select
               value={ttsProviderId}
+              disabled={ttsSelectionLocked}
               onValueChange={(value) => handleTTSProviderChange(value as TTSProviderId)}
             >
               <SelectTrigger>
@@ -477,6 +480,7 @@ export function AudioSettings({ onSave }: AudioSettingsProps = {}) {
                           : t('settings.enterApiKey')
                       }
                       value={ttsProvidersConfig[ttsProviderId]?.apiKey || ''}
+                      disabled={ttsSelectionLocked}
                       onChange={(e) =>
                         handleTTSProviderConfigChange(ttsProviderId, {
                           apiKey: e.target.value,
@@ -499,6 +503,7 @@ export function AudioSettings({ onSave }: AudioSettingsProps = {}) {
                   <Input
                     placeholder={ttsProvider.defaultBaseUrl || t('settings.enterCustomBaseUrl')}
                     value={ttsProvidersConfig[ttsProviderId]?.baseUrl || ''}
+                    disabled={ttsSelectionLocked}
                     onChange={(e) =>
                       handleTTSProviderConfigChange(ttsProviderId, {
                         baseUrl: e.target.value,
@@ -565,6 +570,7 @@ export function AudioSettings({ onSave }: AudioSettingsProps = {}) {
             <Label className="text-sm">{t('settings.asrProvider')}</Label>
             <Select
               value={asrProviderId}
+              disabled={asrSelectionLocked}
               onValueChange={(value) => handleASRProviderChange(value as ASRProviderId)}
             >
               <SelectTrigger>
@@ -617,6 +623,7 @@ export function AudioSettings({ onSave }: AudioSettingsProps = {}) {
                           : t('settings.enterApiKey')
                       }
                       value={asrProvidersConfig[asrProviderId]?.apiKey || ''}
+                      disabled={asrSelectionLocked}
                       onChange={(e) =>
                         handleASRProviderConfigChange(asrProviderId, {
                           apiKey: e.target.value,
@@ -644,6 +651,7 @@ export function AudioSettings({ onSave }: AudioSettingsProps = {}) {
                         : asrProvider?.defaultBaseUrl || t('settings.enterCustomBaseUrl')
                     }
                     value={asrProvidersConfig[asrProviderId]?.baseUrl || ''}
+                    disabled={asrSelectionLocked}
                     onChange={(e) =>
                       handleASRProviderConfigChange(asrProviderId, {
                         baseUrl: e.target.value,
@@ -704,7 +712,11 @@ export function AudioSettings({ onSave }: AudioSettingsProps = {}) {
                 {hasLanguageSelection && (
                   <div className="space-y-2">
                     <Label className="text-sm">{t('settings.asrLanguage')}</Label>
-                    <Select value={asrLanguage} onValueChange={handleASRLanguageChange}>
+                    <Select
+                      value={asrLanguage}
+                      onValueChange={handleASRLanguageChange}
+                      disabled={asrSelectionLocked}
+                    >
                       <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
