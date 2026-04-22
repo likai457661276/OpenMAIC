@@ -90,7 +90,7 @@ export default function ClassroomDetailPage() {
           const a = registry.getAgent(id);
           return a && !a.isGenerated;
         });
-        useSettingsStore.getState().setAgentMode('preset');
+        useSettingsStore.getState().setAgentMode('auto');
         useSettingsStore
           .getState()
           .setSelectedAgentIds(

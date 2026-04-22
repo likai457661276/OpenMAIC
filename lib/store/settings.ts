@@ -43,9 +43,11 @@ export interface SettingsState {
   // Audio settings (new unified audio configuration)
   ttsProviderId: TTSProviderId;
   ttsVoice: string;
+  ttsSelectionLocked: boolean;
   ttsSpeed: number;
   asrProviderId: ASRProviderId;
   asrLanguage: string;
+  asrSelectionLocked: boolean;
 
   // Audio provider configurations
   ttsProvidersConfig: Record<
@@ -312,9 +314,11 @@ const getDefaultProvidersConfig = (): ProvidersConfig => {
 const getDefaultAudioConfig = () => ({
   ttsProviderId: 'browser-native-tts' as TTSProviderId,
   ttsVoice: 'default',
+  ttsSelectionLocked: false,
   ttsSpeed: 1.0,
   asrProviderId: 'browser-native' as ASRProviderId,
   asrLanguage: 'zh',
+  asrSelectionLocked: false,
   ttsProvidersConfig: {
     'openai-tts': { apiKey: '', baseUrl: '', enabled: true },
     'azure-tts': { apiKey: '', baseUrl: '', enabled: false },
@@ -720,6 +724,7 @@ export const useSettingsStore = create<SettingsState>()(
         // Audio actions
         setTTSProvider: (providerId) =>
           set((state) => {
+            if (state.ttsSelectionLocked) return {};
             // If switching provider, set default voice for that provider
             const shouldUpdateVoice = state.ttsProviderId !== providerId;
             const defaultVoice = isCustomTTSProvider(providerId)
@@ -731,7 +736,11 @@ export const useSettingsStore = create<SettingsState>()(
             };
           }),
 
-        setTTSVoice: (voice) => set({ ttsVoice: voice }),
+        setTTSVoice: (voice) =>
+          set((state) => {
+            if (state.ttsSelectionLocked) return {};
+            return { ttsVoice: voice };
+          }),
 
         setTTSSpeed: (speed) => set({ ttsSpeed: speed }),
 
@@ -739,6 +748,7 @@ export const useSettingsStore = create<SettingsState>()(
         // (e.g. browser-native uses BCP-47 "en-US", OpenAI Whisper uses ISO 639-1 "en")
         setASRProvider: (providerId) =>
           set((state) => {
+            if (state.asrSelectionLocked) return {};
             let supportedLanguages: string[];
             if (isCustomASRProvider(providerId)) {
               supportedLanguages = ['auto'];
@@ -753,7 +763,11 @@ export const useSettingsStore = create<SettingsState>()(
             };
           }),
 
-        setASRLanguage: (language) => set({ asrLanguage: language }),
+        setASRLanguage: (language) =>
+          set((state) => {
+            if (state.asrSelectionLocked) return {};
+            return { asrLanguage: language };
+          }),
 
         setTTSProviderConfig: (providerId, config) =>
           set((state) => ({
@@ -1280,6 +1294,12 @@ export const useSettingsStore = create<SettingsState>()(
                   ? requestedDefaultTTSProvider
                   : undefined;
               const serverDefaultTTSVoice = serverDefaults?.ttsVoice?.trim();
+              const resolvedServerDefaultTTSVoice =
+                serverDefaultTTSProvider
+                  ? serverDefaultTTSVoice ||
+                    DEFAULT_TTS_VOICES[serverDefaultTTSProvider as BuiltInTTSProviderId] ||
+                    'default'
+                  : undefined;
 
               const requestedDefaultASRProvider = serverDefaults?.asrProvider as
                 | ASRProviderId
@@ -1291,6 +1311,18 @@ export const useSettingsStore = create<SettingsState>()(
                   ? requestedDefaultASRProvider
                   : undefined;
               const serverDefaultASRLanguage = serverDefaults?.asrLanguage?.trim();
+              const serverDefaultASRSupportedLanguages = serverDefaultASRProvider
+                ? ASR_PROVIDERS[serverDefaultASRProvider as keyof typeof ASR_PROVIDERS]
+                    ?.supportedLanguages ?? []
+                : [];
+              const resolvedServerDefaultASRLanguage =
+                serverDefaultASRProvider
+                  ? (serverDefaultASRLanguage &&
+                    serverDefaultASRSupportedLanguages.includes(serverDefaultASRLanguage)
+                      ? serverDefaultASRLanguage
+                      : serverDefaultASRSupportedLanguages[0]) ||
+                    'auto'
+                  : undefined;
 
               const requestedDefaultPDFProvider = serverDefaults?.pdfProvider as
                 | PDFProviderId
@@ -1392,6 +1424,7 @@ export const useSettingsStore = create<SettingsState>()(
                 // TTS: select first server provider if current is not server-configured
                 const serverTtsIds = Object.keys(data.tts) as TTSProviderId[];
                 if (
+                  !serverDefaultTTSProvider &&
                   serverTtsIds.length > 0 &&
                   !newTTSConfig[state.ttsProviderId]?.isServerConfigured
                 ) {
@@ -1403,6 +1436,7 @@ export const useSettingsStore = create<SettingsState>()(
                 // ASR: select first server provider if current is not server-configured
                 const serverAsrIds = Object.keys(data.asr) as ASRProviderId[];
                 if (
+                  !serverDefaultASRProvider &&
                   serverAsrIds.length > 0 &&
                   !newASRConfig[state.asrProviderId]?.isServerConfigured
                 ) {
@@ -1466,14 +1500,14 @@ export const useSettingsStore = create<SettingsState>()(
                       state.modelId !== serverDefaultModelId)));
               const shouldApplyServerDefaultTTS =
                 !!serverDefaultTTSProvider &&
-                (!validTTSProvider ||
-                  validTTSProvider !== state.ttsProviderId ||
-                  (!state.autoConfigApplied && state.ttsProviderId !== serverDefaultTTSProvider));
+                (!!resolvedServerDefaultTTSVoice &&
+                  (state.ttsProviderId !== serverDefaultTTSProvider ||
+                    state.ttsVoice !== resolvedServerDefaultTTSVoice));
               const shouldApplyServerDefaultASR =
                 !!serverDefaultASRProvider &&
-                (!validASRProvider ||
-                  validASRProvider !== state.asrProviderId ||
-                  (!state.autoConfigApplied && state.asrProviderId !== serverDefaultASRProvider));
+                (!!resolvedServerDefaultASRLanguage &&
+                  (state.asrProviderId !== serverDefaultASRProvider ||
+                    state.asrLanguage !== resolvedServerDefaultASRLanguage));
               const shouldApplyServerDefaultPDF =
                 !!serverDefaultPDFProvider &&
                 (!validPDFProvider ||
@@ -1505,7 +1539,9 @@ export const useSettingsStore = create<SettingsState>()(
               return {
                 providersConfig: newProvidersConfig,
                 ttsProvidersConfig: newTTSConfig,
+                ttsSelectionLocked: !!serverDefaultTTSProvider,
                 asrProvidersConfig: newASRConfig,
+                asrSelectionLocked: !!serverDefaultASRProvider,
                 pdfProvidersConfig: newPDFConfig,
                 imageProvidersConfig: newImageConfig,
                 videoProvidersConfig: newVideoConfig,
@@ -1573,14 +1609,11 @@ export const useSettingsStore = create<SettingsState>()(
                 }),
                 ...(shouldApplyServerDefaultTTS && {
                   ttsProviderId: serverDefaultTTSProvider,
-                  ttsVoice:
-                    serverDefaultTTSVoice ||
-                    DEFAULT_TTS_VOICES[serverDefaultTTSProvider as BuiltInTTSProviderId] ||
-                    'default',
+                  ttsVoice: resolvedServerDefaultTTSVoice,
                 }),
                 ...(shouldApplyServerDefaultASR && {
                   asrProviderId: serverDefaultASRProvider,
-                  ...(serverDefaultASRLanguage && { asrLanguage: serverDefaultASRLanguage }),
+                  asrLanguage: resolvedServerDefaultASRLanguage,
                 }),
                 ...(shouldApplyServerDefaultPDF && {
                   pdfProviderId: serverDefaultPDFProvider,
@@ -1727,7 +1760,7 @@ export const useSettingsStore = create<SettingsState>()(
         }
 
         if ((state as Record<string, unknown>).agentMode === undefined) {
-          (state as Record<string, unknown>).agentMode = 'preset';
+          (state as Record<string, unknown>).agentMode = 'auto';
         }
         if ((state as Record<string, unknown>).autoAgentCount === undefined) {
           (state as Record<string, unknown>).autoAgentCount = 3;
