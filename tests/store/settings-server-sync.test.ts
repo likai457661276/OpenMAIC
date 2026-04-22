@@ -609,6 +609,26 @@ describe('fetchServerProviders — TTS stale selection', () => {
     expect(store.getState().ttsProviderId).toBe('azure-tts');
     expect(store.getState().ttsVoice).toBe('zh-CN-XiaoxiaoNeural');
   });
+
+  it('keeps browser-native-tts after sync even when server TTS providers are available', async () => {
+    const store = await getStore();
+
+    // Round 1: server exposes openai-tts (simulates server-side TTS availability)
+    mockServerResponse({ tts: { 'openai-tts': {} } });
+    await store.getState().fetchServerProviders();
+
+    // User explicitly switches to browser-native-tts
+    store.getState().setTTSProvider('browser-native-tts');
+    store.getState().setTTSVoice('default');
+    expect(store.getState().ttsProviderId).toBe('browser-native-tts');
+
+    // Round 2: next sync should not force fallback to server provider
+    mockServerResponse({ tts: { 'openai-tts': {} } });
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().ttsProviderId).toBe('browser-native-tts');
+    expect(store.getState().ttsVoice).toBe('default');
+  });
 });
 
 describe('fetchServerProviders — ASR stale selection', () => {

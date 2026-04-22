@@ -992,9 +992,18 @@ export const useSettingsStore = create<SettingsState>()(
                 const key = pid as ProviderId;
                 if (newProvidersConfig[key]) {
                   const currentModels = newProvidersConfig[key].models;
-                  // When server specifies allowed models, filter the models list
+                  // Keep server-advertised IDs even when they are not in built-in catalog.
+                  // This supports provider-side aliases such as "Pro/...".
                   const filteredModels = info.models?.length
-                    ? currentModels.filter((m) => info.models!.includes(m.id))
+                    ? info.models.map((modelId) => {
+                        const builtIn = currentModels.find((m) => m.id === modelId);
+                        return (
+                          builtIn || {
+                            id: modelId,
+                            name: modelId,
+                          }
+                        );
+                      })
                     : currentModels;
                   newProvidersConfig[key] = {
                     ...newProvidersConfig[key],
@@ -1011,8 +1020,12 @@ export const useSettingsStore = create<SettingsState>()(
               for (const pid of Object.keys(newTTSConfig)) {
                 const key = pid as TTSProviderId;
                 if (newTTSConfig[key]) {
+                  const requiresApiKey = isCustomTTSProvider(key)
+                    ? newTTSConfig[key].requiresApiKey
+                    : TTS_PROVIDERS[key as BuiltInTTSProviderId]?.requiresApiKey;
                   newTTSConfig[key] = {
                     ...newTTSConfig[key],
+                    ...(requiresApiKey !== undefined && { requiresApiKey }),
                     isServerConfigured: false,
                     serverBaseUrl: undefined,
                   };

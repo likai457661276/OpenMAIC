@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
+    mem_limit: 4g
+    memswap_limit: 4g
     working_dir: /app
     ports:
       - "10051:10050"

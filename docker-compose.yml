@@ -1,6 +1,8 @@
 services:
   openmaic:
     build: .
+    mem_limit: 1g
+    memswap_limit: 1g
     ports:
       - "127.0.0.1:10051:10050"
     env_file:
