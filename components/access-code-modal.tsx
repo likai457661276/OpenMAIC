@@ -119,7 +119,7 @@ export function AccessCodeModal({ open, onSuccess }: AccessCodeModalProps) {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.25, duration: 0.4 }}
               >
-                BingoAgentClass
+                宾果AI智慧课堂
               </motion.p>
 
               {/* Form */}

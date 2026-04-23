@@ -880,10 +880,10 @@ describe('fetchServerProviders — Image stale selection', () => {
   it('preserves user-disabled image generation across server syncs', async () => {
     const store = await getStore();
 
-    // Server has seedream, auto-enabled on first sync
+    // Server has seedream, but image generation stays off until the user enables it
     mockServerResponse({ image: { seedream: {} } });
     await store.getState().fetchServerProviders();
-    expect(store.getState().imageGenerationEnabled).toBe(true);
+    expect(store.getState().imageGenerationEnabled).toBe(false);
 
     // User intentionally disables
     store.getState().setImageGenerationEnabled(false);
@@ -926,10 +926,10 @@ describe('fetchServerProviders — Image stale selection', () => {
 
     expect(store.getState().imageProviderId).toBe('siliconflow-image');
     expect(store.getState().imageModelId).toBe('Qwen/Qwen-Image');
-    expect(store.getState().imageGenerationEnabled).toBe(true);
+    expect(store.getState().imageGenerationEnabled).toBe(false);
   });
 
-  it('auto-enables image generation on first load when server has image provider', async () => {
+  it('keeps image generation disabled on first load when server has image provider', async () => {
     const store = await getStore();
 
     // First ever fetchServerProviders — server has siliconflow-image
@@ -937,7 +937,7 @@ describe('fetchServerProviders — Image stale selection', () => {
     mockServerResponse({ image: { 'siliconflow-image': {} } });
     await store.getState().fetchServerProviders();
 
-    expect(store.getState().imageGenerationEnabled).toBe(true);
+    expect(store.getState().imageGenerationEnabled).toBe(false);
     expect(store.getState().imageProviderId).toBe('siliconflow-image');
     expect(store.getState().imageModelId).toBe('Qwen/Qwen-Image');
   });
@@ -980,7 +980,7 @@ describe('fetchServerProviders — Image stale selection', () => {
     expect(store.getState().imageModelId).toBe('Qwen/Qwen-Image');
   });
 
-  it('auto-enables image generation when the selected image model becomes locally usable', async () => {
+  it('does not auto-enable image generation when the selected image model becomes locally usable', async () => {
     const store = await getStore();
 
     store.getState().setImageProvider('siliconflow-image');
@@ -989,15 +989,18 @@ describe('fetchServerProviders — Image stale selection', () => {
 
     store.getState().setImageProviderConfig('siliconflow-image', { apiKey: 'sk-local-image' });
 
-    expect(store.getState().imageGenerationEnabled).toBe(true);
+    expect(store.getState().imageGenerationEnabled).toBe(false);
   });
 
-  it('respects a manual disable after image generation was auto-enabled', async () => {
+  it('allows manual enabling once the selected image model is usable', async () => {
     const store = await getStore();
 
     store.getState().setImageProvider('siliconflow-image');
     store.getState().setImageModelId('Qwen/Qwen-Image');
     store.getState().setImageProviderConfig('siliconflow-image', { apiKey: 'sk-local-image' });
+    expect(store.getState().imageGenerationEnabled).toBe(false);
+
+    store.getState().setImageGenerationEnabled(true);
     expect(store.getState().imageGenerationEnabled).toBe(true);
 
     store.getState().setImageGenerationEnabled(false);
@@ -1184,5 +1187,36 @@ describe('settings merge migration — custom provider baseUrl', () => {
 
     expect(state.providersConfig.openai.baseUrl).toBe('');
     expect(state.providersConfig.openai.defaultBaseUrl).toBe('https://persisted-openai.example/v1');
+  });
+});
+
+describe('settings persistence — image generation toggle', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    storage.clear();
+    mockFetch.mockReset();
+  });
+
+  it('resets image generation to disabled after rehydrate while preserving image selection', async () => {
+    storage.set(
+      'settings-storage',
+      JSON.stringify({
+        state: {
+          imageProviderId: 'siliconflow-image',
+          imageModelId: 'Qwen/Qwen-Image',
+          imageGenerationEnabled: true,
+          imageGenerationTouched: true,
+        },
+        version: 2,
+      }),
+    );
+
+    const { useSettingsStore } = await import('@/lib/store/settings');
+    const state = useSettingsStore.getState();
+
+    expect(state.imageProviderId).toBe('siliconflow-image');
+    expect(state.imageModelId).toBe('Qwen/Qwen-Image');
+    expect(state.imageGenerationEnabled).toBe(false);
+    expect(state.imageGenerationTouched).toBe(false);
   });
 });

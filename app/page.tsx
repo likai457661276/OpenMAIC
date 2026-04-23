@@ -19,7 +19,6 @@ import {
   BotOff,
   ChevronUp,
   Upload,
-  Sparkles,
   Atom,
 } from 'lucide-react';
 import { useI18n } from '@/lib/hooks/use-i18n';
@@ -50,8 +49,8 @@ import { useMediaGenerationStore } from '@/lib/store/media-generation';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDraftCache } from '@/lib/hooks/use-draft-cache';
-import { SpeechButton } from '@/components/audio/speech-button';
 import { useImportClassroom } from '@/lib/import/use-import-classroom';
+import { BrandLogo } from '@/components/brand-logo';
 import { appPath } from '@/lib/app-paths';
 
 const log = createLogger('Home');
@@ -459,9 +458,7 @@ function HomePage() {
         )}
       >
         {/* ── Logo ── */}
-        <motion.img
-          src={appPath('/logo-horizontal.png')}
-          alt="BingoAgentClass"
+        <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{
@@ -470,15 +467,20 @@ function HomePage() {
             stiffness: 200,
             damping: 20,
           }}
-          className="h-12 md:h-16 mb-2 -ml-2 md:-ml-3"
-        />
+          className="mb-3"
+        >
+          <BrandLogo
+            iconClassName="h-14 w-14 md:h-[4.5rem] md:w-[4.5rem]"
+            textClassName="text-[2.1rem] md:text-[3.4rem]"
+          />
+        </motion.div>
 
         {/* ── Slogan ── */}
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.25 }}
-          className="text-sm text-muted-foreground/60 mb-8"
+          className="text-xs md:text-sm text-muted-foreground/60 mb-8"
         >
           {t('home.slogan')}
         </motion.p>
@@ -556,18 +558,6 @@ function HomePage() {
                   {t('toolbar.interactiveModeHint')}
                 </TooltipContent>
               </Tooltip>
-
-              {/* Voice input */}
-              <SpeechButton
-                size="md"
-                onTranscription={(text) => {
-                  setForm((prev) => {
-                    const next = prev.requirement + (prev.requirement ? ' ' : '') + text;
-                    updateRequirementCache(next);
-                    return { ...prev, requirement: next };
-                  });
-                }}
-              />
 
               {/* Send button */}
               <button
@@ -706,7 +696,7 @@ function HomePage() {
 
       {/* Footer — flows with content, at the very end */}
       <div className="mt-auto pt-12 pb-4 text-center text-xs text-muted-foreground/40">
-        BingoAgentClass Open Source Project
+        宾果AI智慧课堂开源项目
       </div>
     </div>
   );

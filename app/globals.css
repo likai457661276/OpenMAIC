@@ -207,3 +207,41 @@
     transform: scale(1.08);
   }
 }
+
+@keyframes brand-gradient-flow {
+  0% {
+    background-position: 0% 50%;
+    filter: saturate(0.98) brightness(0.99);
+  }
+  32% {
+    background-position: 34% 50%;
+    filter: saturate(1) brightness(1);
+  }
+  64% {
+    background-position: 68% 50%;
+    filter: saturate(1.02) brightness(1.01);
+  }
+  100% {
+    background-position: 100% 50%;
+    filter: saturate(0.99) brightness(1);
+  }
+}
+
+@utility brand-gradient-text {
+  background-image: linear-gradient(90deg, #cbbcff 0%, #afa2ff 26%, #938cff 52%, #8ca8ff 78%, #cbbcff 100%);
+  background-size: 200% 100%;
+  background-position: 0% 50%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: brand-gradient-flow 13.5s cubic-bezier(0.33, 0.02, 0.18, 0.99) infinite alternate;
+  will-change: background-position, filter;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-gradient-text {
+    animation: none;
+    background-position: 50% 50%;
+    filter: none;
+  }
+}

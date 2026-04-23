@@ -18,9 +18,9 @@ const inter = localFont({
 });
 
 export const metadata: Metadata = {
-  title: 'BingoAgentClass',
+  title: '宾果AI智慧课堂',
   description:
-    'The open-source AI interactive classroom. Upload a PDF to instantly generate an immersive, multi-agent learning experience.',
+    '宾果AI智慧课堂是一个开源的 AI 互动课堂平台，上传 PDF 即可快速生成沉浸式多智能体学习体验。',
 };
 
 export default function RootLayout({

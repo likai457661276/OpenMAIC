@@ -290,6 +290,11 @@ export interface SettingsState {
   fetchServerProviders: () => Promise<void>;
 }
 
+type PersistedSettingsState = Omit<
+  SettingsState,
+  'imageGenerationEnabled' | 'imageGenerationTouched'
+>;
+
 // Initialize default providers config
 const getDefaultProvidersConfig = (): ProvidersConfig => {
   const config: ProvidersConfig = {} as ProvidersConfig;
@@ -544,19 +549,6 @@ function canUseSelectedImageModel(
   return isProviderUsable({ ...config, requiresApiKey: provider.requiresApiKey });
 }
 
-function shouldAutoEnableImageGeneration(
-  state: Pick<
-    SettingsState,
-    'imageProviderId' | 'imageModelId' | 'imageProvidersConfig' | 'imageGenerationEnabled' | 'imageGenerationTouched'
-  >,
-): boolean {
-  return (
-    !state.imageGenerationTouched &&
-    !state.imageGenerationEnabled &&
-    canUseSelectedImageModel(state.imageProviderId, state.imageModelId, state.imageProvidersConfig)
-  );
-}
-
 // Migrate from old localStorage format
 const migrateFromOldStorage = () => {
   if (typeof window === 'undefined') return null;
@@ -806,43 +798,19 @@ export const useSettingsStore = create<SettingsState>()(
           })),
 
         // Image Generation actions
-        setImageProvider: (providerId) =>
-          set((state) => {
-            const nextState = { ...state, imageProviderId: providerId };
-            return {
-              imageProviderId: providerId,
-              ...(shouldAutoEnableImageGeneration(nextState) && { imageGenerationEnabled: true }),
-            };
-          }),
-        setImageModelId: (modelId) =>
-          set((state) => {
-            const nextState = { ...state, imageModelId: modelId };
-            return {
-              imageModelId: modelId,
-              ...(shouldAutoEnableImageGeneration(nextState) && { imageGenerationEnabled: true }),
-            };
-          }),
+        setImageProvider: (providerId) => set({ imageProviderId: providerId }),
+        setImageModelId: (modelId) => set({ imageModelId: modelId }),
 
         setImageProviderConfig: (providerId, config) =>
-          set((state) => {
-            const nextImageProvidersConfig = {
+          set((state) => ({
+            imageProvidersConfig: {
               ...state.imageProvidersConfig,
               [providerId]: {
                 ...state.imageProvidersConfig[providerId],
                 ...config,
               },
-            };
-
-            const nextState = {
-              ...state,
-              imageProvidersConfig: nextImageProvidersConfig,
-            };
-
-            return {
-              imageProvidersConfig: nextImageProvidersConfig,
-              ...(shouldAutoEnableImageGeneration(nextState) && { imageGenerationEnabled: true }),
-            };
-          }),
+            },
+          })),
 
         // Video Generation actions
         setVideoProvider: (providerId) => set({ videoProviderId: providerId }),
@@ -862,9 +830,16 @@ export const useSettingsStore = create<SettingsState>()(
         // Media generation toggle actions
         setImageGenerationEnabled: (enabled) => {
           if (enabled) {
-            const cfg = get().imageProvidersConfig;
-            const hasUsable = Object.values(cfg).some((c) => c.isServerConfigured || c.apiKey);
-            if (!hasUsable) return;
+            const state = get();
+            if (
+              !canUseSelectedImageModel(
+                state.imageProviderId,
+                state.imageModelId,
+                state.imageProvidersConfig,
+              )
+            ) {
+              return;
+            }
           }
           set({ imageGenerationEnabled: enabled, imageGenerationTouched: true });
         },
@@ -1388,14 +1363,6 @@ export const useSettingsStore = create<SettingsState>()(
               // Auto-disable image/video generation when no provider is usable
               const shouldDisableImage = !validImageProvider && state.imageGenerationEnabled;
               const shouldDisableVideo = !validVideoProvider && state.videoGenerationEnabled;
-              const shouldAutoEnableSelectedImage =
-                !state.imageGenerationTouched &&
-                !state.imageGenerationEnabled &&
-                canUseSelectedImageModel(
-                  validImageProvider as ImageProviderId | undefined,
-                  validImageModel,
-                  newImageConfig,
-                );
 
               // === Auto-select / auto-enable (only on first run) ===
               let autoTtsProvider: TTSProviderId | undefined;
@@ -1406,7 +1373,6 @@ export const useSettingsStore = create<SettingsState>()(
               let autoImageModel: string | undefined;
               let autoVideoProvider: VideoProviderId | undefined;
               let autoVideoModel: string | undefined;
-              let autoImageEnabled: boolean | undefined;
               let autoVideoEnabled: boolean | undefined;
               let autoLLMProvider: ProviderId | undefined;
               let autoLLMModel: string | undefined;
@@ -1452,9 +1418,6 @@ export const useSettingsStore = create<SettingsState>()(
                   autoImageProvider = serverImageIds[0];
                   const models = IMAGE_PROVIDERS[autoImageProvider]?.models;
                   if (models?.length) autoImageModel = models[0].id;
-                }
-                if (serverImageIds.length > 0 && !state.imageGenerationEnabled) {
-                  autoImageEnabled = true;
                 }
 
                 // Video: first server provider
@@ -1579,7 +1542,6 @@ export const useSettingsStore = create<SettingsState>()(
                 }),
                 ...(shouldDisableImage && { imageGenerationEnabled: false }),
                 ...(shouldDisableVideo && { videoGenerationEnabled: false }),
-                ...(shouldAutoEnableSelectedImage && { imageGenerationEnabled: true }),
                 // First-run auto-select overrides validation (autoConfigApplied guard).
                 // On first sync, auto-select picks the best provider. On subsequent syncs,
                 // auto* variables stay undefined so only validation spreads take effect.
@@ -1597,9 +1559,6 @@ export const useSettingsStore = create<SettingsState>()(
                   videoProviderId: autoVideoProvider,
                 }),
                 ...(autoVideoModel && { videoModelId: autoVideoModel }),
-                ...(autoImageEnabled !== undefined && {
-                  imageGenerationEnabled: autoImageEnabled,
-                }),
                 ...(autoVideoEnabled !== undefined && {
                   videoGenerationEnabled: autoVideoEnabled,
                 }),
@@ -1645,6 +1604,11 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'settings-storage',
       version: 2,
+      partialize: (state): PersistedSettingsState => {
+        const { imageGenerationEnabled: _imageGenerationEnabled, imageGenerationTouched: _imageGenerationTouched, ...persistedState } =
+          state;
+        return persistedState;
+      },
       // Migrate persisted state
       migrate: (persistedState: unknown, version: number) => {
         const state = persistedState as Partial<SettingsState>;
@@ -1798,16 +1762,8 @@ export const useSettingsStore = create<SettingsState>()(
         ensureBuiltInImageProviders(merged as Partial<SettingsState>);
         ensureBuiltInVideoProviders(merged as Partial<SettingsState>);
         ensureValidProviderSelections(merged as Partial<SettingsState>);
-        if (
-          shouldAutoEnableImageGeneration(
-            merged as Pick<
-              SettingsState,
-              'imageProviderId' | 'imageModelId' | 'imageProvidersConfig' | 'imageGenerationEnabled' | 'imageGenerationTouched'
-            >,
-          )
-        ) {
-          (merged as SettingsState).imageGenerationEnabled = true;
-        }
+        (merged as SettingsState).imageGenerationEnabled = false;
+        (merged as SettingsState).imageGenerationTouched = false;
         return merged as SettingsState;
       },
     },

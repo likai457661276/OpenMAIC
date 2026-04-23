@@ -8,7 +8,7 @@ export class HomePage {
 
   constructor(page: Page) {
     this.page = page;
-    this.logo = page.locator('img[alt="BingoAgentClass"]');
+    this.logo = page.getByLabel('宾果AI智慧课堂');
     this.textarea = page.locator('textarea');
     this.enterButton = page
       .getByRole('button', { name: /enter/i })
