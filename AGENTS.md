@@ -21,12 +21,12 @@ Always respond in Chinese-simplified.
 ## Provider Access
 
 - The project supports OpenAI-compatible providers through the shared provider layer.
-- SiliconFlow is configured as provider ID `siliconflow` and uses the OpenAI-compatible protocol.
-- Server-side SiliconFlow configuration uses:
-  - `SILICONFLOW_API_KEY`
-  - `SILICONFLOW_BASE_URL`
-  - `SILICONFLOW_MODELS`
-- The expected local default model is `DEFAULT_MODEL=siliconflow:Pro/MiniMaxAI/MiniMax-M2.5`.
+- Doubao is configured as provider ID `doubao` and uses the OpenAI-compatible protocol.
+- Server-side Doubao configuration uses:
+  - `DOUBAO_API_KEY`
+  - `DOUBAO_BASE_URL`
+  - `DOUBAO_MODELS`
+- The expected local default model is `DEFAULT_MODEL=doubao:ep-20260225155849-krdlt`.
 
 ## Work Rules
 
