@@ -54,6 +54,15 @@ vi.mock('@/lib/ai/providers', () => ({
         { id: 'deepseek-ai/DeepSeek-V3.2', name: 'DeepSeek V3.2' },
       ],
     },
+    doubao: {
+      id: 'doubao',
+      name: 'Doubao',
+      type: 'openai',
+      defaultBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+      requiresApiKey: true,
+      icon: '/logos/doubao.svg',
+      models: [{ id: 'ep-20260225155849-krdlt', name: 'Doubao Seed 2.0 Lite' }],
+    },
     anthropic: {
       id: 'anthropic',
       name: 'Anthropic',
@@ -499,6 +508,29 @@ describe('fetchServerProviders — provider availability sync', () => {
 
     expect(store.getState().providerId).toBe('siliconflow');
     expect(store.getState().modelId).toBe('Pro/MiniMaxAI/MiniMax-M2.5');
+  });
+
+  it('applies server default model over a stale persisted provider selection', async () => {
+    const store = await getStore();
+
+    store.setState({
+      providerId: 'siliconflow',
+      modelId: 'Pro/MiniMaxAI/MiniMax-M2.5',
+      autoConfigApplied: true,
+    });
+
+    mockServerResponse({
+      providers: {
+        siliconflow: { models: ['Pro/MiniMaxAI/MiniMax-M2.5'] },
+        doubao: { models: ['ep-20260225155849-krdlt'] },
+      },
+      defaultModel: 'doubao:ep-20260225155849-krdlt',
+    });
+
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().providerId).toBe('doubao');
+    expect(store.getState().modelId).toBe('ep-20260225155849-krdlt');
   });
 
   it('keeps modelId when selected model is still available after server sync', async () => {

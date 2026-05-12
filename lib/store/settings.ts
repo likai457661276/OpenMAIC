@@ -1456,11 +1456,10 @@ export const useSettingsStore = create<SettingsState>()(
 
               const shouldApplyServerDefault =
                 serverDefaultIsUsable &&
-                (!validLLMProvider ||
-                  !validLLMModel ||
-                  (!state.autoConfigApplied &&
-                    (state.providerId !== serverDefaultProvider ||
-                      state.modelId !== serverDefaultModelId)));
+                (state.providerId !== serverDefaultProvider ||
+                  state.modelId !== serverDefaultModelId ||
+                  !validLLMProvider ||
+                  !validLLMModel);
               const shouldApplyServerDefaultTTS =
                 !!serverDefaultTTSProvider &&
                 (!!resolvedServerDefaultTTSVoice &&
