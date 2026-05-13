@@ -15,7 +15,7 @@ export function BrandLogo({ className, iconClassName, textClassName }: BrandLogo
   return (
     <div
       role="img"
-      aria-label="宾果AI智慧课堂"
+      aria-label="AI智慧课堂"
       className={cn('inline-flex items-center justify-center gap-3', className)}
     >
       <svg
@@ -57,7 +57,7 @@ export function BrandLogo({ className, iconClassName, textClassName }: BrandLogo
           textClassName,
         )}
       >
-        宾果AI智慧课堂
+        AI智慧课堂
       </span>
     </div>
   );

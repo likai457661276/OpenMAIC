@@ -18,9 +18,9 @@ const inter = localFont({
 });
 
 export const metadata: Metadata = {
-  title: '宾果AI智慧课堂',
+  title: 'AI智慧课堂',
   description:
-    '宾果AI智慧课堂是一个开源的 AI 互动课堂平台，上传 PDF 即可快速生成沉浸式多智能体学习体验。',
+    'AI智慧课堂是一个开源的 AI 互动课堂平台，上传 PDF 即可快速生成沉浸式多智能体学习体验。',
 };
 
 export default function RootLayout({
