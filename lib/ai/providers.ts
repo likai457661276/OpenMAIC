@@ -849,18 +849,49 @@ export const PROVIDERS: Record<ProviderId, ProviderConfig> = {
         outputWindow: 32768,
         capabilities: { streaming: true, tools: true, vision: true },
       },
-      // MiniMax Series
+      // Preferred large SiliconFlow models
       {
-        id: 'MiniMaxAI/MiniMax-M2',
-        name: 'MiniMax-M2',
-        contextWindow: 204800,
+        id: 'Pro/MiniMaxAI/MiniMax-M2.5',
+        name: 'MiniMax-M2.5 Pro',
+        contextWindow: 197000,
         outputWindow: 131072,
         capabilities: { streaming: true, tools: true, vision: false },
       },
       {
-        id: 'Pro/MiniMaxAI/MiniMax-M2.5',
-        name: 'MiniMax-M2.5 Pro',
-        contextWindow: 204800,
+        id: 'Pro/zai-org/GLM-5.1',
+        name: 'GLM-5.1 Pro',
+        contextWindow: 205000,
+        outputWindow: 131072,
+        capabilities: {
+          streaming: true,
+          tools: true,
+          vision: false,
+          thinking: {
+            toggleable: true,
+            budgetAdjustable: true,
+            defaultEnabled: true,
+          },
+        },
+      },
+      {
+        id: 'Pro/moonshotai/Kimi-K2.6',
+        name: 'Kimi-K2.6 Pro',
+        contextWindow: 262144,
+        outputWindow: 262144,
+        capabilities: { streaming: true, tools: true, vision: false },
+      },
+      {
+        id: 'Pro/deepseek-ai/DeepSeek-V3.2',
+        name: 'DeepSeek-V3.2 Pro',
+        contextWindow: 164000,
+        outputWindow: 164000,
+        capabilities: { streaming: true, tools: true, vision: false },
+      },
+      // MiniMax Series
+      {
+        id: 'MiniMaxAI/MiniMax-M2',
+        name: 'MiniMax-M2',
+        contextWindow: 197000,
         outputWindow: 131072,
         capabilities: { streaming: true, tools: true, vision: false },
       },
@@ -868,8 +899,8 @@ export const PROVIDERS: Record<ProviderId, ProviderConfig> = {
       {
         id: 'Pro/moonshotai/Kimi-K2.5',
         name: 'Kimi-K2.5',
-        contextWindow: 256000,
-        outputWindow: 96000,
+        contextWindow: 262144,
+        outputWindow: 262144,
         capabilities: { streaming: true, tools: true, vision: false },
       },
       // GLM Series
@@ -1157,6 +1188,11 @@ function getCompatThinkingBodyParams(
   providerId: ProviderId,
   config: ThinkingConfig,
 ): Record<string, unknown> | undefined {
+  const thinkingBudget =
+    config.budgetTokens === undefined
+      ? undefined
+      : Math.max(128, Math.min(32768, Math.floor(config.budgetTokens)));
+
   if (config.enabled === false) {
     switch (providerId) {
       // Kimi / DeepSeek / GLM use { thinking: { type: "disabled" } }
@@ -1180,7 +1216,10 @@ function getCompatThinkingBodyParams(
         return { thinking: { type: 'enabled' } };
       case 'qwen':
       case 'siliconflow':
-        return { enable_thinking: true };
+        return {
+          enable_thinking: true,
+          ...(thinkingBudget !== undefined ? { thinking_budget: thinkingBudget } : {}),
+        };
       default:
         return undefined;
     }
