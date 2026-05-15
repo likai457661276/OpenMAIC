@@ -10,6 +10,8 @@ import { getModel, parseModelString, type ModelWithInfo } from '@/lib/ai/provide
 import { resolveApiKey, resolveBaseUrl, resolveProxy } from '@/lib/server/provider-config';
 import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
 
+const FALLBACK_DEFAULT_MODEL = 'siliconflow:Pro/MiniMaxAI/MiniMax-M2.5';
+
 export interface ResolvedModel extends ModelWithInfo {
   /** Original model string (e.g. "openai/gpt-4o-mini") */
   modelString: string;
@@ -31,7 +33,7 @@ export async function resolveModel(params: {
   providerType?: string;
 }): Promise<ResolvedModel> {
   const requestedModelString = params.modelString?.trim();
-  const defaultModelString = process.env.DEFAULT_MODEL || 'gpt-4o-mini';
+  const defaultModelString = process.env.DEFAULT_MODEL || FALLBACK_DEFAULT_MODEL;
   const parsedRequestedModel = requestedModelString
     ? parseModelString(requestedModelString)
     : undefined;

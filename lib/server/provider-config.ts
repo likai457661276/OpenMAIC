@@ -12,6 +12,7 @@ import { createLogger } from '@/lib/logger';
 import { parseModelString } from '@/lib/ai/providers';
 
 const log = createLogger('ServerProviderConfig');
+const FALLBACK_DEFAULT_MODEL = 'siliconflow:Pro/MiniMaxAI/MiniMax-M2.5';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -293,8 +294,7 @@ export function getServerProviders(): Record<string, { models?: string[]; baseUr
 }
 
 export function getServerDefaultModel(): string | undefined {
-  const defaultModel = process.env.DEFAULT_MODEL?.trim();
-  if (!defaultModel) return undefined;
+  const defaultModel = process.env.DEFAULT_MODEL?.trim() || FALLBACK_DEFAULT_MODEL;
 
   const { providerId, modelId } = parseModelString(defaultModel);
   const provider = getConfig().providers[providerId];
