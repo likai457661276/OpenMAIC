@@ -23,6 +23,8 @@ export interface ManifestStage {
   style?: string;
   createdAt: number;
   updatedAt: number;
+  // Note: Stage.interactiveMode is intentionally NOT exported — it reflects the
+  // original generation prompt branch, which imports can't faithfully reproduce.
 }
 
 export interface ManifestAgent {
@@ -52,6 +54,12 @@ export interface ManifestScene {
 
 export type ManifestAction = Omit<Action, 'audioId'> & {
   audioRef?: string;
+  /**
+   * Portable discussion-agent reference.
+   * New exports use the agent's index in manifest.agents instead of runtime IDs.
+   * Legacy ZIPs may still carry discussion.agentId directly.
+   */
+  agentIndex?: number;
 };
 
 export interface MediaIndexEntry {

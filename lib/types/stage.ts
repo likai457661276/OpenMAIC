@@ -10,6 +10,14 @@ export type StageMode = 'autonomous' | 'playback';
 
 export type Whiteboard = Omit<Slide, 'theme' | 'turningMode' | 'sectionTag' | 'type'>;
 
+export interface VideoManifestEntry {
+  type: 'video';
+  prompt: string;
+  aspectRatio?: string;
+}
+
+export type VideoManifest = Record<string, VideoManifestEntry>;
+
 /**
  * Stage - Represents the entire classroom/course
  */
@@ -24,6 +32,9 @@ export interface Stage {
   style?: string;
   // Whiteboard data
   whiteboard?: Whiteboard[];
+  // Generated video requests keyed by the mediaRef used by PPTVideoElement.
+  // Runtime media state lives in the media task store / persisted media files.
+  videoManifest?: VideoManifest;
   // Agent IDs selected when this classroom was created
   agentIds?: string[];
   /**
@@ -41,6 +52,12 @@ export interface Stage {
     color: string;
     priority: number;
   }>;
+  /**
+   * True when this classroom was generated with Interactive Mode enabled
+   * (the INTERACTIVE_OUTLINES prompt branch).
+   * Absent on legacy classrooms, imports, and regular-mode generations.
+   */
+  interactiveMode?: boolean;
 }
 
 /**

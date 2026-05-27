@@ -11,6 +11,10 @@ import type {
 } from './types';
 import { generateWithSeedream, testSeedreamConnectivity } from './adapters/seedream-adapter';
 import {
+  generateWithOpenAIImage,
+  testOpenAIImageConnectivity,
+} from './adapters/openai-image-adapter';
+import {
   generateWithSiliconFlowImage,
   testSiliconFlowImageConnectivity,
 } from './adapters/siliconflow-image-adapter';
@@ -21,6 +25,10 @@ import {
   testMiniMaxImageConnectivity,
 } from './adapters/minimax-image-adapter';
 import { generateWithGrokImage, testGrokImageConnectivity } from './adapters/grok-image-adapter';
+import {
+  generateWithLemonadeImage,
+  testLemonadeImageConnectivity,
+} from './adapters/lemonade-image-adapter';
 
 export const IMAGE_PROVIDERS: Record<ImageProviderId, ImageProviderConfig> = {
   seedream: {
@@ -33,6 +41,21 @@ export const IMAGE_PROVIDERS: Record<ImageProviderId, ImageProviderConfig> = {
       { id: 'doubao-seedream-4-5-251128', name: 'Seedream 4.5' },
       { id: 'doubao-seedream-4-0-250828', name: 'Seedream 4.0' },
       { id: 'doubao-seedream-3-0-t2i-250415', name: 'Seedream 3.0' },
+    ],
+    supportedAspectRatios: ['16:9', '4:3', '1:1', '9:16'],
+  },
+  'openai-image': {
+    id: 'openai-image',
+    name: 'OpenAI Image',
+    requiresApiKey: true,
+    defaultBaseUrl: 'https://api.openai.com/v1',
+    models: [
+      { id: 'gpt-image-2', name: 'GPT Image 2' },
+      { id: 'gpt-image-2-2026-04-21', name: 'GPT Image 2 (2026-04-21)' },
+      { id: 'gpt-image-1.5', name: 'GPT Image 1.5' },
+      { id: 'gpt-image-1', name: 'GPT Image 1' },
+      { id: 'gpt-image-1-mini', name: 'GPT Image 1 Mini' },
+      { id: 'chatgpt-image-latest', name: 'ChatGPT Image Latest' },
     ],
     supportedAspectRatios: ['16:9', '4:3', '1:1', '9:16'],
   },
@@ -55,6 +78,10 @@ export const IMAGE_PROVIDERS: Record<ImageProviderId, ImageProviderConfig> = {
     requiresApiKey: true,
     defaultBaseUrl: 'https://dashscope.aliyuncs.com',
     models: [
+      { id: 'qwen-image-2.0-pro', name: 'Qwen Image 2.0 Pro' },
+      { id: 'qwen-image-2.0-pro-2026-03-03', name: 'Qwen Image 2.0 Pro (2026-03-03)' },
+      { id: 'qwen-image-2.0', name: 'Qwen Image 2.0' },
+      { id: 'qwen-image-2.0-2026-03-03', name: 'Qwen Image 2.0 (2026-03-03)' },
       { id: 'qwen-image-max', name: 'Qwen Image Max' },
       { id: 'qwen-image-max-2025-12-30', name: 'Qwen Image Max (2025-12-30)' },
       { id: 'qwen-image-plus', name: 'Qwen Image Plus' },
@@ -110,6 +137,19 @@ export const IMAGE_PROVIDERS: Record<ImageProviderId, ImageProviderConfig> = {
     ],
     supportedAspectRatios: ['16:9', '4:3', '1:1', '9:16'],
   },
+  lemonade: {
+    id: 'lemonade',
+    name: 'Lemonade',
+    requiresApiKey: false,
+    defaultBaseUrl: 'http://localhost:13305/v1',
+    icon: '/logos/lemonade.svg',
+    models: [
+      { id: 'Qwen-Image-GGUF', name: 'Qwen Image GGUF' },
+      { id: 'sd-cpp', name: 'Stable Diffusion (sd-cpp)' },
+    ],
+    supportedAspectRatios: ['16:9', '4:3', '1:1', '9:16'],
+    maxResolution: { width: 1024, height: 1024 },
+  },
 };
 
 export async function testImageConnectivity(
@@ -118,6 +158,8 @@ export async function testImageConnectivity(
   switch (config.providerId) {
     case 'seedream':
       return testSeedreamConnectivity(config);
+    case 'openai-image':
+      return testOpenAIImageConnectivity(config);
     case 'siliconflow-image':
       return testSiliconFlowImageConnectivity(config);
     case 'qwen-image':
@@ -128,6 +170,8 @@ export async function testImageConnectivity(
       return testMiniMaxImageConnectivity(config);
     case 'grok-image':
       return testGrokImageConnectivity(config);
+    case 'lemonade':
+      return testLemonadeImageConnectivity(config);
     default:
       return {
         success: false,
@@ -143,6 +187,8 @@ export async function generateImage(
   switch (config.providerId) {
     case 'seedream':
       return generateWithSeedream(config, options);
+    case 'openai-image':
+      return generateWithOpenAIImage(config, options);
     case 'siliconflow-image':
       return generateWithSiliconFlowImage(config, options);
     case 'qwen-image':
@@ -153,6 +199,8 @@ export async function generateImage(
       return generateWithMiniMaxImage(config, options);
     case 'grok-image':
       return generateWithGrokImage(config, options);
+    case 'lemonade':
+      return generateWithLemonadeImage(config, options);
     default:
       throw new Error(`Unsupported image provider: ${config.providerId}`);
   }

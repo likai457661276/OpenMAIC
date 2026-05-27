@@ -23,7 +23,6 @@ import {
 } from '@/components/ui/select';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
-import { apiPath } from '@/lib/app-paths';
 import { ASR_PROVIDERS } from '@/lib/audio/constants';
 import type { ASRProviderId } from '@/lib/audio/types';
 import { isCustomASRProvider } from '@/lib/audio/types';
@@ -31,6 +30,8 @@ import { Mic, MicOff, CheckCircle2, XCircle, Eye, EyeOff, Plus, Loader2 } from '
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { createLogger } from '@/lib/logger';
+import { normalizeASRUploadAudio } from '@/lib/audio/wav-utils';
+import { apiPath } from '@/lib/app-paths';
 
 const log = createLogger('ASRSettings');
 
@@ -42,7 +43,6 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
   const { t } = useI18n();
 
   const asrLanguage = useSettingsStore((state) => state.asrLanguage);
-  const asrSelectionLocked = useSettingsStore((state) => state.asrSelectionLocked);
   const asrProvidersConfig = useSettingsStore((state) => state.asrProvidersConfig);
   const setASRProviderConfig = useSettingsStore((state) => state.setASRProviderConfig);
   const removeCustomASRProvider = useSettingsStore((state) => state.removeCustomASRProvider);
@@ -54,6 +54,7 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
   const requiresApiKey = isCustom
     ? !!providerConfig?.requiresApiKey
     : !!asrProvider?.requiresApiKey;
+  const isKeylessLocalProvider = !isCustom && !requiresApiKey && !!asrProvider?.defaultBaseUrl;
 
   const [showApiKey, setShowApiKey] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -130,24 +131,28 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
           mediaRecorder.onstop = async () => {
             stream.getTracks().forEach((track) => track.stop());
             setIsProcessing(true);
-            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-            const formData = new FormData();
-            formData.append('audio', audioBlob, 'recording.webm');
-            formData.append('providerId', selectedProviderId);
-            formData.append(
-              'modelId',
-              asrProvidersConfig[selectedProviderId]?.modelId || asrProvider?.defaultModelId || '',
-            );
-            formData.append('language', asrLanguage);
-            const apiKeyValue = asrProvidersConfig[selectedProviderId]?.apiKey;
-            if (apiKeyValue?.trim()) formData.append('apiKey', apiKeyValue);
-            const baseUrlValue =
-              asrProvidersConfig[selectedProviderId]?.baseUrl ||
-              providerConfig?.customDefaultBaseUrl ||
-              '';
-            if (baseUrlValue?.trim()) formData.append('baseUrl', baseUrlValue);
 
             try {
+              const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+              const uploadAudio = await normalizeASRUploadAudio(selectedProviderId, audioBlob);
+              const formData = new FormData();
+              formData.append('audio', uploadAudio.blob, uploadAudio.fileName);
+              formData.append('providerId', selectedProviderId);
+              formData.append(
+                'modelId',
+                asrProvidersConfig[selectedProviderId]?.modelId ||
+                  asrProvider?.defaultModelId ||
+                  '',
+              );
+              formData.append('language', asrLanguage);
+              const apiKeyValue = asrProvidersConfig[selectedProviderId]?.apiKey;
+              if (apiKeyValue?.trim()) formData.append('apiKey', apiKeyValue);
+              const baseUrlValue =
+                asrProvidersConfig[selectedProviderId]?.baseUrl ||
+                providerConfig?.customDefaultBaseUrl ||
+                '';
+              if (baseUrlValue?.trim()) formData.append('baseUrl', baseUrlValue);
+
               const response = await fetch(apiPath('/api/transcription'), {
                 method: 'POST',
                 body: formData,
@@ -195,11 +200,9 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
   return (
     <div className="space-y-6 max-w-3xl">
       {/* Server-configured notice */}
-      {(isServerConfigured || asrSelectionLocked) && (
+      {isServerConfigured && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 p-3 text-sm text-blue-700 dark:text-blue-300">
-          {asrSelectionLocked
-            ? t('settings.asrManagedByConfig')
-            : t('settings.serverConfiguredNotice')}
+          {t('settings.serverConfiguredNotice')}
         </div>
       )}
 
@@ -211,7 +214,7 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
       )}
 
       {/* API Key & Base URL */}
-      {(requiresApiKey || isServerConfigured || isCustom) && (
+      {(requiresApiKey || isServerConfigured || isCustom || isKeylessLocalProvider) && (
         <>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -228,7 +231,6 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
                     isServerConfigured ? t('settings.optionalOverride') : t('settings.enterApiKey')
                   }
                   value={asrProvidersConfig[selectedProviderId]?.apiKey || ''}
-                  disabled={asrSelectionLocked}
                   onChange={(e) =>
                     setASRProviderConfig(selectedProviderId, {
                       apiKey: e.target.value,
@@ -259,7 +261,6 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
                     : asrProvider?.defaultBaseUrl || t('settings.enterCustomBaseUrl')
                 }
                 value={asrProvidersConfig[selectedProviderId]?.baseUrl || ''}
-                disabled={asrSelectionLocked}
                 onChange={(e) =>
                   setASRProviderConfig(selectedProviderId, {
                     baseUrl: e.target.value,
@@ -282,6 +283,7 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
             } else {
               switch (selectedProviderId) {
                 case 'openai-whisper':
+                case 'lemonade-asr':
                   endpointPath = '/audio/transcriptions';
                   break;
                 case 'qwen-asr':
@@ -363,7 +365,6 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
           <Label className="text-sm">{t('settings.defaultModel')}</Label>
           <Select
             value={asrProvidersConfig[selectedProviderId]?.modelId || asrProvider?.defaultModelId}
-            disabled={asrSelectionLocked}
             onValueChange={(value) => setASRProviderConfig(selectedProviderId, { modelId: value })}
           >
             <SelectTrigger>

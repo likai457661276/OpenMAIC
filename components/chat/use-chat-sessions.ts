@@ -11,6 +11,7 @@ import type {
 import type { DiscussionRequest } from '@/components/roundtable';
 import type { Action, SpotlightAction, DiscussionAction } from '@/lib/types/action';
 import type { UIMessage } from 'ai';
+import type { ThinkingConfig } from '@/lib/types/provider';
 import { useStageStore } from '@/lib/store';
 import { useCanvasStore } from '@/lib/store/canvas';
 import { useSettingsStore } from '@/lib/store/settings';
@@ -21,11 +22,7 @@ import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import { USER_AVATAR } from '@/lib/types/roundtable';
 import { StreamBuffer } from '@/lib/buffer/stream-buffer';
 import type { AgentStartItem, ActionItem } from '@/lib/buffer/stream-buffer';
-import {
-  runAgentLoop,
-  type AgentLoopIterationResult,
-  type AgentLoopStoreState,
-} from '@/lib/chat/agent-loop';
+import { runAgentLoop, type AgentLoopStoreState } from '@/lib/chat/agent-loop';
 import { ActionEngine } from '@/lib/action/engine';
 import { toast } from 'sonner';
 import { createLogger } from '@/lib/logger';
@@ -455,6 +452,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
         baseUrl?: string;
         model?: string;
         providerType?: string;
+        thinkingConfig?: ThinkingConfig;
       },
       controller: AbortController,
       sessionType: SessionType,
@@ -491,6 +489,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
           baseUrl: requestTemplate.baseUrl,
           model: requestTemplate.model,
           providerType: requestTemplate.providerType,
+          thinkingConfig: requestTemplate.thinkingConfig,
         },
         {
           getStoreState: (): AgentLoopStoreState => {
@@ -906,6 +905,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
             baseUrl: mc.baseUrl,
             model: mc.modelString,
             providerType: mc.providerType,
+            thinkingConfig: mc.thinkingConfig,
           },
           controller,
           session.type,
@@ -1117,6 +1117,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
             baseUrl: mc.baseUrl,
             model: mc.modelString,
             providerType: mc.providerType,
+            thinkingConfig: mc.thinkingConfig,
           },
           controller,
           sessionType,
@@ -1259,6 +1260,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
             baseUrl: mc.baseUrl,
             model: mc.modelString,
             providerType: mc.providerType,
+            thinkingConfig: mc.thinkingConfig,
           },
           controller,
           'discussion',

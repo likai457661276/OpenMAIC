@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useDeferredValue } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -12,18 +12,21 @@ import {
   ImagePlus,
   Pencil,
   Trash2,
+  Search,
   Settings,
   Sun,
   Moon,
   Monitor,
-  BotOff,
   ChevronUp,
   Upload,
+  Atom,
+  X,
 } from 'lucide-react';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { createLogger } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
+import { InputGroup, InputGroupInput, InputGroupButton } from '@/components/ui/input-group';
 import { Textarea as UITextarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { SettingsDialog } from '@/components/settings';
@@ -34,6 +37,7 @@ import { nanoid } from 'nanoid';
 import { storePdfBlob } from '@/lib/utils/image-storage';
 import type { UserRequirements } from '@/lib/types/generation';
 import { useSettingsStore } from '@/lib/store/settings';
+import { hasUsableLLMProvider } from '@/lib/store/settings-validation';
 import { useUserProfileStore, AVATAR_OPTIONS } from '@/lib/store/user-profile';
 import {
   StageListItem,
@@ -41,6 +45,7 @@ import {
   deleteStageData,
   renameStage,
   getFirstSlideByStages,
+  revokeThumbnailSlideMediaUrls,
 } from '@/lib/utils/stage-storage';
 import { ThumbnailSlide } from '@/components/slide-renderer/components/ThumbnailSlide';
 import type { Slide } from '@/lib/types/slides';
@@ -83,9 +88,20 @@ function HomePage() {
   const { cachedValue: cachedRequirement, updateCache: updateRequirementCache } =
     useDraftCache<string>({ key: 'requirementDraft' });
 
-  // Model setup state
-  const currentModelId = useSettingsStore((s) => s.modelId);
+  // A usable LLM provider exists ⇒ a concrete model is always selected (#580
+  // invariant). Gate generation on this single condition (state A vs B)
+  // instead of inspecting modelId directly.
+  const providersConfig = useSettingsStore((s) => s.providersConfig);
+  const hasUsableProvider = hasUsableLLMProvider(providersConfig);
   const [recentOpen, setRecentOpen] = useState(true);
+  const persistRecentOpen = (next: boolean) => {
+    setRecentOpen(next);
+    try {
+      localStorage.setItem(RECENT_OPEN_STORAGE_KEY, String(next));
+    } catch {
+      /* ignore */
+    }
+  };
 
   // Hydrate client-only state after mount (avoids SSR mismatch)
   /* eslint-disable react-hooks/set-state-in-effect -- Hydration from localStorage must happen in effect */
@@ -109,22 +125,39 @@ function HomePage() {
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Restore requirement draft from cache (derived state pattern — no effect needed)
-  const [prevCachedRequirement, setPrevCachedRequirement] = useState(cachedRequirement);
-  if (cachedRequirement !== prevCachedRequirement) {
-    setPrevCachedRequirement(cachedRequirement);
-    if (cachedRequirement) {
-      setForm((prev) => ({ ...prev, requirement: cachedRequirement }));
-    }
-  }
+  // Restore requirement draft from localStorage on mount. The previous derived-state
+  // pattern initialised `prev` from the cached value itself, so on the first client
+  // render the comparison was always equal and the restore never fired. Use an effect
+  // so the cache is hydrated into the form once we know the live requirement is empty.
+  const draftRestoredRef = useRef(false);
+  /* eslint-disable react-hooks/set-state-in-effect -- Hydration from localStorage must happen in effect */
+  useEffect(() => {
+    if (draftRestoredRef.current) return;
+    if (!cachedRequirement) return;
+    draftRestoredRef.current = true;
+    setForm((prev) => (prev.requirement ? prev : { ...prev, requirement: cachedRequirement }));
+  }, [cachedRequirement]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const [themeOpen, setThemeOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [classrooms, setClassrooms] = useState<StageListItem[]>([]);
   const [thumbnails, setThumbnails] = useState<Record<string, Slide>>({});
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchButtonRef = useRef<HTMLButtonElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const thumbnailsRef = useRef<Record<string, Slide>>({});
+
+  const replaceThumbnails = (slides: Record<string, Slide>) => {
+    const previous = thumbnailsRef.current;
+    thumbnailsRef.current = slides;
+    setThumbnails(slides);
+    window.setTimeout(() => revokeThumbnailSlideMediaUrls(previous), 0);
+  };
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -145,7 +178,9 @@ function HomePage() {
       // Load first slide thumbnails
       if (list.length > 0) {
         const slides = await getFirstSlideByStages(list.map((c) => c.id));
-        setThumbnails(slides);
+        replaceThumbnails(slides);
+      } else {
+        replaceThumbnails({});
       }
     } catch (err) {
       log.error('Failed to load classrooms:', err);
@@ -167,6 +202,11 @@ function HomePage() {
 
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Store hydration on mount
     loadClassrooms();
+
+    return () => {
+      revokeThumbnailSlideMediaUrls(thumbnailsRef.current);
+      thumbnailsRef.current = {};
+    };
   }, []);
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
@@ -195,6 +235,17 @@ function HomePage() {
     }
   };
 
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const filteredClassrooms = useMemo(() => {
+    const q = deferredSearchQuery.trim().toLowerCase();
+    if (!q) return classrooms;
+    return classrooms.filter((c) => {
+      const name = c.name?.toLowerCase() ?? '';
+      const desc = c.description?.toLowerCase() ?? '';
+      return name.includes(q) || desc.includes(q);
+    });
+  }, [classrooms, deferredSearchQuery]);
+
   const updateForm = <K extends keyof FormState>(field: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     try {
@@ -205,48 +256,11 @@ function HomePage() {
     }
   };
 
-  const showSetupToast = (icon: React.ReactNode, title: string, desc: string) => {
-    toast.custom(
-      (id) => (
-        <div
-          className="w-[356px] rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-gradient-to-r from-amber-50 via-white to-amber-50 dark:from-amber-950/60 dark:via-slate-900 dark:to-amber-950/60 shadow-lg shadow-amber-500/8 dark:shadow-amber-900/20 p-4 flex items-start gap-3 cursor-pointer"
-          onClick={() => {
-            toast.dismiss(id);
-            setSettingsOpen(true);
-          }}
-        >
-          <div className="shrink-0 mt-0.5 size-9 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center ring-1 ring-amber-200/50 dark:ring-amber-800/30">
-            {icon}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-amber-900 dark:text-amber-200 leading-tight">
-              {title}
-            </p>
-            <p className="text-xs text-amber-700/80 dark:text-amber-400/70 mt-0.5 leading-relaxed">
-              {desc}
-            </p>
-          </div>
-          <div className="shrink-0 mt-1 text-[10px] font-medium text-amber-500 dark:text-amber-500/70 tracking-wide">
-            <Settings className="size-3.5 animate-[spin_3s_linear_infinite]" />
-          </div>
-        </div>
-      ),
-      { duration: 4000 },
-    );
-  };
-
   const handleGenerate = async () => {
-    // Validate setup before proceeding
-    if (!currentModelId) {
-      showSetupToast(
-        <BotOff className="size-4.5 text-amber-600 dark:text-amber-400" />,
-        t('settings.modelNotConfigured'),
-        t('settings.setupNeeded'),
-      );
-      setSettingsOpen(true);
-      return;
-    }
-
+    // No model/provider guard here: generation is gated by `canGenerate`
+    // (requires a usable provider), and under the #580 invariant a usable
+    // provider always has a concrete model. State A (no usable provider)
+    // surfaces through the toolbar's single Configure-Provider affordance.
     if (!form.requirement.trim()) {
       setError(t('upload.requirementRequired'));
       return;
@@ -318,7 +332,7 @@ function HomePage() {
     return date.toLocaleDateString();
   };
 
-  const canGenerate = !!form.requirement.trim();
+  const canGenerate = !!form.requirement.trim() && hasUsableProvider;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -578,15 +592,7 @@ function HomePage() {
             <div className="flex-1 h-px bg-border/40 group-hover:bg-border/70 transition-colors" />
             <div className="shrink-0 flex items-center gap-3 text-[13px] text-muted-foreground/60 select-none">
               <button
-                onClick={() => {
-                  const next = !recentOpen;
-                  setRecentOpen(next);
-                  try {
-                    localStorage.setItem(RECENT_OPEN_STORAGE_KEY, String(next));
-                  } catch {
-                    /* ignore */
-                  }
-                }}
+                onClick={() => persistRecentOpen(!recentOpen)}
                 className="flex items-center gap-2 hover:text-foreground/70 transition-colors cursor-pointer"
               >
                 <Clock className="size-3.5" />
@@ -599,6 +605,89 @@ function HomePage() {
                   <ChevronDown className="size-3.5" />
                 </motion.div>
               </button>
+
+              {/* Search toggle — icon that expands into an input in place */}
+              <AnimatePresence initial={false}>
+                {!searchOpen ? (
+                  <motion.button
+                    key="search-icon"
+                    ref={searchButtonRef}
+                    type="button"
+                    aria-label={t('classroom.searchAriaLabel')}
+                    onClick={() => {
+                      setSearchOpen(true);
+                      if (!recentOpen) persistRecentOpen(true);
+                      requestAnimationFrame(() => searchInputRef.current?.focus());
+                    }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.12, ease: 'easeOut' }}
+                    className="flex items-center justify-center size-6 rounded-full text-muted-foreground/50 hover:text-foreground/70 hover:bg-muted/50 transition-colors cursor-pointer"
+                  >
+                    <Search className="size-3.5" />
+                  </motion.button>
+                ) : (
+                  <motion.div
+                    key="search-input"
+                    initial={{ opacity: 0, width: 0 }}
+                    animate={{ opacity: 1, width: 200 }}
+                    exit={{ opacity: 0, width: 0 }}
+                    transition={{ duration: 0.18, ease: [0.25, 0.1, 0.25, 1] }}
+                    className="overflow-hidden"
+                  >
+                    <InputGroup
+                      className={cn(
+                        'h-7 text-[12px] rounded-full bg-muted/40 border-transparent shadow-none',
+                        'transition-colors',
+                        'hover:bg-muted/60',
+                        'has-[[data-slot=input-group-control]:focus-visible]:bg-muted/60',
+                        'has-[[data-slot=input-group-control]:focus-visible]:border-transparent',
+                        'has-[[data-slot=input-group-control]:focus-visible]:ring-0',
+                      )}
+                    >
+                      <InputGroupInput
+                        ref={searchInputRef}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') {
+                            e.preventDefault();
+                            if (searchQuery) {
+                              setSearchQuery('');
+                            } else {
+                              setSearchOpen(false);
+                              requestAnimationFrame(() => searchButtonRef.current?.focus());
+                            }
+                          }
+                        }}
+                        onBlur={() => {
+                          if (!searchQuery) {
+                            setSearchOpen(false);
+                          }
+                        }}
+                        placeholder={t('classroom.searchPlaceholder')}
+                        aria-label={t('classroom.searchAriaLabel')}
+                        className="h-7 pl-3 placeholder:text-muted-foreground/50"
+                      />
+                      {searchQuery && (
+                        <InputGroupButton
+                          size="icon-xs"
+                          aria-label={t('classroom.clearSearch')}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setSearchQuery('');
+                            searchInputRef.current?.focus();
+                          }}
+                        >
+                          <X />
+                        </InputGroupButton>
+                      )}
+                    </InputGroup>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <button
                 onClick={triggerFileSelect}
                 disabled={importing}
@@ -623,32 +712,38 @@ function HomePage() {
                 transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
                 className="w-full overflow-hidden"
               >
-                <div className="pt-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-8">
-                  {classrooms.map((classroom, i) => (
-                    <motion.div
-                      key={classroom.id}
-                      initial={{ opacity: 0, y: 16 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{
-                        delay: i * 0.04,
-                        duration: 0.35,
-                        ease: 'easeOut',
-                      }}
-                    >
-                      <ClassroomCard
-                        classroom={classroom}
-                        slide={thumbnails[classroom.id]}
-                        formatDate={formatDate}
-                        onDelete={handleDelete}
-                        onRename={handleRename}
-                        confirmingDelete={pendingDeleteId === classroom.id}
-                        onConfirmDelete={() => confirmDelete(classroom.id)}
-                        onCancelDelete={() => setPendingDeleteId(null)}
-                        onClick={() => router.push(`/classroom/${classroom.id}`)}
-                      />
-                    </motion.div>
-                  ))}
-                </div>
+                {searchQuery.trim() && filteredClassrooms.length === 0 ? (
+                  <div className="pt-8 pb-2 text-center text-[13px] text-muted-foreground/60">
+                    {t('classroom.searchEmpty')}
+                  </div>
+                ) : (
+                  <div className="pt-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-8">
+                    {filteredClassrooms.map((classroom, i) => (
+                      <motion.div
+                        key={classroom.id}
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{
+                          delay: i * 0.04,
+                          duration: 0.35,
+                          ease: 'easeOut',
+                        }}
+                      >
+                        <ClassroomCard
+                          classroom={classroom}
+                          slide={thumbnails[classroom.id]}
+                          formatDate={formatDate}
+                          onDelete={handleDelete}
+                          onRename={handleRename}
+                          confirmingDelete={pendingDeleteId === classroom.id}
+                          onConfirmDelete={() => confirmDelete(classroom.id)}
+                          onCancelDelete={() => setPendingDeleteId(null)}
+                          onClick={() => router.push(`/classroom/${classroom.id}`)}
+                        />
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -1023,6 +1118,31 @@ function ClassroomCard({
             </div>
           </div>
         ) : null}
+
+        {classroom.interactiveMode && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                aria-label={t('toolbar.interactiveModeLabel')}
+                onClick={(e) => e.stopPropagation()}
+                className="absolute bottom-2 left-2 inline-flex items-center justify-center size-5 rounded-full bg-white/70 dark:bg-slate-900/60 text-cyan-600 dark:text-cyan-300 backdrop-blur-sm shadow-sm ring-1 ring-cyan-500/30 z-10"
+              >
+                <Atom className="size-3" />
+              </span>
+            </TooltipTrigger>
+            {/* Negative sideOffset compensates for the global Tooltip Arrow's
+                rotate-45 bounding box, which Radix reserves as spacing. */}
+            <TooltipContent
+              side="top"
+              align="start"
+              sideOffset={-4}
+              collisionPadding={0}
+              className="text-xs"
+            >
+              {t('toolbar.interactiveModeLabel')}
+            </TooltipContent>
+          </Tooltip>
+        )}
 
         {/* Delete — top-right, only on hover */}
         <AnimatePresence>
