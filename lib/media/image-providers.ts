@@ -67,6 +67,7 @@ export const IMAGE_PROVIDERS: Record<ImageProviderId, ImageProviderConfig> = {
     icon: '/logos/siliconflow.svg',
     models: [
       { id: 'Qwen/Qwen-Image', name: 'Qwen / Qwen-Image' },
+      { id: 'baidu/ERNIE-Image-Turbo', name: 'Baidu / ERNIE-Image-Turbo' },
       { id: 'Qwen/Qwen-Image-Edit', name: 'Qwen / Qwen-Image-Edit' },
       { id: 'Qwen/Qwen-Image-Edit-2509', name: 'Qwen / Qwen-Image-Edit-2509' },
     ],
