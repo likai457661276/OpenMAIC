@@ -2,7 +2,7 @@
 
 | 属性 | 值 |
 |------|----|
-| 状态 | 待开发 |
+| 状态 | 已验证 |
 | 优先级 | P0 |
 | 阶段 | 第零阶段：基础设施搭建 |
 | 前置依赖 | 01-Feature Flag 功能开关系统 |
@@ -13,6 +13,8 @@
 ## 一、功能概述
 
 设计并实现教师扩展模块与 OpenMAIC 原有生成能力之间的适配层（Adapter Layer）。教师扩展模块不直接调用原有的课程生成逻辑，而是通过适配层间接访问，从而实现解耦。
+
+> 实施说明：本轮落地的是适配层合同、输入转换和教师 API 路由。教师 API 会将教师模式请求转换为现有 `GenerateClassroomInput`，并复用既有课堂生成任务队列 `/api/generate-classroom/[jobId]` 的轮询结果；不复制原有生成管线实现。
 
 ### 核心目标
 
@@ -174,6 +176,11 @@ app/api/teacher/
 
 每个 API 路由内部通过适配器调用原有能力，不直接复制原有逻辑。
 
+当前实现中：
+- `generate-lesson`、`generate-slides`、`generate-quiz`、`generate-pbl` 通过对应 Adapter 转换为 `GenerateClassroomInput`
+- API 路由创建课堂生成 Job，并返回 `jobId`、`pollUrl`、`pollIntervalMs`
+- `export` 路由先提供导出适配合同，实际文件导出在后续课件预览/导出功能中接入现有导出 Hook
+
 ---
 
 ## 四、需要新增的文件
@@ -224,8 +231,15 @@ Body: {
   style?: string;          // 教学风格偏好
 }
 Response: {
-  lessonId: string;
-  lessonPlan: LessonPlan;
+  jobId: string;
+  status: string;
+  pollUrl: string;
+  pollIntervalMs: number;
+  metadata: {
+    subject: string;
+    grade: string;
+    topic: string;
+  };
 }
 ```
 
@@ -239,7 +253,13 @@ Body: {
   style?: string;          // 课件风格
 }
 Response: {
-  slides: Slide[];
+  jobId: string;
+  status: string;
+  pollUrl: string;
+  pollIntervalMs: number;
+  metadata: {
+    lessonId: string;
+  };
 }
 ```
 

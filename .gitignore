@@ -25,6 +25,7 @@ CLAUDE.local.md
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+.playwright-mcp/
 
 # next.js
 /.next/

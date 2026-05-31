@@ -34,6 +34,8 @@ import type { ASRProviderId } from '@/lib/audio/types';
 import { isCustomASRProvider } from '@/lib/audio/types';
 import { appPath } from '@/lib/app-paths';
 import type { SettingsSection } from '@/lib/types/settings';
+import { useFeatureFlag } from '@/lib/hooks/use-feature-flag';
+import { useTeacherMode } from '@/lib/teacher/teacher-mode-provider';
 
 // ─── Provider icon maps ───
 const IMAGE_PROVIDER_ICONS: Record<string, string> = {
@@ -68,6 +70,9 @@ interface MediaPopoverProps {
 
 export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
   const { t } = useI18n();
+  const { isTeacherMode } = useTeacherMode();
+  const voiceNarrationEnabled = useFeatureFlag('voiceNarration');
+  const voicePlaybackEnabled = useFeatureFlag('voicePlayback');
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('image');
 
@@ -100,19 +105,26 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
   const setASRProvider = useSettingsStore((s) => s.setASRProvider);
   const setASRLanguage = useSettingsStore((s) => s.setASRLanguage);
 
+  const showTTS = !isTeacherMode || voiceNarrationEnabled;
+  const showASR = !isTeacherMode || voicePlaybackEnabled;
+  const visibleTabs = useMemo(
+    () =>
+      TABS.filter((tab) => {
+        if (tab.id === 'tts') return showTTS;
+        if (tab.id === 'asr') return showASR;
+        return true;
+      }),
+    [showASR, showTTS],
+  );
+
   const enabledMap: Record<TabId, boolean> = {
     image: imageGenerationEnabled,
     video: videoGenerationEnabled,
-    tts: ttsEnabled,
-    asr: asrEnabled,
+    tts: showTTS && ttsEnabled,
+    asr: showASR && asrEnabled,
   };
 
-  const enabledCount = [
-    imageGenerationEnabled,
-    videoGenerationEnabled,
-    ttsEnabled,
-    asrEnabled,
-  ].filter(Boolean).length;
+  const enabledCount = visibleTabs.filter((tab) => enabledMap[tab.id]).length;
 
   const cfgOk = useCallback(
     (
@@ -198,7 +210,7 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
     if (isOpen) {
-      const first = (['image', 'video', 'tts', 'asr'] as TabId[]).find((id) => enabledMap[id]);
+      const first = visibleTabs.find((tab) => enabledMap[tab.id])?.id;
       setActiveTab(first || 'image');
     }
   };
@@ -217,8 +229,8 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
           <SlidersHorizontal className="size-3.5" />
           {imageGenerationEnabled && <ImageIcon className="size-3.5" />}
           {videoGenerationEnabled && <Video className="size-3.5" />}
-          {ttsEnabled && <Volume2 className="size-3.5" />}
-          {asrEnabled && <Mic className="size-3.5" />}
+          {showTTS && ttsEnabled && <Volume2 className="size-3.5" />}
+          {showASR && asrEnabled && <Mic className="size-3.5" />}
         </button>
       </PopoverTrigger>
 
@@ -226,7 +238,7 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
         {/* ── Tab bar (segmented control) ── */}
         <div className="p-2 pb-0">
           <div className="flex gap-0.5 p-0.5 bg-muted/60 rounded-lg">
-            {TABS.map((tab) => {
+            {visibleTabs.map((tab) => {
               const isActive = activeTab === tab.id;
               const isEnabled = enabledMap[tab.id];
               const Icon = tab.icon;
@@ -292,7 +304,7 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
             </TabPanel>
           )}
 
-          {activeTab === 'tts' && (
+          {showTTS && activeTab === 'tts' && (
             <TabPanel
               icon={Volume2}
               label={t('media.ttsCapability')}
@@ -301,7 +313,7 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
             />
           )}
 
-          {activeTab === 'asr' && (
+          {showASR && activeTab === 'asr' && (
             <TabPanel
               icon={Mic}
               label={t('media.asrCapability')}

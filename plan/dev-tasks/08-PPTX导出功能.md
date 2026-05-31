@@ -50,7 +50,7 @@ OpenMAIC 原有项目已经具备 PPTX 导出能力，教师扩展模块需要�
 
 ### 3.2 导出页面
 
-**实现文件**：`app/(teacher)/lesson/[id]/export/page.tsx`
+**实现文件**：`app/(teacher)/teacher/lesson/[id]/export/page.tsx`
 
 页面功能：
 - 导出配置（全部导出 / 选择性导出）
@@ -82,7 +82,7 @@ OpenMAIC 原有项目已经具备 PPTX 导出能力，教师扩展模块需要�
 | 文件路径 | 说明 |
 |---------|------|
 | `lib/teacher/export-service.ts` | 导出服务 |
-| `app/(teacher)/lesson/[id]/export/page.tsx` | 导出页面（完整实现） |
+| `app/(teacher)/teacher/lesson/[id]/export/page.tsx` | 导出页面（完整实现） |
 | `components/teacher/export-panel.tsx` | 导出配置面板 |
 | `app/api/teacher/export/route.ts` | 导出 API（完善实现） |
 
@@ -93,7 +93,7 @@ OpenMAIC 原有项目已经具备 PPTX 导出能力，教师扩展模块需要�
 | 文件路径 | 修改内容 |
 |---------|----------|
 | `lib/teacher/adapters/export-adapter.ts` | 完善导出适配器 |
-| `app/(teacher)/lesson/[id]/slides/page.tsx` | 添加快捷导出按钮 |
+| `app/(teacher)/teacher/lesson/[id]/slides/page.tsx` | 添加快捷导出按钮 |
 
 ---
 

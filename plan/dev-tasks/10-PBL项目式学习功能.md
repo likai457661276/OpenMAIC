@@ -109,7 +109,7 @@ export interface RubricLevel {
 
 ### 3.3 PBL 管理页面
 
-**实现文件**：`app/(teacher)/lesson/[id]/pbl/page.tsx`
+**实现文件**：`app/(teacher)/teacher/lesson/[id]/pbl/page.tsx`
 
 页面功能：
 - PBL 项目概览
@@ -135,7 +135,7 @@ export interface RubricLevel {
 |---------|------|
 | `lib/teacher/types/pbl.ts` | PBL 数据类型定义 |
 | `lib/teacher/pbl-service.ts` | PBL 生成与管理服务 |
-| `app/(teacher)/lesson/[id]/pbl/page.tsx` | PBL 管理页面（完整实现） |
+| `app/(teacher)/teacher/lesson/[id]/pbl/page.tsx` | PBL 管理页面（完整实现） |
 | `components/teacher/pbl-overview.tsx` | PBL 概览组件 |
 | `components/teacher/pbl-task-list.tsx` | 任务列表组件 |
 | `components/teacher/pbl-timeline.tsx` | 实施阶段时间轴 |
@@ -150,7 +150,7 @@ export interface RubricLevel {
 | 文件路径 | 修改内容 |
 |---------|----------|
 | `lib/teacher/adapters/pbl-adapter.ts` | 完善 PBL 生成适配器 |
-| `app/(teacher)/lesson/[id]/page.tsx` | 添加「生成 PBL」入口 |
+| `app/(teacher)/teacher/lesson/[id]/page.tsx` | 添加「生成 PBL」入口 |
 
 ---
 

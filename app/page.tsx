@@ -21,6 +21,7 @@ import {
   Upload,
   Atom,
   X,
+  GraduationCap,
 } from 'lucide-react';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { LanguageSwitcher } from '@/components/language-switcher';
@@ -56,6 +57,8 @@ import { useDraftCache } from '@/lib/hooks/use-draft-cache';
 import { useImportClassroom } from '@/lib/import/use-import-classroom';
 import { BrandLogo } from '@/components/brand-logo';
 import { appPath } from '@/lib/app-paths';
+import { FeatureGate } from '@/components/feature-gate';
+import { useTeacherMode } from '@/lib/teacher/teacher-mode-provider';
 
 const log = createLogger('Home');
 
@@ -74,8 +77,9 @@ const initialFormState: FormState = {
   webSearch: false,
 };
 
-function HomePage() {
+export function HomePage() {
   const { t } = useI18n();
+  const { isTeacherMode } = useTeacherMode();
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const [form, setForm] = useState<FormState>(initialFormState);
@@ -431,6 +435,19 @@ function HomePage() {
             <Settings className="w-4 h-4 group-hover:rotate-90 transition-transform duration-500" />
           </button>
         </div>
+
+        {!isTeacherMode && (
+          <FeatureGate feature="teacherExtension">
+            <div className="w-[1px] h-4 bg-gray-200 dark:bg-gray-700" />
+            <button
+              onClick={() => router.push('/teacher')}
+              title="教师模式"
+              className="p-2 rounded-full text-gray-400 dark:text-gray-500 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200 hover:shadow-sm transition-all"
+            >
+              <GraduationCap className="w-4 h-4" />
+            </button>
+          </FeatureGate>
+        )}
       </div>
       <SettingsDialog
         open={settingsOpen}
@@ -749,7 +766,6 @@ function HomePage() {
           </AnimatePresence>
         </motion.div>
       )}
-
     </div>
   );
 }

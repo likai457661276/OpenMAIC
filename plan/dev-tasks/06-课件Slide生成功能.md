@@ -144,7 +144,7 @@ export interface TeacherSlideSet {
 
 | 文件路径 | 修改内容 |
 |---------|----------|
-| `app/(teacher)/lesson/[id]/page.tsx` | 添加「生成课件」按钮和配置入口 |
+| `app/(teacher)/teacher/lesson/[id]/page.tsx` | 添加「生成课件」按钮和配置入口 |
 | `lib/teacher/adapters/slide-adapter.ts` | 完善课件生成适配器 |
 
 ---

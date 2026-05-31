@@ -65,6 +65,8 @@ import { AddProviderDialog, type NewProviderData } from './add-provider-dialog';
 import { AddAudioProviderDialog, type NewAudioProviderData } from './add-audio-provider-dialog';
 import { isCustomTTSProvider, isCustomASRProvider } from '@/lib/audio/types';
 import type { SettingsSection, EditingModel } from '@/lib/types/settings';
+import { useFeatureFlag } from '@/lib/hooks/use-feature-flag';
+import { useTeacherMode } from '@/lib/teacher/teacher-mode-provider';
 
 // ─── Provider List Column (reusable) ───
 function ProviderListColumn<T extends string>({
@@ -221,6 +223,11 @@ interface SettingsDialogProps {
 
 export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsDialogProps) {
   const { t } = useI18n();
+  const { isTeacherMode } = useTeacherMode();
+  const voiceNarrationEnabled = useFeatureFlag('voiceNarration');
+  const voicePlaybackEnabled = useFeatureFlag('voicePlayback');
+  const showTTSSettings = !isTeacherMode || voiceNarrationEnabled;
+  const showASRSettings = !isTeacherMode || voicePlaybackEnabled;
   const [settingsAuthStatus, setSettingsAuthStatus] = useState<'checking' | 'locked' | 'unlocked'>(
     'checking',
   );
@@ -263,12 +270,27 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
     useState<ImageProviderId>(imageProviderId);
   const [selectedVideoProviderId, setSelectedVideoProviderId] =
     useState<VideoProviderId>(videoProviderId);
+  const isSectionVisible = useCallback(
+    (section: SettingsSection) => {
+      if (section === 'tts') return showTTSSettings;
+      if (section === 'asr') return showASRSettings;
+      return true;
+    },
+    [showASRSettings, showTTSSettings],
+  );
+
   // Navigate to initialSection when dialog opens
   useEffect(() => {
-    if (open && initialSection) {
+    if (open && initialSection && isSectionVisible(initialSection)) {
       setActiveSection(initialSection);
     }
-  }, [open, initialSection]);
+  }, [open, initialSection, isSectionVisible]);
+
+  useEffect(() => {
+    if (!isSectionVisible(activeSection)) {
+      setActiveSection('providers');
+    }
+  }, [activeSection, isSectionVisible]);
 
   useEffect(() => {
     if (!open) return;
@@ -864,31 +886,35 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
                 <span className="truncate">{t('settings.videoSettings')}</span>
               </button>
 
-              <button
-                onClick={() => setActiveSection('tts')}
-                className={cn(
-                  'w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors text-left min-w-0',
-                  activeSection === 'tts'
-                    ? 'bg-primary/10 text-primary font-medium'
-                    : 'hover:bg-muted',
-                )}
-              >
-                <Volume2 className="h-4 w-4 shrink-0" />
-                <span className="truncate">{t('settings.ttsSettings')}</span>
-              </button>
+              {showTTSSettings && (
+                <button
+                  onClick={() => setActiveSection('tts')}
+                  className={cn(
+                    'w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors text-left min-w-0',
+                    activeSection === 'tts'
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'hover:bg-muted',
+                  )}
+                >
+                  <Volume2 className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{t('settings.ttsSettings')}</span>
+                </button>
+              )}
 
-              <button
-                onClick={() => setActiveSection('asr')}
-                className={cn(
-                  'w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors text-left min-w-0',
-                  activeSection === 'asr'
-                    ? 'bg-primary/10 text-primary font-medium'
-                    : 'hover:bg-muted',
-                )}
-              >
-                <Mic className="h-4 w-4 shrink-0" />
-                <span className="truncate">{t('settings.asrSettings')}</span>
-              </button>
+              {showASRSettings && (
+                <button
+                  onClick={() => setActiveSection('asr')}
+                  className={cn(
+                    'w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors text-left min-w-0',
+                    activeSection === 'asr'
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'hover:bg-muted',
+                  )}
+                >
+                  <Mic className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{t('settings.asrSettings')}</span>
+                </button>
+              )}
 
               <button
                 onClick={() => setActiveSection('pdf')}
@@ -1041,7 +1067,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
               </>
             )}
 
-            {activeSection === 'tts' && (
+            {showTTSSettings && activeSection === 'tts' && (
               <>
                 <ProviderListColumn
                   providers={[
@@ -1060,7 +1086,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
                   ]}
                   configs={ttsProvidersConfig}
                   selectedId={ttsProviderId}
-                  onSelect={ttsSelectionLocked ? (() => {}) : setTTSProvider}
+                  onSelect={ttsSelectionLocked ? () => {} : setTTSProvider}
                   width={providerListWidth}
                   t={t}
                   onAdd={ttsSelectionLocked ? undefined : () => setShowAddTTSProviderDialog(true)}
@@ -1074,7 +1100,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
               </>
             )}
 
-            {activeSection === 'asr' && (
+            {showASRSettings && activeSection === 'asr' && (
               <>
                 <ProviderListColumn
                   providers={[
@@ -1093,7 +1119,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
                   ]}
                   configs={asrProvidersConfig}
                   selectedId={asrProviderId}
-                  onSelect={asrSelectionLocked ? (() => {}) : setASRProvider}
+                  onSelect={asrSelectionLocked ? () => {} : setASRProvider}
                   width={providerListWidth}
                   t={t}
                   onAdd={asrSelectionLocked ? undefined : () => setShowAddASRProviderDialog(true)}
@@ -1172,8 +1198,12 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
                 {activeSection === 'video' && (
                   <VideoSettings selectedProviderId={selectedVideoProviderId} />
                 )}
-                {activeSection === 'tts' && <TTSSettings selectedProviderId={ttsProviderId} />}
-                {activeSection === 'asr' && <ASRSettings selectedProviderId={asrProviderId} />}
+                {showTTSSettings && activeSection === 'tts' && (
+                  <TTSSettings selectedProviderId={ttsProviderId} />
+                )}
+                {showASRSettings && activeSection === 'asr' && (
+                  <ASRSettings selectedProviderId={asrProviderId} />
+                )}
               </div>
 
               {/* Footer */}

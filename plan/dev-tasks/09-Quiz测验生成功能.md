@@ -117,7 +117,7 @@ export interface QuizGenerationInput {
 
 ### 3.3 Quiz 管理页面
 
-**实现文件**：`app/(teacher)/lesson/[id]/quiz/page.tsx`
+**实现文件**：`app/(teacher)/teacher/lesson/[id]/quiz/page.tsx`
 
 页面功能：
 - Quiz 生成配置（题目数量、题型分布、难度等）
@@ -159,7 +159,7 @@ export interface QuizGenerationInput {
 |---------|------|
 | `lib/teacher/types/quiz.ts` | Quiz 数据类型定义 |
 | `lib/teacher/quiz-service.ts` | Quiz 生成与管理服务 |
-| `app/(teacher)/lesson/[id]/quiz/page.tsx` | Quiz 管理页面（完整实现） |
+| `app/(teacher)/teacher/lesson/[id]/quiz/page.tsx` | Quiz 管理页面（完整实现） |
 | `components/teacher/quiz-editor.tsx` | 题目编辑组件 |
 | `components/teacher/quiz-preview.tsx` | 测验预览组件 |
 | `components/teacher/quiz-question-card.tsx` | 单题展示卡片 |
@@ -175,7 +175,7 @@ export interface QuizGenerationInput {
 | 文件路径 | 修改内容 |
 |---------|----------|
 | `lib/teacher/adapters/quiz-adapter.ts` | 完善 Quiz 生成适配器 |
-| `app/(teacher)/lesson/[id]/page.tsx` | 添加「生成 Quiz」入口 |
+| `app/(teacher)/teacher/lesson/[id]/page.tsx` | 添加「生成 Quiz」入口 |
 
 ---
 
