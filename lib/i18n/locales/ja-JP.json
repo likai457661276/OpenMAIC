@@ -707,6 +707,7 @@
     "providerOpenAIWhisper": "OpenAI ASR (gpt-4o-mini-transcribe)",
     "providerBrowserNative": "ブラウザネイティブASR",
     "providerQwenASR": "Qwen ASR（Alibaba Cloud百錬）",
+    "providerAzureASR": "Azure STT",
     "providerLemonadeASR": "Lemonade ASR（ローカル）",
     "providerUnpdf": "unpdf（組み込み）",
     "providerMinerU": "MinerU",

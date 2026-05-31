@@ -156,7 +156,8 @@ export type BuiltInASRProviderId =
   | 'openai-whisper'
   | 'browser-native'
   | 'qwen-asr'
-  | 'lemonade-asr';
+  | 'lemonade-asr'
+  | 'azure-asr';
 
 export type ASRProviderId = BuiltInASRProviderId | `custom-asr-${string}`;
 

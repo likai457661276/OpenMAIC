@@ -707,6 +707,7 @@
     "providerOpenAIWhisper": "OpenAI ASR (gpt-4o-mini-transcribe)",
     "providerBrowserNative": "Встроенный ASR браузера",
     "providerQwenASR": "Qwen ASR (Alibaba Cloud Bailian)",
+    "providerAzureASR": "Azure STT",
     "providerLemonadeASR": "Lemonade ASR (Локальный)",
     "providerUnpdf": "unpdf (встроенный)",
     "providerMinerU": "MinerU",

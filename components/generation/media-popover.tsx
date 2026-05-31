@@ -8,6 +8,7 @@ import {
   Volume2,
   Mic,
   SlidersHorizontal,
+  ChevronRight,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
@@ -32,6 +33,7 @@ import type { ImageProviderId, VideoProviderId } from '@/lib/media/types';
 import type { ASRProviderId } from '@/lib/audio/types';
 import { isCustomASRProvider } from '@/lib/audio/types';
 import { appPath } from '@/lib/app-paths';
+import type { SettingsSection } from '@/lib/types/settings';
 
 // ─── Provider icon maps ───
 const IMAGE_PROVIDER_ICONS: Record<string, string> = {
@@ -61,10 +63,10 @@ const TABS: Array<{ id: TabId; icon: LucideIcon; label: string }> = [
 ];
 
 interface MediaPopoverProps {
-  onSettingsOpen?: () => void;
+  onSettingsOpen?: (section: SettingsSection) => void;
 }
 
-export function MediaPopover({ onSettingsOpen: _onSettingsOpen }: MediaPopoverProps) {
+export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('image');
@@ -320,6 +322,20 @@ export function MediaPopover({ onSettingsOpen: _onSettingsOpen }: MediaPopoverPr
           )}
         </div>
 
+        {onSettingsOpen && (
+          <div className="border-t border-border/60 p-1">
+            <button
+              onClick={() => {
+                setOpen(false);
+                onSettingsOpen(activeTab);
+              }}
+              className="w-full flex items-center justify-between px-3.5 py-2.5 text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+            >
+              <span>{t('toolbar.advancedSettings')}</span>
+              <ChevronRight className="size-3" />
+            </button>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
