@@ -17,6 +17,7 @@ export interface TeacherLessonGenerationInput {
   objectives?: string[];
   duration?: number;
   style?: string;
+  additionalRequirements?: string;
   enableWebSearch?: boolean;
   enableImageGeneration?: boolean;
   enableVideoGeneration?: boolean;
@@ -28,6 +29,7 @@ export interface TeacherSlideGenerationInput {
   topic?: string;
   slideCount?: number;
   style?: string;
+  includeTypes?: string[];
 }
 
 export interface TeacherQuizGenerationInput {

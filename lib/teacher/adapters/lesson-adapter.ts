@@ -26,6 +26,7 @@ export class LessonAdapter extends BaseTeacherAdapter<
       `教学目标：${objectives}`,
       input.duration ? `课时：${input.duration}分钟` : undefined,
       input.style ? `教学风格：${input.style}` : undefined,
+      input.additionalRequirements ? `补充要求：${input.additionalRequirements}` : undefined,
       '输出应适合教师备课使用，并包含可进一步生成课件、测验和课堂活动的结构。',
     ]
       .filter(Boolean)

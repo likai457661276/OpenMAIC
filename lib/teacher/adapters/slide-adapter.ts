@@ -26,6 +26,9 @@ export class SlideAdapter extends BaseTeacherAdapter<
       input.topic ? `课题：${input.topic}` : undefined,
       input.slideCount ? `幻灯片数量：约 ${input.slideCount} 页` : undefined,
       input.style ? `课件风格：${input.style}` : undefined,
+      input.includeTypes?.length
+        ? `需要包含的课件类型：${input.includeTypes.join('、')}`
+        : undefined,
     ]
       .filter(Boolean)
       .join('\n');

@@ -2,7 +2,7 @@
 
 | 属性 | 值 |
 |------|----|
-| 状态 | 待开发 |
+| 状态 | 已实现 |
 | 优先级 | P0 |
 | 阶段 | 第一阶段：核心备课流程 |
 | 前置依赖 | 02-教师扩展模块骨架、03-Provider适配层、05-教案生成功能 |
@@ -31,8 +31,8 @@ OpenMAIC 原有项目具备完善的 Slide 生成和展示能力：
 
 | 文件/目录 | 说明 |
 |-----------|------|
-| `components/slides/` | Slide 渲染和展示组件 |
-| `app/(main)/course/[id]/` | 课程详情页，包含 Slide 预览 |
+| `components/slide-renderer/` | Slide 渲染和展示组件 |
+| `app/classroom/[id]/` | 课堂详情页，包含原 Stage/Slide 展示 |
 | `lib/generation/` | 生成逻辑中包含 Slide 生成部分 |
 | `packages/` | 可能包含 Slide 数据结构定义 |
 
@@ -59,7 +59,7 @@ OpenMAIC 原有项目具备完善的 Slide 生成和展示能力：
 ```typescript
 export interface SlideGenerationInput {
   lessonId: string;           // 关联教案 ID
-  lessonPlan: LessonPlan;     // 教案内容（作为生成依据）
+  lessonPlan?: LessonPlan;    // API 会通过 lessonId 读取教案
   slideCount?: number;        // 期望幻灯片数量
   style?: SlideStyle;         // 课件风格
   includeTypes?: SlideType[]; // 指定包含的 Slide 类型
@@ -84,7 +84,7 @@ export interface TeacherSlide {
   order: number;
   type: SlideType;
   title: string;
-  content: SlideContent;
+  content: Slide;             // 兼容 OpenMAIC 原 Slide 渲染器
   notes?: string;             // 教师备注/演讲稿
   duration?: number;          // 建议展示时长
 }
@@ -94,8 +94,10 @@ export interface TeacherSlideSet {
   lessonId: string;
   slides: TeacherSlide[];
   totalDuration: number;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;          // ISO 时间
+  updatedAt: string;          // ISO 时间
+  sourceJobId?: string;       // 对应原 classroom generation job
+  sourceClassroomId?: string;
 }
 ```
 
@@ -105,10 +107,10 @@ export interface TeacherSlideSet {
 
 核心功能：
 1. 接收课件生成请求（包含教案信息）
-2. 通过 SlideAdapter 调用原有 Slide 生成能力
-3. 解析生成结果为教师课件格式
+2. 读取本地结构化教案并生成兼容原 Slide 类型的课件数据
+3. 通过 SlideAdapter 创建原 classroom generation job
 4. 为每张 Slide 添加教师备注字段
-5. 保存课件数据
+5. 保存课件数据到 `/data/teacher/slides`
 
 ### 3.3 课件生成触发入口
 
@@ -125,7 +127,7 @@ export interface TeacherSlideSet {
 - 幻灯片数量滑块
 - 课件风格选择
 - 包含内容类型勾选
-- 预览首页效果
+- 生成完成后跳转课件预览页
 
 ---
 
@@ -137,6 +139,7 @@ export interface TeacherSlideSet {
 | `lib/teacher/slide-service.ts` | 课件生成服务 |
 | `components/teacher/slide-config-dialog.tsx` | 课件生成配置弹窗 |
 | `app/api/teacher/generate-slides/route.ts` | 课件生成 API（完善实现） |
+| `app/api/teacher/lessons/[id]/slides/route.ts` | 课件读取与保存 API |
 
 ---
 
@@ -159,10 +162,20 @@ Body: SlideGenerationInput
 Response: { slideSetId: string; slides: TeacherSlide[]; }
 ```
 
+实际响应额外包含 `slideSet`、`jobId`、`pollUrl` 和 `pollIntervalMs`，用于衔接原课堂生成任务。
+
 ### 获取课件
 
 ```
 GET /api/teacher/lessons/:lessonId/slides
+Response: { slideSet: TeacherSlideSet; }
+```
+
+### 保存课件
+
+```
+PUT /api/teacher/lessons/:lessonId/slides
+Body: { slides: TeacherSlide[]; style?: SlideStyle; }
 Response: { slideSet: TeacherSlideSet; }
 ```
 
@@ -174,12 +187,13 @@ Response: { slideSet: TeacherSlideSet; }
 2. 生成的课件包含丰富内容类型
 3. 课件数量可按配置控制
 4. 生成的课件数据可正确保存和读取
+5. 服务层测试覆盖课件生成、重排保存与读取
 
 ---
 
 ## 八、风险与注意事项
 
 1. **Slide 类型兼容**：需要确保教师模式的 Slide 类型与原有渲染组件兼容
-2. **生成耗时**：大量 Slide 生成可能耗时较长，需要流式或分批生成
-3. **内容质量**：课件内容需要基于教案展开，避免简单复制教案文字
+2. **生成耗时**：原 classroom generation job 异步执行；教师课件先基于结构化教案生成可编辑初稿
+3. **内容质量**：当前课件结构由教案字段展开，后续可在 job 成功后将更丰富的 AI 结果回填
 4. **教师备注**：生成后应自动填充建议的教师备注/演讲稿
