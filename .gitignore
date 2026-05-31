@@ -3,6 +3,7 @@
 CLAUDE.local.md
 .claude
 .superpowers
+.codegraph/
 
 # dependencies
 /node_modules
