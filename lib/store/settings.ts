@@ -1499,6 +1499,15 @@ export const useSettingsStore = create<SettingsState>()(
               const validLLMModel = validLLMProvider
                 ? resolveSelectedModel(state.modelId, llmModels)
                 : '';
+              const currentLLMProviderConfig = state.providerId
+                ? newProvidersConfig[state.providerId]
+                : undefined;
+              const currentLLMSelectionIsValid =
+                !!state.providerId &&
+                !!state.modelId &&
+                !!currentLLMProviderConfig &&
+                isLLMProviderConfigured(currentLLMProviderConfig) &&
+                currentLLMProviderConfig.models.some((m) => m.id === state.modelId);
               const parsedServerDefault = data.defaultModel
                 ? parseModelString(data.defaultModel)
                 : undefined;
@@ -1534,12 +1543,11 @@ export const useSettingsStore = create<SettingsState>()(
                   ? requestedDefaultTTSProvider
                   : undefined;
               const serverDefaultTTSVoice = serverDefaults?.ttsVoice?.trim();
-              const resolvedServerDefaultTTSVoice =
-                serverDefaultTTSProvider
-                  ? serverDefaultTTSVoice ||
-                    DEFAULT_TTS_VOICES[serverDefaultTTSProvider as BuiltInTTSProviderId] ||
-                    'default'
-                  : undefined;
+              const resolvedServerDefaultTTSVoice = serverDefaultTTSProvider
+                ? serverDefaultTTSVoice ||
+                  DEFAULT_TTS_VOICES[serverDefaultTTSProvider as BuiltInTTSProviderId] ||
+                  'default'
+                : undefined;
 
               const requestedDefaultASRProvider = serverDefaults?.asrProvider as
                 | ASRProviderId
@@ -1552,17 +1560,15 @@ export const useSettingsStore = create<SettingsState>()(
                   : undefined;
               const serverDefaultASRLanguage = serverDefaults?.asrLanguage?.trim();
               const serverDefaultASRSupportedLanguages = serverDefaultASRProvider
-                ? ASR_PROVIDERS[serverDefaultASRProvider as keyof typeof ASR_PROVIDERS]
-                    ?.supportedLanguages ?? []
+                ? (ASR_PROVIDERS[serverDefaultASRProvider as keyof typeof ASR_PROVIDERS]
+                    ?.supportedLanguages ?? [])
                 : [];
-              const resolvedServerDefaultASRLanguage =
-                serverDefaultASRProvider
-                  ? (serverDefaultASRLanguage &&
-                    serverDefaultASRSupportedLanguages.includes(serverDefaultASRLanguage)
-                      ? serverDefaultASRLanguage
-                      : serverDefaultASRSupportedLanguages[0]) ||
-                    'auto'
-                  : undefined;
+              const resolvedServerDefaultASRLanguage = serverDefaultASRProvider
+                ? (serverDefaultASRLanguage &&
+                  serverDefaultASRSupportedLanguages.includes(serverDefaultASRLanguage)
+                    ? serverDefaultASRLanguage
+                    : serverDefaultASRSupportedLanguages[0]) || 'auto'
+                : undefined;
 
               const requestedDefaultPDFProvider = serverDefaults?.pdfProvider as
                 | PDFProviderId
@@ -1584,7 +1590,7 @@ export const useSettingsStore = create<SettingsState>()(
                   ? requestedDefaultImageProvider
                   : undefined;
               const serverDefaultImageModels = serverDefaultImageProvider
-                ? IMAGE_PROVIDERS[serverDefaultImageProvider]?.models ?? []
+                ? (IMAGE_PROVIDERS[serverDefaultImageProvider]?.models ?? [])
                 : [];
               const serverDefaultImageModel = serverDefaultImageProvider
                 ? validateModel(serverDefaults?.imageModel || '', serverDefaultImageModels) ||
@@ -1602,7 +1608,7 @@ export const useSettingsStore = create<SettingsState>()(
                   ? requestedDefaultVideoProvider
                   : undefined;
               const serverDefaultVideoModels = serverDefaultVideoProvider
-                ? VIDEO_PROVIDERS[serverDefaultVideoProvider]?.models ?? []
+                ? (VIDEO_PROVIDERS[serverDefaultVideoProvider]?.models ?? [])
                 : [];
               const serverDefaultVideoModel = serverDefaultVideoProvider
                 ? validateModel(serverDefaults?.videoModel || '', serverDefaultVideoModels) ||
@@ -1723,22 +1729,17 @@ export const useSettingsStore = create<SettingsState>()(
               // and model atomically at the source, covering server-configured
               // AND client-API-key providers — see #580.)
 
-              const shouldApplyServerDefault =
-                serverDefaultIsUsable &&
-                (state.providerId !== serverDefaultProvider ||
-                  state.modelId !== serverDefaultModelId ||
-                  !validLLMProvider ||
-                  !validLLMModel);
+              const shouldApplyServerDefault = serverDefaultIsUsable && !currentLLMSelectionIsValid;
               const shouldApplyServerDefaultTTS =
                 !!serverDefaultTTSProvider &&
-                (!!resolvedServerDefaultTTSVoice &&
-                  (state.ttsProviderId !== serverDefaultTTSProvider ||
-                    state.ttsVoice !== resolvedServerDefaultTTSVoice));
+                !!resolvedServerDefaultTTSVoice &&
+                (state.ttsProviderId !== serverDefaultTTSProvider ||
+                  state.ttsVoice !== resolvedServerDefaultTTSVoice);
               const shouldApplyServerDefaultASR =
                 !!serverDefaultASRProvider &&
-                (!!resolvedServerDefaultASRLanguage &&
-                  (state.asrProviderId !== serverDefaultASRProvider ||
-                    state.asrLanguage !== resolvedServerDefaultASRLanguage));
+                !!resolvedServerDefaultASRLanguage &&
+                (state.asrProviderId !== serverDefaultASRProvider ||
+                  state.asrLanguage !== resolvedServerDefaultASRLanguage);
               const shouldApplyServerDefaultPDF =
                 !!serverDefaultPDFProvider &&
                 (!validPDFProvider ||
@@ -1858,8 +1859,7 @@ export const useSettingsStore = create<SettingsState>()(
                 }),
                 ...(!shouldApplyServerDefault &&
                   autoLLMProvider && { providerId: autoLLMProvider }),
-                ...(!shouldApplyServerDefault &&
-                  autoLLMModel && { modelId: autoLLMModel }),
+                ...(!shouldApplyServerDefault && autoLLMModel && { modelId: autoLLMModel }),
               };
             });
           } catch (e) {
@@ -1873,8 +1873,11 @@ export const useSettingsStore = create<SettingsState>()(
       name: 'settings-storage',
       version: 2,
       partialize: (state): PersistedSettingsState => {
-        const { imageGenerationEnabled: _imageGenerationEnabled, imageGenerationTouched: _imageGenerationTouched, ...persistedState } =
-          state;
+        const {
+          imageGenerationEnabled: _imageGenerationEnabled,
+          imageGenerationTouched: _imageGenerationTouched,
+          ...persistedState
+        } = state;
         return persistedState;
       },
       // Migrate persisted state

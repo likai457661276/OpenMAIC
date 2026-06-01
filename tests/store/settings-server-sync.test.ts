@@ -598,12 +598,59 @@ describe('fetchServerProviders — provider availability sync', () => {
     expect(store.getState().modelId).toBe('Pro/MiniMaxAI/MiniMax-M2.5');
   });
 
-  it('applies server default model over a stale persisted provider selection', async () => {
+  it('keeps a valid user model selection instead of reapplying server default', async () => {
     const store = await getStore();
 
     store.setState({
       providerId: 'siliconflow',
       modelId: 'Pro/MiniMaxAI/MiniMax-M2.5',
+      autoConfigApplied: true,
+    });
+
+    mockServerResponse({
+      providers: {
+        siliconflow: { models: ['Pro/MiniMaxAI/MiniMax-M2.5'] },
+        doubao: { models: ['ep-20260225155849-krdlt'] },
+      },
+      defaultModel: 'doubao:ep-20260225155849-krdlt',
+    });
+
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().providerId).toBe('siliconflow');
+    expect(store.getState().modelId).toBe('Pro/MiniMaxAI/MiniMax-M2.5');
+  });
+
+  it('keeps a valid model in the same provider when server default points at another model', async () => {
+    const store = await getStore();
+
+    store.setState({
+      providerId: 'siliconflow',
+      modelId: 'deepseek-ai/DeepSeek-V4-Flash',
+      autoConfigApplied: true,
+    });
+
+    mockServerResponse({
+      providers: {
+        siliconflow: {
+          models: ['deepseek-ai/DeepSeek-V4-Flash', 'deepseek-ai/DeepSeek-V4-Pro'],
+        },
+      },
+      defaultModel: 'siliconflow:deepseek-ai/DeepSeek-V4-Pro',
+    });
+
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().providerId).toBe('siliconflow');
+    expect(store.getState().modelId).toBe('deepseek-ai/DeepSeek-V4-Flash');
+  });
+
+  it('uses server default model to recover when current persisted model is unavailable', async () => {
+    const store = await getStore();
+
+    store.setState({
+      providerId: 'siliconflow',
+      modelId: 'deepseek-ai/DeepSeek-V3.2',
       autoConfigApplied: true,
     });
 
