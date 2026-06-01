@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { createLogger } from '@/lib/logger';
 import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
+import { getFeatureFlag } from '@/lib/feature-flags';
 const log = createLogger('Azure Voices');
 
 export const maxDuration = 30;
@@ -13,6 +14,10 @@ export const maxDuration = 30;
 export async function POST(req: NextRequest) {
   let baseUrl: string | undefined;
   try {
+    if (!getFeatureFlag('voiceNarration')) {
+      return apiError('FEATURE_DISABLED', 403, 'Voice narration is disabled');
+    }
+
     const body = await req.json();
     const { apiKey } = body;
     baseUrl = body.baseUrl;

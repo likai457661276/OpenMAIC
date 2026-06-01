@@ -1,5 +1,6 @@
 import type { GenerateClassroomInput } from '@/lib/server/classroom-generation';
 import type { FeatureFlags } from '@/lib/feature-flags';
+import type { QuestionType } from '@/lib/teacher/types';
 
 export interface TeacherAdapterContext {
   featureFlags: FeatureFlags;
@@ -36,7 +37,8 @@ export interface TeacherQuizGenerationInput {
   lessonId: string;
   topic?: string;
   questionCount?: number;
-  difficulty?: 'easy' | 'medium' | 'hard';
+  questionTypes?: QuestionType[];
+  difficulty?: 'easy' | 'medium' | 'hard' | 'mixed';
 }
 
 export interface TeacherPBLGenerationInput {
@@ -48,11 +50,15 @@ export interface TeacherPBLGenerationInput {
 
 export interface TeacherExportInput {
   lessonId: string;
-  format: 'pptx' | 'resource-pack';
+  format: 'pptx' | 'pdf';
+  slideIds?: string[];
+  fileName?: string;
 }
 
 export interface TeacherExportResult {
   format: TeacherExportInput['format'];
   supported: boolean;
   message: string;
+  fileName?: string;
+  slideCount?: number;
 }

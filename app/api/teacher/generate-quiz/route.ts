@@ -1,13 +1,8 @@
-import { after, type NextRequest } from 'next/server';
-import { nanoid } from 'nanoid';
+import { type NextRequest } from 'next/server';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
-import { buildRequestBaseUrl } from '@/lib/server/classroom-storage';
-import { createClassroomGenerationJob } from '@/lib/server/classroom-job-store';
-import { runClassroomGenerationJob } from '@/lib/server/classroom-job-runner';
 import { getFeatureFlags } from '@/lib/feature-flags';
 import { QuizAdapter, type TeacherQuizGenerationInput } from '@/lib/teacher/adapters';
-
-export const maxDuration = 30;
+import { createQuizSetFromLesson } from '@/lib/teacher/quiz-service';
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,35 +12,21 @@ export async function POST(req: NextRequest) {
     }
 
     const adapter = new QuizAdapter({ featureFlags: getFeatureFlags() });
-    const payload = await adapter.execute({
+    adapter.ensureAvailable();
+    const quizSet = await createQuizSetFromLesson({
       lessonId: body.lessonId,
-      topic: body.topic,
+      title: body.topic,
       questionCount: body.questionCount,
+      questionTypes: body.questionTypes,
       difficulty: body.difficulty,
     });
 
-    const baseUrl = buildRequestBaseUrl(req);
-    const jobId = nanoid(10);
-    const job = await createClassroomGenerationJob(jobId, payload.classroomInput);
-    after(() => runClassroomGenerationJob(jobId, payload.classroomInput, baseUrl));
-
-    return apiSuccess(
-      {
-        jobId,
-        status: job.status,
-        step: job.step,
-        message: job.message,
-        metadata: payload.metadata,
-        pollUrl: `${baseUrl}/api/generate-classroom/${jobId}`,
-        pollIntervalMs: 5000,
-      },
-      202,
-    );
+    return apiSuccess({ quizSet });
   } catch (error) {
     return apiError(
       'INVALID_REQUEST',
       400,
-      'Failed to create teacher quiz generation job',
+      'Failed to generate teacher quiz',
       error instanceof Error ? error.message : 'Unknown error',
     );
   }

@@ -6,6 +6,7 @@ import { PENDING_SCENE_ID } from '@/lib/store/stage';
 import { useCanvasStore } from '@/lib/store/canvas';
 import { useSettingsStore } from '@/lib/store/settings';
 import { useI18n } from '@/lib/hooks/use-i18n';
+import { useFeatureFlag } from '@/lib/hooks/use-feature-flag';
 import { SceneSidebar } from './stage/scene-sidebar';
 import { Header } from './header';
 import { CanvasArea } from '@/components/canvas/canvas-area';
@@ -47,6 +48,9 @@ export function Stage({
   onRetryOutline?: (outlineId: string) => Promise<void>;
 }) {
   const { t } = useI18n();
+  const whiteboardEnabled = useFeatureFlag('whiteboard');
+  const voicePlaybackEnabled = useFeatureFlag('voicePlayback');
+  const followPresenterEnabled = useFeatureFlag('followPresenter');
   const {
     mode,
     getCurrentScene,
@@ -113,6 +117,7 @@ export function Stage({
   // Whiteboard state (from canvas store so AI tools can open it)
   const whiteboardOpen = useCanvasStore.use.whiteboardOpen();
   const setWhiteboardOpen = useCanvasStore.use.setWhiteboardOpen();
+  const effectiveWhiteboardOpen = whiteboardEnabled && whiteboardOpen;
 
   // Selected agents from settings store (Zustand)
   const selectedAgentIds = useSettingsStore((s) => s.selectedAgentIds);
@@ -278,6 +283,8 @@ export function Stage({
   }, [clearPresentationIdleTimer, isPresenting, isPresentationInteractionActive]);
 
   const togglePresentation = useCallback(async () => {
+    if (!followPresenterEnabled) return;
+
     const stageElement = stageRef.current;
     if (!stageElement) return;
 
@@ -302,7 +309,13 @@ export function Stage({
       // Firefox may deny fullscreen from certain keyboard events (e.g. F11)
       console.warn('[Presentation] Fullscreen request denied — browser policy');
     }
-  }, [setChatAreaCollapsed, setSidebarCollapsed]);
+  }, [followPresenterEnabled, setChatAreaCollapsed, setSidebarCollapsed]);
+
+  useEffect(() => {
+    if (!whiteboardEnabled && whiteboardOpen) {
+      setWhiteboardOpen(false);
+    }
+  }, [setWhiteboardOpen, whiteboardEnabled, whiteboardOpen]);
 
   useEffect(() => {
     const onFullscreenChange = () => {
@@ -430,6 +443,7 @@ export function Stage({
       onEffectFire: (effect: Effect) => {
         // Add to lecture session with incrementing index
         if (
+          followPresenterEnabled &&
           lectureSessionIdRef.current &&
           (effect.kind === 'spotlight' || effect.kind === 'laser')
         ) {
@@ -794,6 +808,7 @@ export function Stage({
 
   // whiteboard toggle
   const handleWhiteboardToggle = () => {
+    if (!whiteboardEnabled) return;
     setWhiteboardOpen(!whiteboardOpen);
   };
 
@@ -854,15 +869,18 @@ export function Stage({
           }
           break;
         case 'ArrowUp':
+          if (!voicePlaybackEnabled) break;
           event.preventDefault();
           setTTSVolume(ttsVolume + 0.1);
           break;
         case 'ArrowDown':
+          if (!voicePlaybackEnabled) break;
           event.preventDefault();
           setTTSVolume(ttsVolume - 0.1);
           break;
         case 'm':
         case 'M':
+          if (!voicePlaybackEnabled) break;
           event.preventDefault();
           setTTSMuted(!ttsMuted);
           break;
@@ -901,13 +919,14 @@ export function Stage({
     togglePresentation,
     ttsMuted,
     ttsVolume,
+    voicePlaybackEnabled,
   ]);
 
   // Intercept F11 to use our presentation fullscreen instead of browser fullscreen
   // This way ESC can exit fullscreen (browser F11 fullscreen requires F11 to exit)
   useEffect(() => {
     const onF11 = (event: KeyboardEvent) => {
-      if (event.key === 'F11') {
+      if (event.key === 'F11' && followPresenterEnabled) {
         event.preventDefault();
         togglePresentation();
       }
@@ -915,7 +934,7 @@ export function Stage({
 
     window.addEventListener('keydown', onF11);
     return () => window.removeEventListener('keydown', onF11);
-  }, [togglePresentation]);
+  }, [followPresenterEnabled, togglePresentation]);
 
   // Map engine mode to the CanvasArea's expected engine state
   const canvasEngineState = (() => {
@@ -994,7 +1013,7 @@ export function Stage({
             isLiveSession={
               chatIsStreaming || isTopicPending || engineMode === 'live' || !!chatSessionType
             }
-            whiteboardOpen={whiteboardOpen}
+            whiteboardOpen={effectiveWhiteboardOpen}
             sidebarCollapsed={sidebarCollapsed}
             chatCollapsed={chatAreaCollapsed}
             onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -1148,7 +1167,7 @@ export function Stage({
               currentActionIndex={0}
               currentSceneIndex={currentSceneIndex}
               scenesCount={totalScenesCount}
-              whiteboardOpen={whiteboardOpen}
+              whiteboardOpen={effectiveWhiteboardOpen}
               sidebarCollapsed={sidebarCollapsed}
               chatCollapsed={chatAreaCollapsed}
               onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}

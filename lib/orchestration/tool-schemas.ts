@@ -6,6 +6,10 @@
  */
 
 import { SLIDE_ONLY_ACTIONS } from '@/lib/types/action';
+import { getFeatureFlags, type FeatureFlags } from '@/lib/feature-flags';
+
+const WHITEBOARD_ACTION_PREFIX = 'wb_';
+const FOLLOW_PRESENTER_ACTIONS = new Set(['laser']);
 
 // ==================== Effective Actions ====================
 
@@ -13,9 +17,19 @@ import { SLIDE_ONLY_ACTIONS } from '@/lib/types/action';
  * Filter allowed actions by scene type.
  * Slide-only actions (spotlight, laser) are removed for non-slide scenes.
  */
-export function getEffectiveActions(allowedActions: string[], sceneType?: string): string[] {
-  if (!sceneType || sceneType === 'slide') return allowedActions;
-  return allowedActions.filter(
+export function getEffectiveActions(
+  allowedActions: string[],
+  sceneType?: string,
+  flags: FeatureFlags = getFeatureFlags(),
+): string[] {
+  const gatedActions = allowedActions.filter((action) => {
+    if (!flags.whiteboard && action.startsWith(WHITEBOARD_ACTION_PREFIX)) return false;
+    if (!flags.followPresenter && FOLLOW_PRESENTER_ACTIONS.has(action)) return false;
+    return true;
+  });
+
+  if (!sceneType || sceneType === 'slide') return gatedActions;
+  return gatedActions.filter(
     (a) => !SLIDE_ONLY_ACTIONS.includes(a as (typeof SLIDE_ONLY_ACTIONS)[number]),
   );
 }

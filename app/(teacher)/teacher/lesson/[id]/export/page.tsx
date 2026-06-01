@@ -1,4 +1,10 @@
-import { getTeacherExportOptions } from '@/lib/teacher/export-service';
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { ArrowLeft, FileDown } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { TeacherExportPanel } from '@/components/teacher/export-panel';
+import { getTeacherLesson } from '@/lib/teacher/lesson-service';
+import { createSlideSetFromLesson, getLessonSlideSet } from '@/lib/teacher/slide-service';
 
 interface ExportPageProps {
   params: Promise<{ id: string }>;
@@ -6,22 +12,30 @@ interface ExportPageProps {
 
 export default async function LessonExportPage({ params }: ExportPageProps) {
   const { id } = await params;
-  const options = getTeacherExportOptions();
+  const lesson = await getTeacherLesson(id);
+  if (!lesson) notFound();
+  const slideSet = (await getLessonSlideSet(id)) ?? (await createSlideSetFromLesson(lesson));
 
   return (
-    <div className="mx-auto grid w-full max-w-4xl gap-6">
-      <section className="border-b border-border pb-6">
-        <div className="text-sm text-muted-foreground">教案 ID：{id}</div>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight">导出</h1>
-      </section>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {options.map((option) => (
-          <div key={option.format} className="rounded-lg border border-border bg-background p-4">
-            <h2 className="text-sm font-semibold">{option.label}</h2>
-            <p className="mt-2 text-sm text-muted-foreground">导出流程将在后续功能点中接入。</p>
+    <div className="mx-auto grid w-full max-w-5xl gap-5">
+      <section className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+        <div>
+          <div className="text-sm text-muted-foreground">
+            {lesson.subject} · {lesson.grade}
           </div>
-        ))}
-      </div>
+          <h1 className="mt-1 flex items-center gap-2 text-2xl font-semibold tracking-tight">
+            <FileDown className="size-5" />
+            导出课件
+          </h1>
+        </div>
+        <Button asChild variant="outline">
+          <Link href={`/teacher/lesson/${id}`}>
+            <ArrowLeft className="size-4" />
+            返回教案
+          </Link>
+        </Button>
+      </section>
+      <TeacherExportPanel lesson={lesson} slideSet={slideSet} />
     </div>
   );
 }

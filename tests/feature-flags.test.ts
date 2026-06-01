@@ -5,6 +5,7 @@ import {
   getFeatureFlags,
   parseFeatureFlagValue,
 } from '@/lib/feature-flags';
+import { getEffectiveActions } from '@/lib/orchestration/tool-schemas';
 
 describe('feature flags', () => {
   it('uses teacher mode defaults when no overrides are set', () => {
@@ -36,5 +37,33 @@ describe('feature flags', () => {
     expect(parseFeatureFlagValue('0')).toBe(false);
     expect(parseFeatureFlagValue('')).toBeUndefined();
     expect(parseFeatureFlagValue('maybe')).toBeUndefined();
+  });
+
+  it('filters disabled whiteboard and follow-presenter actions', () => {
+    const actions = getEffectiveActions(
+      ['speech', 'spotlight', 'laser', 'wb_open', 'wb_draw_text'],
+      'slide',
+      {
+        ...DEFAULT_TEACHER_MODE_FLAGS,
+        whiteboard: false,
+        followPresenter: false,
+      },
+    );
+
+    expect(actions).toEqual(['speech', 'spotlight']);
+  });
+
+  it('restores gated interaction actions when flags are enabled', () => {
+    const actions = getEffectiveActions(
+      ['spotlight', 'laser', 'wb_open', 'wb_draw_text'],
+      'slide',
+      {
+        ...DEFAULT_TEACHER_MODE_FLAGS,
+        whiteboard: true,
+        followPresenter: true,
+      },
+    );
+
+    expect(actions).toEqual(['spotlight', 'laser', 'wb_open', 'wb_draw_text']);
   });
 });

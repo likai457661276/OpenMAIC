@@ -1,13 +1,8 @@
-import { after, type NextRequest } from 'next/server';
-import { nanoid } from 'nanoid';
+import { type NextRequest } from 'next/server';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
-import { buildRequestBaseUrl } from '@/lib/server/classroom-storage';
-import { createClassroomGenerationJob } from '@/lib/server/classroom-job-store';
-import { runClassroomGenerationJob } from '@/lib/server/classroom-job-runner';
 import { getFeatureFlags } from '@/lib/feature-flags';
 import { PBLAdapter, type TeacherPBLGenerationInput } from '@/lib/teacher/adapters';
-
-export const maxDuration = 30;
+import { createPBLProjectFromLesson } from '@/lib/teacher/pbl-service';
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,35 +12,20 @@ export async function POST(req: NextRequest) {
     }
 
     const adapter = new PBLAdapter({ featureFlags: getFeatureFlags() });
-    const payload = await adapter.execute({
+    adapter.ensureAvailable();
+    const project = await createPBLProjectFromLesson({
       lessonId: body.lessonId,
       topic: body.topic,
       issueCount: body.issueCount,
       targetSkills: body.targetSkills,
     });
 
-    const baseUrl = buildRequestBaseUrl(req);
-    const jobId = nanoid(10);
-    const job = await createClassroomGenerationJob(jobId, payload.classroomInput);
-    after(() => runClassroomGenerationJob(jobId, payload.classroomInput, baseUrl));
-
-    return apiSuccess(
-      {
-        jobId,
-        status: job.status,
-        step: job.step,
-        message: job.message,
-        metadata: payload.metadata,
-        pollUrl: `${baseUrl}/api/generate-classroom/${jobId}`,
-        pollIntervalMs: 5000,
-      },
-      202,
-    );
+    return apiSuccess({ project });
   } catch (error) {
     return apiError(
       'INVALID_REQUEST',
       400,
-      'Failed to create teacher PBL generation job',
+      'Failed to generate teacher PBL project',
       error instanceof Error ? error.message : 'Unknown error',
     );
   }

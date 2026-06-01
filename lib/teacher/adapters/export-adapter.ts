@@ -23,10 +23,15 @@ export class ExportAdapter extends BaseTeacherAdapter<
 
   async execute(input: TeacherExportInput): Promise<TeacherExportResult> {
     this.ensureEnabled();
+    const supported = input.format === 'pptx';
     return this.parse({
       format: input.format,
-      supported: input.format === 'pptx' || input.format === 'resource-pack',
-      message: '教师导出适配器已接入，实际文件导出将在课件预览功能中调用现有导出 Hook。',
+      supported,
+      fileName: input.fileName,
+      slideCount: input.slideIds?.length,
+      message: supported
+        ? '教师 PPTX 导出适配器已接入原有 pptxgenjs 能力。'
+        : '当前教师模式仅支持 PPTX 导出，PDF 作为后续格式预留。',
     });
   }
 }

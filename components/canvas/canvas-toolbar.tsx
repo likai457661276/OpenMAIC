@@ -19,6 +19,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useStageStore } from '@/lib/store';
 import { useI18n } from '@/lib/hooks/use-i18n';
+import { useFeatureFlag } from '@/lib/hooks/use-feature-flag';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export interface CanvasToolbarProps {
@@ -110,6 +111,9 @@ export function CanvasToolbar({
   onCycleSpeed,
 }: CanvasToolbarProps) {
   const { t } = useI18n();
+  const whiteboardEnabled = useFeatureFlag('whiteboard');
+  const voicePlaybackEnabled = useFeatureFlag('voicePlayback');
+  const followPresenterEnabled = useFeatureFlag('followPresenter');
   const canGoPrev = currentSceneIndex > 0;
   const canGoNext = currentSceneIndex < scenesCount - 1;
   const showPlayPause = !isLiveSession;
@@ -178,7 +182,7 @@ export function CanvasToolbar({
           )}
         >
           {/* Volume with vertical popover slider */}
-          {onToggleMute && (
+          {voicePlaybackEnabled && onToggleMute && (
             <div
               ref={volumeContainerRef}
               className="relative flex items-center"
@@ -374,32 +378,34 @@ export function CanvasToolbar({
           )}
 
           {/* Whiteboard */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onWhiteboardClose();
-            }}
-            className={cn(
-              ctrlBtn,
-              'w-6 h-6',
-              whiteboardOpen
-                ? 'text-violet-600 dark:text-violet-400'
-                : 'text-gray-500 dark:text-gray-400',
-            )}
-            title={whiteboardOpen ? t('whiteboard.minimize') : t('whiteboard.open')}
-          >
-            <PencilLine className="w-3.5 h-3.5" />
-            {!whiteboardOpen && whiteboardElementCount > 0 && (
-              <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-violet-500 dark:bg-violet-400 rounded-full" />
-            )}
-          </button>
+          {whiteboardEnabled && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onWhiteboardClose();
+              }}
+              className={cn(
+                ctrlBtn,
+                'w-6 h-6',
+                whiteboardOpen
+                  ? 'text-violet-600 dark:text-violet-400'
+                  : 'text-gray-500 dark:text-gray-400',
+              )}
+              title={whiteboardOpen ? t('whiteboard.minimize') : t('whiteboard.open')}
+            >
+              <PencilLine className="w-3.5 h-3.5" />
+              {!whiteboardOpen && whiteboardElementCount > 0 && (
+                <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-violet-500 dark:bg-violet-400 rounded-full" />
+              )}
+            </button>
+          )}
         </div>
       </div>
 
       {/* ── Right: fullscreen + chat toggle ── */}
       <div className="flex items-center justify-end gap-px shrink-0 pr-1">
         <CtrlDivider />
-        {onTogglePresentation && (
+        {followPresenterEnabled && onTogglePresentation && (
           <button
             onClick={onTogglePresentation}
             className={cn(

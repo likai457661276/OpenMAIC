@@ -10,6 +10,20 @@ import {
   getLessonSlideSet,
   updateLessonSlideSet,
 } from '@/lib/teacher/slide-service';
+import { exportTeacherSlides } from '@/lib/teacher/export-service';
+import { createPBLProjectFromLesson, deletePBLProject } from '@/lib/teacher/pbl-service';
+import { createQuizSetFromLesson, deleteQuizSet } from '@/lib/teacher/quiz-service';
+import {
+  createQuizSession,
+  joinQuizSession,
+  submitQuizAnswer,
+} from '@/lib/teacher/realtime-service';
+import { buildSessionReport } from '@/lib/teacher/scoring-service';
+import {
+  buildFeedbackReport,
+  createFeedbackSession,
+  submitFeedbackResponse,
+} from '@/lib/teacher/feedback-service';
 
 describe('teacher services', () => {
   it('persists and updates a structured lesson plan', async () => {
@@ -61,6 +75,108 @@ describe('teacher services', () => {
     const loaded = await getLessonSlideSet(lesson.id);
     expect(loaded?.lessonId).toBe(lesson.id);
 
+    await deleteTeacherLesson(lesson.id);
+  });
+
+  it('exports selected teacher slides as a pptx buffer', async () => {
+    const lesson = await createTeacherLesson({
+      subject: '语文',
+      grade: '小学五年级',
+      topic: '古诗鉴赏',
+      duration: 40,
+    });
+    const slideSet = await createSlideSetFromLesson(lesson, {
+      slideCount: 3,
+      style: 'professional',
+    });
+
+    const file = await exportTeacherSlides({
+      lessonId: lesson.id,
+      format: 'pptx',
+      slideIds: [slideSet.slides[0].id, slideSet.slides[2].id],
+      fileName: '古诗鉴赏课堂',
+    });
+
+    expect(file.fileName).toBe('古诗鉴赏课堂.pptx');
+    expect(file.slideCount).toBe(2);
+    expect(file.mimeType).toContain('presentationml.presentation');
+    expect(file.buffer.subarray(0, 2).toString()).toBe('PK');
+
+    await deleteTeacherLesson(lesson.id);
+  });
+
+  it('generates quiz, runs a session, scores answers, and collects feedback', async () => {
+    const lesson = await createTeacherLesson({
+      subject: '数学',
+      grade: '初中一年级',
+      topic: '有理数加减法',
+      duration: 45,
+    });
+
+    const quizSet = await createQuizSetFromLesson({
+      lessonId: lesson.id,
+      questionCount: 3,
+      questionTypes: ['single-choice', 'true-false', 'short-answer'],
+      difficulty: 'mixed',
+    });
+    expect(quizSet.questions).toHaveLength(3);
+    expect(quizSet.totalScore).toBeGreaterThan(0);
+
+    const session = await createQuizSession({ quizSetId: quizSet.id });
+    const joined = await joinQuizSession(session.id, '学生甲');
+    const firstQuestion = quizSet.questions[0];
+    const answer = Array.isArray(firstQuestion.correctAnswer)
+      ? firstQuestion.correctAnswer[0]
+      : firstQuestion.correctAnswer;
+
+    await submitQuizAnswer({
+      sessionId: session.id,
+      participantId: joined.participant.id,
+      questionId: firstQuestion.id,
+      answer,
+      timeTaken: 12,
+    });
+
+    const report = await buildSessionReport(session.id);
+    expect(report.participantCount).toBe(1);
+    expect(report.results[0].totalScore).toBeGreaterThan(0);
+
+    const feedback = await createFeedbackSession({
+      lessonId: lesson.id,
+      type: 'understanding',
+      question: '理解度如何？',
+    });
+    await submitFeedbackResponse(feedback.id, {
+      participantId: joined.participant.id,
+      participantName: joined.participant.name,
+      value: 4,
+    });
+    const feedbackReport = await buildFeedbackReport(lesson.id);
+    expect(feedbackReport.overallUnderstanding).toBe(4);
+
+    await deleteQuizSet(quizSet.id);
+    await deleteTeacherLesson(lesson.id);
+  });
+
+  it('generates a structured PBL project from a lesson', async () => {
+    const lesson = await createTeacherLesson({
+      subject: '科学',
+      grade: '小学六年级',
+      topic: '校园节水方案',
+      duration: 45,
+    });
+
+    const project = await createPBLProjectFromLesson({
+      lessonId: lesson.id,
+      issueCount: 3,
+      targetSkills: ['调查分析', '方案表达'],
+    });
+
+    expect(project.tasks).toHaveLength(3);
+    expect(project.timeline.length).toBeGreaterThan(0);
+    expect(project.evaluationCriteria.totalScore).toBe(100);
+
+    await deletePBLProject(project.id);
     await deleteTeacherLesson(lesson.id);
   });
 });

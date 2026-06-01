@@ -24,6 +24,7 @@ export class QuizAdapter extends BaseTeacherAdapter<
       `教案 ID：${input.lessonId}`,
       input.topic ? `测验主题：${input.topic}` : undefined,
       input.questionCount ? `题目数量：${input.questionCount}` : undefined,
+      input.questionTypes?.length ? `题型：${input.questionTypes.join('、')}` : undefined,
       input.difficulty ? `难度：${input.difficulty}` : undefined,
     ]
       .filter(Boolean)

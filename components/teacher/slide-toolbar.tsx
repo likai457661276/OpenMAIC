@@ -1,6 +1,7 @@
 'use client';
 
-import { ChevronLeft, ChevronRight, MonitorPlay, Plus, Save } from 'lucide-react';
+import Link from 'next/link';
+import { ChevronLeft, ChevronRight, Download, MonitorPlay, Plus, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export function SlideToolbar({
@@ -12,6 +13,7 @@ export function SlideToolbar({
   onAdd,
   onSave,
   onPresent,
+  exportHref,
 }: {
   readonly index: number;
   readonly count: number;
@@ -21,6 +23,7 @@ export function SlideToolbar({
   readonly onAdd: () => void;
   readonly onSave: () => void;
   readonly onPresent: () => void;
+  readonly exportHref: string;
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-background p-2">
@@ -57,6 +60,12 @@ export function SlideToolbar({
         <Button type="button" variant="outline" onClick={onPresent}>
           <MonitorPlay className="size-4" />
           演示
+        </Button>
+        <Button asChild variant="outline">
+          <Link href={exportHref}>
+            <Download className="size-4" />
+            导出
+          </Link>
         </Button>
         <Button type="button" onClick={onSave} disabled={pending}>
           <Save className="size-4" />

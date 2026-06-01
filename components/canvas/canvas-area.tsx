@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useFeatureFlag } from '@/lib/hooks/use-feature-flag';
 import { SceneRenderer } from '@/components/stage/scene-renderer';
 import { SceneProvider } from '@/lib/contexts/scene-context';
 import { Whiteboard } from '@/components/whiteboard';
@@ -50,7 +51,9 @@ export function CanvasArea({
   onRetryGeneration,
 }: CanvasAreaProps) {
   const { t } = useI18n();
-  const showControls = mode === 'playback' && !whiteboardOpen;
+  const whiteboardEnabled = useFeatureFlag('whiteboard');
+  const effectiveWhiteboardOpen = whiteboardEnabled && whiteboardOpen;
+  const showControls = mode === 'playback' && !effectiveWhiteboardOpen;
   const showPlayHint =
     showControls &&
     engineState !== 'playing' &&
@@ -106,12 +109,14 @@ export function CanvasArea({
           {/* Whiteboard Layer */}
           <div className="absolute inset-0 z-[110] pointer-events-none">
             <SceneProvider>
-              <Whiteboard isOpen={whiteboardOpen} onClose={onWhiteboardClose} />
+              {whiteboardEnabled && (
+                <Whiteboard isOpen={effectiveWhiteboardOpen} onClose={onWhiteboardClose} />
+              )}
             </SceneProvider>
           </div>
 
           {/* Scene Content */}
-          {currentScene && !whiteboardOpen && (
+          {currentScene && !effectiveWhiteboardOpen && (
             <div className="absolute inset-0">
               <SceneProvider>
                 <SceneRenderer scene={currentScene} mode={mode} />

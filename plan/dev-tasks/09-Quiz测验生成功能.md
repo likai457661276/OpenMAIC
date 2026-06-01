@@ -2,7 +2,7 @@
 
 | 属性 | 值 |
 |------|----|
-| 状态 | 待开发 |
+| 状态 | 已实现 |
 | 优先级 | P1 |
 | 阶段 | 第二阶段：课堂互动能力 |
 | 前置依赖 | 05-教案生成功能、03-Provider适配层 |
@@ -218,6 +218,23 @@ Response: { quizSet: QuizSet; sessionCode: string; }
 1. 可基于教案正常生成 Quiz 题目
 2. 各题型正确展示和编辑
 3. 题目增删改功能正常
+
+---
+
+## 八、实现记录
+
+当前版本已接入教师模式 Quiz 闭环：
+
+- 新增 `lib/teacher/types/quiz.ts` 与 `lib/teacher/quiz-service.ts`，基于教案生成结构化 QuizSet，并持久化到 `data/teacher/quizzes`。
+- `POST /api/teacher/generate-quiz` 已从“通用生成 job 占位”调整为直接返回 `{ quizSet }`。
+- 新增 `app/api/teacher/quiz` 与 `app/api/teacher/quiz/[id]`，支持按教案列出、创建、读取、更新和删除 Quiz。
+- `app/(teacher)/teacher/lesson/[id]/quiz/page.tsx` 已替换占位页，支持生成、编辑、保存、预览和发起答题。
+- 新增 `components/teacher/quiz-editor.tsx`、`quiz-preview.tsx`、`quiz-question-card.tsx`。
+
+### 当前边界
+
+- 题目生成先采用基于教案结构的确定性生成，保留 `QuizAdapter` 的开关和转换能力，后续可替换为 Provider 真实生成。
+- 单题再生成、拖拽排序尚未单独拆 API；当前可通过 Quiz 整体更新完成保存。
 4. 答案和解析设置正确
 5. 预览模式可模拟答题流程
 6. Quiz 发布功能正常

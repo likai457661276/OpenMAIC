@@ -9,6 +9,12 @@ import type { Whiteboard } from '@/lib/types/stage';
 import type { PPTElement } from '@/lib/types/slides';
 import type { StageStore, APIResult } from './stage-api-types';
 import { generateId } from './stage-api-defaults';
+import { getFeatureFlag } from '@/lib/feature-flags';
+
+function ensureWhiteboardEnabled(): APIResult<never> | null {
+  if (getFeatureFlag('whiteboard')) return null;
+  return { success: false, error: 'Whiteboard feature is disabled' };
+}
 
 /**
  * Create the whiteboard management API
@@ -24,6 +30,8 @@ export function createWhiteboardAPI(store: StageStore) {
      * @returns Whether successful
      */
     create(): APIResult<Whiteboard> {
+      const disabled = ensureWhiteboardEnabled();
+      if (disabled) return disabled;
       try {
         const state = store.getState();
         const whiteboard: Whiteboard = {
@@ -55,6 +63,8 @@ export function createWhiteboardAPI(store: StageStore) {
      * @returns The most recently created whiteboard object
      */
     get(): APIResult<Whiteboard> {
+      const disabled = ensureWhiteboardEnabled();
+      if (disabled) return disabled;
       try {
         const state = store.getState();
         if (!state.stage?.whiteboard || state.stage.whiteboard.length === 0) {
@@ -74,6 +84,8 @@ export function createWhiteboardAPI(store: StageStore) {
      * @returns Whether successful
      */
     update(updates: Partial<Whiteboard>, whiteboardId: string): APIResult<boolean> {
+      const disabled = ensureWhiteboardEnabled();
+      if (disabled) return disabled;
       try {
         const state = store.getState();
         const whiteboard = state.stage?.whiteboard?.find((wb) => wb.id === whiteboardId);
@@ -98,6 +110,8 @@ export function createWhiteboardAPI(store: StageStore) {
      * @returns Whether successful
      */
     delete(whiteboardId: string): APIResult<boolean> {
+      const disabled = ensureWhiteboardEnabled();
+      if (disabled) return disabled;
       try {
         const state = store.getState();
         const whiteboardList = state.stage!.whiteboard!.filter((wb) => wb.id !== whiteboardId);
@@ -116,6 +130,8 @@ export function createWhiteboardAPI(store: StageStore) {
      * @returns List of all whiteboards
      */
     list(): APIResult<Whiteboard[]> {
+      const disabled = ensureWhiteboardEnabled();
+      if (disabled) return disabled;
       try {
         const state = store.getState();
         return { success: true, data: state.stage!.whiteboard! };
@@ -132,6 +148,8 @@ export function createWhiteboardAPI(store: StageStore) {
      * @returns Element object
      */
     getElement(elementId: string, whiteboardId: string): APIResult<PPTElement> {
+      const disabled = ensureWhiteboardEnabled();
+      if (disabled) return disabled;
       try {
         const state = store.getState();
         const whiteboard = state.stage!.whiteboard!.find((wb) => wb.id === whiteboardId);
@@ -153,6 +171,8 @@ export function createWhiteboardAPI(store: StageStore) {
      * @returns Whether successful
      */
     addElement(element: PPTElement, whiteboardId: string): APIResult<boolean> {
+      const disabled = ensureWhiteboardEnabled();
+      if (disabled) return disabled;
       try {
         const state = store.getState();
         const whiteboard = state.stage!.whiteboard!.find((wb) => wb.id === whiteboardId);
@@ -185,6 +205,8 @@ export function createWhiteboardAPI(store: StageStore) {
      * @returns Whether successful
      */
     deleteElement(elementId: string, whiteboardId: string): APIResult<boolean> {
+      const disabled = ensureWhiteboardEnabled();
+      if (disabled) return disabled;
       try {
         const state = store.getState();
         const whiteboard = state.stage!.whiteboard!.find((wb) => wb.id === whiteboardId);
@@ -213,6 +235,8 @@ export function createWhiteboardAPI(store: StageStore) {
      * @returns Whether successful
      */
     updateElement(element: PPTElement, whiteboardId: string): APIResult<boolean> {
+      const disabled = ensureWhiteboardEnabled();
+      if (disabled) return disabled;
       try {
         const state = store.getState();
         const whiteboard = state.stage!.whiteboard!.find((wb) => wb.id === whiteboardId);
@@ -240,6 +264,8 @@ export function createWhiteboardAPI(store: StageStore) {
      * @returns Element list
      */
     listElements(whiteboardId: string): APIResult<PPTElement[]> {
+      const disabled = ensureWhiteboardEnabled();
+      if (disabled) return disabled;
       try {
         const state = store.getState();
         const whiteboard = state.stage!.whiteboard!.find((wb) => wb.id === whiteboardId);

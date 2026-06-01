@@ -14,6 +14,7 @@ import { getVoxCPMProviderOptions } from '@/lib/audio/voxcpm-voices';
 import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
 import { createLogger } from '@/lib/logger';
 import { apiPath } from '@/lib/app-paths';
+import { getPublicFeatureFlag } from '@/lib/feature-flags';
 
 const log = createLogger('SceneGenerator');
 
@@ -134,6 +135,8 @@ export async function generateAndStoreTTS(
   language?: string,
   signal?: AbortSignal,
 ): Promise<void> {
+  if (!getPublicFeatureFlag('voiceNarration')) return;
+
   const settings = useSettingsStore.getState();
   if (settings.ttsProviderId === 'browser-native-tts') return;
 
@@ -394,7 +397,11 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
             const settings = useSettingsStore.getState();
 
             // TTS generation — failure means the whole scene fails
-            if (settings.ttsEnabled && settings.ttsProviderId !== 'browser-native-tts') {
+            if (
+              getPublicFeatureFlag('voiceNarration') &&
+              settings.ttsEnabled &&
+              settings.ttsProviderId !== 'browser-native-tts'
+            ) {
               const ttsResult = await generateTTSForScene(
                 scene,
                 params.languageDirective || params.stageInfo.language,
@@ -545,7 +552,11 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
 
         // Step 3: TTS
         const settings = useSettingsStore.getState();
-        if (settings.ttsEnabled && settings.ttsProviderId !== 'browser-native-tts') {
+        if (
+          getPublicFeatureFlag('voiceNarration') &&
+          settings.ttsEnabled &&
+          settings.ttsProviderId !== 'browser-native-tts'
+        ) {
           const ttsResult = await generateTTSForScene(
             actionsResult.scene,
             params.languageDirective || params.stageInfo.language,

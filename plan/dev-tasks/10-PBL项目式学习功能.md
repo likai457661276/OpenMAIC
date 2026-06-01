@@ -2,7 +2,7 @@
 
 | 属性 | 值 |
 |------|----|
-| 状态 | 待开发 |
+| 状态 | 已实现 |
 | 优先级 | P1 |
 | 阶段 | 第二阶段：课堂互动能力 |
 | 前置依赖 | 05-教案生成功能、03-Provider适配层 |
@@ -197,3 +197,20 @@ Response: { project: PBLProject; }
 2. **学科差异**：不同学科的 PBL 项目形式差异较大
 3. **评价标准**：评价标准需要与实际教学评价体系对齐
 4. **与课件衔接**：PBL 项目内容可能需要嵌入课件中展示
+
+---
+
+## 九、实现记录
+
+当前版本已接入教师模式 PBL 基础闭环：
+
+- 新增 `lib/teacher/types/pbl.ts` 与 `lib/teacher/pbl-service.ts`，基于教案生成 PBL 项目、任务、时间轴和评价量表，并持久化到 `data/teacher/pbl-projects`。
+- `POST /api/teacher/generate-pbl` 已从“通用生成 job 占位”调整为直接返回 `{ project }`。
+- 新增 `app/api/teacher/pbl` 与 `app/api/teacher/pbl/[id]`，支持按教案列出、创建、读取、更新和删除 PBL 项目。
+- `app/(teacher)/teacher/lesson/[id]/pbl/page.tsx` 已替换占位页，展示项目概览、任务列表、实施时间轴和评价标准。
+- 新增 `components/teacher/pbl-overview.tsx`、`pbl-task-list.tsx`、`pbl-timeline.tsx`、`pbl-rubric-editor.tsx`、`pbl-project-panel.tsx`。
+
+### 当前边界
+
+- PBL 内容先采用基于教案结构的确定性生成，保留 `PBLAdapter` 的开关和转换能力，后续可替换为 Provider 真实生成。
+- 页面当前以展示和重新生成为主，细粒度在线编辑可继续在 `PUT /api/teacher/pbl/[id]` 上扩展。

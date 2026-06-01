@@ -335,7 +335,8 @@ export class ActionEngine {
 
   private async executeWbOpen(): Promise<void> {
     // Ensure a whiteboard exists
-    this.stageAPI.whiteboard.get();
+    const wb = this.stageAPI.whiteboard.get();
+    if (!wb.success || !wb.data) return;
     useCanvasStore.getState().setWhiteboardOpen(true);
     // Wait for open animation to complete (slow spring: stiffness 120, damping 18, mass 1.2)
     await delay(2000);

@@ -38,6 +38,7 @@ import { ActionEngine } from '@/lib/action/engine';
 import { useCanvasStore } from '@/lib/store/canvas';
 import { useSettingsStore } from '@/lib/store/settings';
 import { createLogger } from '@/lib/logger';
+import { getPublicFeatureFlag } from '@/lib/feature-flags';
 
 const log = createLogger('PlaybackEngine');
 
@@ -490,13 +491,18 @@ export class PlaybackEngine {
           }, readingMs);
         };
 
-        this.audioPlayer
-          .play(speechAction.audioId || '', speechAction.audioUrl)
+        const voicePlaybackEnabled = getPublicFeatureFlag('voicePlayback');
+
+        (voicePlaybackEnabled
+          ? this.audioPlayer.play(speechAction.audioId || '', speechAction.audioUrl)
+          : Promise.resolve(false)
+        )
           .then((audioStarted) => {
             if (!audioStarted) {
               // No pre-generated audio — try browser-native TTS if selected
               const settings = useSettingsStore.getState();
               if (
+                voicePlaybackEnabled &&
                 settings.ttsEnabled &&
                 settings.ttsProviderId === 'browser-native-tts' &&
                 typeof window !== 'undefined' &&
@@ -517,6 +523,11 @@ export class PlaybackEngine {
 
       case 'spotlight':
       case 'laser': {
+        if (action.type === 'laser' && !getPublicFeatureFlag('followPresenter')) {
+          this.processNext();
+          return;
+        }
+
         // Fire-and-forget visual effects via ActionEngine
         this.actionEngine.execute(action);
         this.callbacks.onEffectFire?.({
@@ -583,6 +594,11 @@ export class PlaybackEngine {
       case 'widget_setState':
       case 'widget_annotation':
       case 'widget_reveal': {
+        if (action.type.startsWith('wb_') && !getPublicFeatureFlag('whiteboard')) {
+          this.processNext();
+          return;
+        }
+
         // Synchronous actions — await completion, then continue
         await this.actionEngine.execute(action);
         if (this.mode === 'playing') {

@@ -20,6 +20,10 @@ export abstract class BaseTeacherAdapter<TInput, TOriginalInput, TOriginalOutput
     }
   }
 
+  ensureAvailable() {
+    this.ensureEnabled();
+  }
+
   abstract transform(input: TInput): TOriginalInput;
   abstract parse(output: TOriginalOutput): TOutput;
   abstract execute(input: TInput): Promise<TOutput>;
