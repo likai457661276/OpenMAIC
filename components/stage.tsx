@@ -51,6 +51,7 @@ export function Stage({
   const whiteboardEnabled = useFeatureFlag('whiteboard');
   const voicePlaybackEnabled = useFeatureFlag('voicePlayback');
   const followPresenterEnabled = useFeatureFlag('followPresenter');
+  const complexRealtimePlaybackEnabled = useFeatureFlag('complexRealtimePlayback');
   const {
     mode,
     getCurrentScene,
@@ -73,6 +74,8 @@ export function Stage({
   const setChatAreaCollapsed = useSettingsStore((s) => s.setChatAreaCollapsed);
   const setTTSMuted = useSettingsStore((s) => s.setTTSMuted);
   const setTTSVolume = useSettingsStore((s) => s.setTTSVolume);
+  const setAutoPlayLecture = useSettingsStore((s) => s.setAutoPlayLecture);
+  const setPlaybackSpeed = useSettingsStore((s) => s.setPlaybackSpeed);
 
   // PlaybackEngine state
   const [engineMode, setEngineMode] = useState<EngineMode>('idle');
@@ -318,6 +321,17 @@ export function Stage({
   }, [setWhiteboardOpen, whiteboardEnabled, whiteboardOpen]);
 
   useEffect(() => {
+    if (!complexRealtimePlaybackEnabled) {
+      if (useSettingsStore.getState().autoPlayLecture) {
+        setAutoPlayLecture(false);
+      }
+      if (useSettingsStore.getState().playbackSpeed !== 1) {
+        setPlaybackSpeed(1);
+      }
+    }
+  }, [complexRealtimePlaybackEnabled, setAutoPlayLecture, setPlaybackSpeed]);
+
+  useEffect(() => {
     const onFullscreenChange = () => {
       const active = document.fullscreenElement === stageRef.current;
       setIsPresenting(active);
@@ -505,7 +519,8 @@ export function Stage({
         const ids = useSettingsStore.getState().selectedAgentIds;
         return ids.includes(agentId);
       },
-      getPlaybackSpeed: () => useSettingsStore.getState().playbackSpeed || 1,
+      getPlaybackSpeed: () =>
+        complexRealtimePlaybackEnabled ? useSettingsStore.getState().playbackSpeed || 1 : 1,
       onComplete: () => {
         // lectureSpeech intentionally NOT cleared — last sentence stays visible
         // until scene transition (auto-play) or user restarts. Scene change
@@ -519,10 +534,15 @@ export function Stage({
         }
         // Auto-play: advance to next scene after a short pause
         const { autoPlayLecture } = useSettingsStore.getState();
-        if (autoPlayLecture) {
+        if (complexRealtimePlaybackEnabled && autoPlayLecture) {
           setTimeout(() => {
             const stageState = useStageStore.getState();
-            if (!useSettingsStore.getState().autoPlayLecture) return;
+            if (
+              !complexRealtimePlaybackEnabled ||
+              !useSettingsStore.getState().autoPlayLecture
+            ) {
+              return;
+            }
             const allScenes = stageState.scenes;
             const curId = stageState.currentSceneId;
             const idx = allScenes.findIndex((s) => s.id === curId);
@@ -572,7 +592,7 @@ export function Stage({
       // Load saved playback state and restore position (but never auto-play).
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Only re-run when scene changes, functions are stable refs
-  }, [currentScene]);
+  }, [complexRealtimePlaybackEnabled, currentScene]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -609,8 +629,8 @@ export function Stage({
   // Sync playback speed to audio player (for live-updating current audio)
   const playbackSpeed = useSettingsStore((s) => s.playbackSpeed);
   useEffect(() => {
-    audioPlayerRef.current.setPlaybackRate(playbackSpeed);
-  }, [playbackSpeed]);
+    audioPlayerRef.current.setPlaybackRate(complexRealtimePlaybackEnabled ? playbackSpeed : 1);
+  }, [complexRealtimePlaybackEnabled, playbackSpeed]);
 
   /**
    * Handle discussion SSE — POST /api/chat and push events to engine
@@ -717,6 +737,8 @@ export function Stage({
 
   // play/pause toggle
   const handlePlayPause = useCallback(async () => {
+    if (!complexRealtimePlaybackEnabled) return;
+
     const engine = engineRef.current;
     if (!engine) return;
 
@@ -750,7 +772,7 @@ export function Stage({
         engine.continuePlayback();
       }
     }
-  }, [playbackCompleted, currentScene]);
+  }, [complexRealtimePlaybackEnabled, playbackCompleted, currentScene]);
 
   // get scene information
   const isPendingScene = currentSceneId === PENDING_SCENE_ID;
@@ -853,6 +875,7 @@ export function Stage({
           break;
         case ' ':
         case 'Spacebar':
+          if (!complexRealtimePlaybackEnabled) break;
           // During active QA/discussion, Roundtable owns Space for
           // buffer-level pause/resume — don't also fire engine play/pause.
           if (chatSessionType === 'qa' || chatSessionType === 'discussion') break;
@@ -904,6 +927,7 @@ export function Stage({
   }, [
     chatSessionType,
     chatAreaCollapsed,
+    complexRealtimePlaybackEnabled,
     handleNextScene,
     handlePlayPause,
     handlePreviousScene,

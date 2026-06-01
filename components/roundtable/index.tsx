@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import type { AudioIndicatorState } from './audio-indicator';
 import { CanvasToolbar } from '@/components/canvas/canvas-toolbar';
 import { useAudioRecorder } from '@/lib/hooks/use-audio-recorder';
+import { useFeatureFlag } from '@/lib/hooks/use-feature-flag';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { toast } from 'sonner';
 import { useSettingsStore, PLAYBACK_SPEEDS } from '@/lib/store/settings';
@@ -177,6 +178,7 @@ export function Roundtable({
   fullscreenContainerRef,
 }: RoundtableProps) {
   const { t } = useI18n();
+  const complexRealtimePlaybackEnabled = useFeatureFlag('complexRealtimePlayback');
   const ttsMuted = useSettingsStore((s) => s.ttsMuted);
   const setTTSMuted = useSettingsStore((s) => s.setTTSMuted);
   const ttsEnabled = useSettingsStore((state) => state.ttsEnabled);
@@ -563,10 +565,11 @@ export function Roundtable({
     engineMode === 'live' || sessionType === 'qa' || sessionType === 'discussion';
 
   const handleCycleSpeed = useCallback(() => {
+    if (!complexRealtimePlaybackEnabled) return;
     const currentIndex = PLAYBACK_SPEEDS.indexOf(playbackSpeed as (typeof PLAYBACK_SPEEDS)[number]);
     const nextIndex = (currentIndex + 1) % PLAYBACK_SPEEDS.length;
     setPlaybackSpeed(PLAYBACK_SPEEDS[nextIndex]);
-  }, [playbackSpeed, setPlaybackSpeed]);
+  }, [complexRealtimePlaybackEnabled, playbackSpeed, setPlaybackSpeed]);
 
   // Intentionally non-reactive: agent metadata is treated as immutable during a classroom session.
   const agentRegistry = useAgentRegistry.getState();
@@ -594,8 +597,11 @@ export function Roundtable({
       }
       return;
     }
-    onPlayPause?.();
+    if (complexRealtimePlaybackEnabled) {
+      onPlayPause?.();
+    }
   }, [
+    complexRealtimePlaybackEnabled,
     isTopicPending,
     isInLiveFlow,
     isDiscussionPaused,
@@ -646,9 +652,13 @@ export function Roundtable({
       onToggleMute={() => ttsEnabled && setTTSMuted(!ttsMuted)}
       onVolumeChange={(v) => setTTSVolume(v)}
       autoPlayLecture={autoPlayLecture}
-      onToggleAutoPlay={() => setAutoPlayLecture(!autoPlayLecture)}
-      playbackSpeed={playbackSpeed}
-      onCycleSpeed={handleCycleSpeed}
+      onToggleAutoPlay={
+        complexRealtimePlaybackEnabled
+          ? () => setAutoPlayLecture(!autoPlayLecture)
+          : undefined
+      }
+      playbackSpeed={complexRealtimePlaybackEnabled ? playbackSpeed : 1}
+      onCycleSpeed={complexRealtimePlaybackEnabled ? handleCycleSpeed : undefined}
     />
   );
 
@@ -664,7 +674,9 @@ export function Roundtable({
           side="left"
           onBubbleClick={handlePresentationBubbleClick}
           audioIndicatorState={audioIndicatorState ?? 'idle'}
-          buttonState={enrichedPlaybackView?.buttonState}
+          buttonState={
+            complexRealtimePlaybackEnabled ? enrichedPlaybackView?.buttonState : 'none'
+          }
           isPaused={isDiscussionPaused || engineMode === 'paused'}
         />
 
@@ -876,7 +888,9 @@ export function Roundtable({
             side="right"
             onBubbleClick={handlePresentationBubbleClick}
             audioIndicatorState={audioIndicatorState ?? 'idle'}
-            buttonState={enrichedPlaybackView?.buttonState}
+            buttonState={
+              complexRealtimePlaybackEnabled ? enrichedPlaybackView?.buttonState : 'none'
+            }
             isPaused={isDiscussionPaused || engineMode === 'paused'}
           />
 
@@ -1562,7 +1576,9 @@ export function Roundtable({
                           return;
                         }
                         // Lecture playback: toggle play/pause
-                        onPlayPause?.();
+                        if (complexRealtimePlaybackEnabled) {
+                          onPlayPause?.();
+                        }
                       }}
                       className={cn(
                         'relative px-4 pt-2 pb-3 rounded-2xl text-[15px] leading-relaxed transition-all border w-[min(420px,calc(100%-3rem))] group/bubble flex flex-col max-h-[110px]',
@@ -1692,6 +1708,7 @@ export function Roundtable({
                       {/* Playback state icon (hidden during loading — dots already indicate activity) */}
                       {bubbleRole !== 'user' &&
                         !isBubbleLoading &&
+                        complexRealtimePlaybackEnabled &&
                         (() => {
                           const btnState = playbackView?.buttonState ?? 'none';
                           const barsColor =

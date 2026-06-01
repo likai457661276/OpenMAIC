@@ -476,7 +476,9 @@ export class PlaybackEngine {
             text.match(/[\u4e00-\u9fff\u3400-\u4dbf\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/g) || []
           ).length;
           const isCJK = cjkCount > text.length * 0.3;
-          const speed = this.callbacks.getPlaybackSpeed?.() ?? 1;
+          const speed = getPublicFeatureFlag('complexRealtimePlayback')
+            ? (this.callbacks.getPlaybackSpeed?.() ?? 1)
+            : 1;
           const rawMs = isCJK
             ? Math.max(2000, text.length * 150)
             : Math.max(2000, text.split(/\s+/).filter(Boolean).length * 240);

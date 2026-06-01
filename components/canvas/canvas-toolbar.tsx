@@ -114,9 +114,10 @@ export function CanvasToolbar({
   const whiteboardEnabled = useFeatureFlag('whiteboard');
   const voicePlaybackEnabled = useFeatureFlag('voicePlayback');
   const followPresenterEnabled = useFeatureFlag('followPresenter');
+  const complexRealtimePlaybackEnabled = useFeatureFlag('complexRealtimePlayback');
   const canGoPrev = currentSceneIndex > 0;
   const canGoNext = currentSceneIndex < scenesCount - 1;
-  const showPlayPause = !isLiveSession;
+  const showPlayPause = !isLiveSession && complexRealtimePlaybackEnabled;
 
   const whiteboardElementCount = useStageStore(
     (s) => s.stage?.whiteboard?.[0]?.elements?.length || 0,
@@ -249,7 +250,7 @@ export function CanvasToolbar({
           )}
 
           {/* Speed */}
-          {onCycleSpeed && (
+          {complexRealtimePlaybackEnabled && onCycleSpeed && (
             <TooltipProvider delayDuration={0}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -352,7 +353,7 @@ export function CanvasToolbar({
           <CtrlDivider />
 
           {/* Auto-play */}
-          {onToggleAutoPlay && (
+          {complexRealtimePlaybackEnabled && onToggleAutoPlay && (
             <TooltipProvider delayDuration={0}>
               <Tooltip>
                 <TooltipTrigger asChild>

@@ -73,6 +73,9 @@ next-env.d.ts
 
 # docs
 /docs
+!/docs/
+!/docs/UPSTREAM_SYNC_GUIDE.md
+!/docs/TEACHER_EXTENSION_ARCH.md
 # Eval results
 eval/whiteboard-layout/results/
 eval/outline-language/results/
