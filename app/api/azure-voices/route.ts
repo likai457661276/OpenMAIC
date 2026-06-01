@@ -14,7 +14,8 @@ export const maxDuration = 30;
 export async function POST(req: NextRequest) {
   let baseUrl: string | undefined;
   try {
-    if (!getFeatureFlag('voiceNarration')) {
+    const isTeacherModeRequest = req.headers.get('x-teacher-mode') === 'true';
+    if (isTeacherModeRequest && !getFeatureFlag('voiceNarration')) {
       return apiError('FEATURE_DISABLED', 403, 'Voice narration is disabled');
     }
 

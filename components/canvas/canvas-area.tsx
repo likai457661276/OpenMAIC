@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFeatureFlag } from '@/lib/hooks/use-feature-flag';
+import { useTeacherMode } from '@/lib/teacher/teacher-mode-provider';
 import { SceneRenderer } from '@/components/stage/scene-renderer';
 import { SceneProvider } from '@/lib/contexts/scene-context';
 import { Whiteboard } from '@/components/whiteboard';
@@ -51,7 +52,9 @@ export function CanvasArea({
   onRetryGeneration,
 }: CanvasAreaProps) {
   const { t } = useI18n();
-  const whiteboardEnabled = useFeatureFlag('whiteboard');
+  const { isTeacherMode } = useTeacherMode();
+  const whiteboardFeatureEnabled = useFeatureFlag('whiteboard');
+  const whiteboardEnabled = !isTeacherMode || whiteboardFeatureEnabled;
   const effectiveWhiteboardOpen = whiteboardEnabled && whiteboardOpen;
   const showControls = mode === 'playback' && !effectiveWhiteboardOpen;
   const showPlayHint =

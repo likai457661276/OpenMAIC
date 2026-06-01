@@ -30,7 +30,8 @@ export async function POST(req: NextRequest) {
   let ttsVoice: string | undefined;
   let audioId: string | undefined;
   try {
-    if (!getFeatureFlag('voiceNarration')) {
+    const isTeacherModeRequest = req.headers.get('x-teacher-mode') === 'true';
+    if (isTeacherModeRequest && !getFeatureFlag('voiceNarration')) {
       return apiError('FEATURE_DISABLED', 403, 'Voice narration is disabled');
     }
 

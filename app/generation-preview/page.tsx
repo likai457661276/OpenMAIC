@@ -639,6 +639,10 @@ function GenerationPreviewContent() {
         stage.languageDirective = languageDirective;
       }
 
+      // Ensure generation uses the latest server defaults even if this page
+      // was opened before the provider sync side effect completed.
+      await useSettingsStore.getState().fetchServerProviders();
+
       // ── Agent generation (after outlines — uses languageDirective + outlines) ──
       const settings = useSettingsStore.getState();
       let agents: Array<{

@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { useStageStore } from '@/lib/store';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useFeatureFlag } from '@/lib/hooks/use-feature-flag';
+import { useTeacherMode } from '@/lib/teacher/teacher-mode-provider';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export interface CanvasToolbarProps {
@@ -111,10 +112,16 @@ export function CanvasToolbar({
   onCycleSpeed,
 }: CanvasToolbarProps) {
   const { t } = useI18n();
-  const whiteboardEnabled = useFeatureFlag('whiteboard');
-  const voicePlaybackEnabled = useFeatureFlag('voicePlayback');
-  const followPresenterEnabled = useFeatureFlag('followPresenter');
-  const complexRealtimePlaybackEnabled = useFeatureFlag('complexRealtimePlayback');
+  const { isTeacherMode } = useTeacherMode();
+  const whiteboardFeatureEnabled = useFeatureFlag('whiteboard');
+  const voicePlaybackFeatureEnabled = useFeatureFlag('voicePlayback');
+  const followPresenterFeatureEnabled = useFeatureFlag('followPresenter');
+  const complexRealtimePlaybackFeatureEnabled = useFeatureFlag('complexRealtimePlayback');
+  const whiteboardEnabled = !isTeacherMode || whiteboardFeatureEnabled;
+  const voicePlaybackEnabled = !isTeacherMode || voicePlaybackFeatureEnabled;
+  const followPresenterEnabled = !isTeacherMode || followPresenterFeatureEnabled;
+  const complexRealtimePlaybackEnabled =
+    !isTeacherMode || complexRealtimePlaybackFeatureEnabled;
   const canGoPrev = currentSceneIndex > 0;
   const canGoNext = currentSceneIndex < scenesCount - 1;
   const showPlayPause = !isLiveSession && complexRealtimePlaybackEnabled;

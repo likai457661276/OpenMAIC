@@ -7,6 +7,7 @@ import { useCanvasStore } from '@/lib/store/canvas';
 import { useSettingsStore } from '@/lib/store/settings';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useFeatureFlag } from '@/lib/hooks/use-feature-flag';
+import { useTeacherMode } from '@/lib/teacher/teacher-mode-provider';
 import { SceneSidebar } from './stage/scene-sidebar';
 import { Header } from './header';
 import { CanvasArea } from '@/components/canvas/canvas-area';
@@ -48,10 +49,16 @@ export function Stage({
   onRetryOutline?: (outlineId: string) => Promise<void>;
 }) {
   const { t } = useI18n();
-  const whiteboardEnabled = useFeatureFlag('whiteboard');
-  const voicePlaybackEnabled = useFeatureFlag('voicePlayback');
-  const followPresenterEnabled = useFeatureFlag('followPresenter');
-  const complexRealtimePlaybackEnabled = useFeatureFlag('complexRealtimePlayback');
+  const { isTeacherMode } = useTeacherMode();
+  const whiteboardFeatureEnabled = useFeatureFlag('whiteboard');
+  const voicePlaybackFeatureEnabled = useFeatureFlag('voicePlayback');
+  const followPresenterFeatureEnabled = useFeatureFlag('followPresenter');
+  const complexRealtimePlaybackFeatureEnabled = useFeatureFlag('complexRealtimePlayback');
+  const whiteboardEnabled = !isTeacherMode || whiteboardFeatureEnabled;
+  const voicePlaybackEnabled = !isTeacherMode || voicePlaybackFeatureEnabled;
+  const followPresenterEnabled = !isTeacherMode || followPresenterFeatureEnabled;
+  const complexRealtimePlaybackEnabled =
+    !isTeacherMode || complexRealtimePlaybackFeatureEnabled;
   const {
     mode,
     getCurrentScene,
@@ -425,6 +432,12 @@ export function Stage({
 
     // Create new PlaybackEngine
     const engine = new PlaybackEngine([currentScene], actionEngine, audioPlayerRef.current, {
+      featureFlags: {
+        whiteboard: whiteboardEnabled,
+        voicePlayback: voicePlaybackEnabled,
+        followPresenter: followPresenterEnabled,
+        complexRealtimePlayback: complexRealtimePlaybackEnabled,
+      },
       onModeChange: (mode) => {
         setEngineMode(mode);
       },
@@ -592,7 +605,13 @@ export function Stage({
       // Load saved playback state and restore position (but never auto-play).
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Only re-run when scene changes, functions are stable refs
-  }, [complexRealtimePlaybackEnabled, currentScene]);
+  }, [
+    complexRealtimePlaybackEnabled,
+    currentScene,
+    followPresenterEnabled,
+    voicePlaybackEnabled,
+    whiteboardEnabled,
+  ]);
 
   // Cleanup on unmount
   useEffect(() => {

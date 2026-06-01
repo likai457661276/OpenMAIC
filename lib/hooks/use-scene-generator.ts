@@ -15,6 +15,7 @@ import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
 import { createLogger } from '@/lib/logger';
 import { apiPath } from '@/lib/app-paths';
 import { getPublicFeatureFlag } from '@/lib/feature-flags';
+import { useTeacherMode } from '@/lib/teacher/teacher-mode-provider';
 
 const log = createLogger('SceneGenerator');
 
@@ -135,8 +136,6 @@ export async function generateAndStoreTTS(
   language?: string,
   signal?: AbortSignal,
 ): Promise<void> {
-  if (!getPublicFeatureFlag('voiceNarration')) return;
-
   const settings = useSettingsStore.getState();
   if (settings.ttsProviderId === 'browser-native-tts') return;
 
@@ -263,6 +262,8 @@ export interface GenerationParams {
 }
 
 export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
+  const { isTeacherMode } = useTeacherMode();
+  const voiceNarrationEnabled = !isTeacherMode || getPublicFeatureFlag('voiceNarration');
   const abortRef = useRef(false);
   const generatingRef = useRef(false);
   const mediaAbortRef = useRef<AbortController | null>(null);
@@ -398,7 +399,7 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
 
             // TTS generation — failure means the whole scene fails
             if (
-              getPublicFeatureFlag('voiceNarration') &&
+              voiceNarrationEnabled &&
               settings.ttsEnabled &&
               settings.ttsProviderId !== 'browser-native-tts'
             ) {
@@ -461,7 +462,7 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
         fetchAbortRef.current = null;
       }
     },
-    [options, store],
+    [options, store, voiceNarrationEnabled],
   );
 
   // Keep ref in sync so retrySingleOutline can call it
@@ -553,7 +554,7 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
         // Step 3: TTS
         const settings = useSettingsStore.getState();
         if (
-          getPublicFeatureFlag('voiceNarration') &&
+          voiceNarrationEnabled &&
           settings.ttsEnabled &&
           settings.ttsProviderId !== 'browser-native-tts'
         ) {
@@ -581,7 +582,7 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
         }
       }
     },
-    [store],
+    [store, voiceNarrationEnabled],
   );
 
   return { generateRemaining, retrySingleOutline, stop, isGenerating };

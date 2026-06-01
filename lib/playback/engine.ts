@@ -38,7 +38,7 @@ import { ActionEngine } from '@/lib/action/engine';
 import { useCanvasStore } from '@/lib/store/canvas';
 import { useSettingsStore } from '@/lib/store/settings';
 import { createLogger } from '@/lib/logger';
-import { getPublicFeatureFlag } from '@/lib/feature-flags';
+import { getPublicFeatureFlag, type FeatureFlagKey } from '@/lib/feature-flags';
 
 const log = createLogger('PlaybackEngine');
 
@@ -401,6 +401,10 @@ export class PlaybackEngine {
     this.savedActionIndex = null;
   }
 
+  private isFeatureEnabled(flag: FeatureFlagKey): boolean {
+    return this.callbacks.featureFlags?.[flag] ?? getPublicFeatureFlag(flag);
+  }
+
   /**
    * Get the current action, or null if playback is complete.
    * Advances sceneIndex automatically when a scene's actions are exhausted.
@@ -476,7 +480,7 @@ export class PlaybackEngine {
             text.match(/[\u4e00-\u9fff\u3400-\u4dbf\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/g) || []
           ).length;
           const isCJK = cjkCount > text.length * 0.3;
-          const speed = getPublicFeatureFlag('complexRealtimePlayback')
+          const speed = this.isFeatureEnabled('complexRealtimePlayback')
             ? (this.callbacks.getPlaybackSpeed?.() ?? 1)
             : 1;
           const rawMs = isCJK
@@ -493,7 +497,7 @@ export class PlaybackEngine {
           }, readingMs);
         };
 
-        const voicePlaybackEnabled = getPublicFeatureFlag('voicePlayback');
+        const voicePlaybackEnabled = this.isFeatureEnabled('voicePlayback');
 
         (voicePlaybackEnabled
           ? this.audioPlayer.play(speechAction.audioId || '', speechAction.audioUrl)
@@ -525,7 +529,7 @@ export class PlaybackEngine {
 
       case 'spotlight':
       case 'laser': {
-        if (action.type === 'laser' && !getPublicFeatureFlag('followPresenter')) {
+        if (action.type === 'laser' && !this.isFeatureEnabled('followPresenter')) {
           this.processNext();
           return;
         }
@@ -596,7 +600,7 @@ export class PlaybackEngine {
       case 'widget_setState':
       case 'widget_annotation':
       case 'widget_reveal': {
-        if (action.type.startsWith('wb_') && !getPublicFeatureFlag('whiteboard')) {
+        if (action.type.startsWith('wb_') && !this.isFeatureEnabled('whiteboard')) {
           this.processNext();
           return;
         }

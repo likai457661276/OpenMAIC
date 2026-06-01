@@ -3,6 +3,7 @@
  */
 
 import type { PlaybackSnapshot } from '@/lib/utils/playback-storage';
+import type { FeatureFlags } from '@/lib/feature-flags';
 
 export type { PlaybackSnapshot };
 
@@ -27,6 +28,8 @@ export interface TriggerEvent {
 
 /** Playback engine callbacks */
 export interface PlaybackEngineCallbacks {
+  featureFlags?: Partial<FeatureFlags>;
+
   onModeChange?: (mode: EngineMode) => void;
   onSceneChange?: (sceneId: string) => void;
   onSpeechStart?: (text: string) => void;

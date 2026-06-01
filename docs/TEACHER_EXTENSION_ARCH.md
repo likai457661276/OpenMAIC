@@ -33,6 +33,7 @@
 - 禁用/弱化功能：互动白板、语音讲解、语音播放、跟随演示、复杂实时播放控制。
 
 客户端通过 `useFeatureFlag` 或 `getPublicFeatureFlag` 判断，服务端通过 `getFeatureFlag` 判断。
+位于 `Stage`、`CanvasToolbar`、`PlaybackEngine` 等原课堂复用组件中的禁用/弱化逻辑，必须额外结合教师模式上下文判断；普通 `/classroom/...` 页面应保持 OpenMAIC 原有功能。
 
 ## 原项目最小改动
 
@@ -46,7 +47,7 @@
 
 ## 复杂播放控制弱化
 
-`complexRealtimePlayback=false` 时：
+教师模式上下文中 `complexRealtimePlayback=false` 时：
 
 - 隐藏讲解播放/暂停入口、播放速度控制和自动播放控制。
 - 保留上一页、下一页、页码、侧栏/对话区收起和可用的全屏入口。
@@ -54,6 +55,7 @@
 - `PlaybackEngine` 的阅读计时按 `1x` 处理，避免本地旧设置影响教师扩展模式。
 
 教师课件页的 `SlidePresenter` 是简化演示器，只包含翻页、退出和备注展示，不接入原项目复杂实时播放控制。
+普通 `/classroom/...` 渲染页不套用该禁用项，继续保留原有播放/暂停、倍速、自动播放、全屏和音频播放能力。
 
 ## 维护检查
 

@@ -22,6 +22,7 @@ import { CanvasToolbar } from '@/components/canvas/canvas-toolbar';
 import { useAudioRecorder } from '@/lib/hooks/use-audio-recorder';
 import { useFeatureFlag } from '@/lib/hooks/use-feature-flag';
 import { useI18n } from '@/lib/hooks/use-i18n';
+import { useTeacherMode } from '@/lib/teacher/teacher-mode-provider';
 import { toast } from 'sonner';
 import { useSettingsStore, PLAYBACK_SPEEDS } from '@/lib/store/settings';
 import { ProactiveCard } from '@/components/chat/proactive-card';
@@ -178,7 +179,10 @@ export function Roundtable({
   fullscreenContainerRef,
 }: RoundtableProps) {
   const { t } = useI18n();
-  const complexRealtimePlaybackEnabled = useFeatureFlag('complexRealtimePlayback');
+  const { isTeacherMode } = useTeacherMode();
+  const complexRealtimePlaybackFeatureEnabled = useFeatureFlag('complexRealtimePlayback');
+  const complexRealtimePlaybackEnabled =
+    !isTeacherMode || complexRealtimePlaybackFeatureEnabled;
   const ttsMuted = useSettingsStore((s) => s.ttsMuted);
   const setTTSMuted = useSettingsStore((s) => s.setTTSMuted);
   const ttsEnabled = useSettingsStore((state) => state.ttsEnabled);
