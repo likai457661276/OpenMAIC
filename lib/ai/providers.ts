@@ -862,6 +862,13 @@ export const PROVIDERS: Record<ProviderId, ProviderConfig> = {
         capabilities: { streaming: true, tools: true, vision: true },
       },
       {
+        id: 'doubao-seed-2-0-code-preview-260215',
+        name: 'Doubao Seed 2.0 Code Preview',
+        contextWindow: 128000,
+        outputWindow: 32768,
+        capabilities: { streaming: true, tools: true, vision: false },
+      },
+      {
         id: 'doubao-seed-1-8-251228',
         name: 'Doubao Seed 1.8',
         contextWindow: 128000,
