@@ -531,7 +531,9 @@ export function HomePage() {
             text={isTeacherMode ? '宾果AI互动课件' : undefined}
             gradientStart={isTeacherMode ? '#38E8FF' : undefined}
             gradientEnd={isTeacherMode ? '#F7D35C' : undefined}
-            className={isTeacherMode ? 'drop-shadow-[0_18px_42px_rgba(34,211,238,0.18)]' : undefined}
+            className={
+              isTeacherMode ? 'drop-shadow-[0_18px_42px_rgba(34,211,238,0.18)]' : undefined
+            }
             iconClassName={cn(
               'h-14 w-14 md:h-[4.5rem] md:w-[4.5rem]',
               isTeacherMode && 'md:h-16 md:w-16',
@@ -551,7 +553,7 @@ export function HomePage() {
           transition={{ delay: 0.25 }}
           className={cn(
             'text-xs md:text-sm mb-8 text-center',
-            isTeacherMode ? 'text-cyan-50/55' : 'text-muted-foreground/60',
+            isTeacherMode ? 'text-cyan-50/75' : 'text-muted-foreground/60',
           )}
         >
           {isTeacherMode
@@ -576,7 +578,10 @@ export function HomePage() {
           >
             {/* ── Greeting + Profile + Agents ── */}
             <div className="relative z-20 flex items-start justify-between">
-              <GreetingBar label={isTeacherMode ? '教师备课' : undefined} />
+              <GreetingBar
+                label={isTeacherMode ? '教师备课' : undefined}
+                teacherMode={isTeacherMode}
+              />
               {!isTeacherMode && (
                 <div className="pr-3 pt-3.5 shrink-0">
                   <AgentBar />
@@ -595,7 +600,7 @@ export function HomePage() {
               className={cn(
                 'w-full resize-none border-0 bg-transparent px-4 pt-1 pb-2 text-[13px] leading-relaxed focus:outline-none min-h-[140px] max-h-[300px]',
                 isTeacherMode
-                  ? 'text-slate-100 placeholder:text-cyan-50/35'
+                  ? 'text-slate-100 placeholder:text-cyan-50/58'
                   : 'placeholder:text-muted-foreground/40',
               )}
               value={form.requirement}
@@ -614,6 +619,7 @@ export function HomePage() {
                     setSettingsSection(section);
                     setSettingsOpen(true);
                   }}
+                  tone={isTeacherMode ? 'teacher' : 'default'}
                   pdfFile={form.pdfFile}
                   onPdfFileChange={(f) => updateForm('pdfFile', f)}
                   onPdfError={setError}
@@ -627,8 +633,12 @@ export function HomePage() {
                 className={cn(
                   'shrink-0 h-8 rounded-lg flex items-center justify-center gap-1.5 transition-all px-3',
                   canGenerate
-                    ? 'bg-primary text-primary-foreground hover:opacity-90 shadow-sm cursor-pointer'
-                    : 'bg-muted text-muted-foreground/40 cursor-not-allowed',
+                    ? isTeacherMode
+                      ? 'bg-cyan-50 text-slate-950 hover:bg-white shadow-[0_0_22px_rgba(103,232,249,0.18)] cursor-pointer'
+                      : 'bg-primary text-primary-foreground hover:opacity-90 shadow-sm cursor-pointer'
+                    : isTeacherMode
+                      ? 'bg-slate-100/16 text-cyan-50/68 cursor-not-allowed'
+                      : 'bg-muted text-muted-foreground/40 cursor-not-allowed',
                 )}
               >
                 <span className="text-xs font-medium">
@@ -699,11 +709,26 @@ export function HomePage() {
         >
           {/* Trigger — divider-line with centered text */}
           <div className="group w-full flex items-center gap-4 py-2">
-            <div className="flex-1 h-px bg-border/40 group-hover:bg-border/70 transition-colors" />
-            <div className="shrink-0 flex items-center gap-3 text-[13px] text-muted-foreground/60 select-none">
+            <div
+              className={cn(
+                'flex-1 h-px transition-colors',
+                isTeacherMode
+                  ? 'bg-cyan-50/24 group-hover:bg-cyan-50/38'
+                  : 'bg-border/40 group-hover:bg-border/70',
+              )}
+            />
+            <div
+              className={cn(
+                'shrink-0 flex items-center gap-3 text-[13px] select-none',
+                isTeacherMode ? 'text-cyan-50/72' : 'text-muted-foreground/60',
+              )}
+            >
               <button
                 onClick={() => persistRecentOpen(!recentOpen)}
-                className="flex items-center gap-2 hover:text-foreground/70 transition-colors cursor-pointer"
+                className={cn(
+                  'flex items-center gap-2 transition-colors cursor-pointer',
+                  isTeacherMode ? 'hover:text-white' : 'hover:text-foreground/70',
+                )}
               >
                 <Clock className="size-3.5" />
                 {t('classroom.recentClassrooms')}
@@ -733,7 +758,12 @@ export function HomePage() {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.12, ease: 'easeOut' }}
-                    className="flex items-center justify-center size-6 rounded-full text-muted-foreground/50 hover:text-foreground/70 hover:bg-muted/50 transition-colors cursor-pointer"
+                    className={cn(
+                      'flex items-center justify-center size-6 rounded-full transition-colors cursor-pointer',
+                      isTeacherMode
+                        ? 'text-cyan-50/58 hover:bg-cyan-100/10 hover:text-white'
+                        : 'text-muted-foreground/50 hover:text-foreground/70 hover:bg-muted/50',
+                    )}
                   >
                     <Search className="size-3.5" />
                   </motion.button>
@@ -748,10 +778,18 @@ export function HomePage() {
                   >
                     <InputGroup
                       className={cn(
-                        'h-7 text-[12px] rounded-full bg-muted/40 border-transparent shadow-none',
-                        'transition-colors',
-                        'hover:bg-muted/60',
-                        'has-[[data-slot=input-group-control]:focus-visible]:bg-muted/60',
+                        'h-7 text-[12px] rounded-full border-transparent shadow-none transition-colors',
+                        isTeacherMode
+                          ? [
+                              'bg-slate-900/70 text-cyan-50 ring-1 ring-cyan-100/18',
+                              'hover:bg-slate-900/85',
+                              'has-[[data-slot=input-group-control]:focus-visible]:bg-slate-900/85',
+                            ]
+                          : [
+                              'bg-muted/40',
+                              'hover:bg-muted/60',
+                              'has-[[data-slot=input-group-control]:focus-visible]:bg-muted/60',
+                            ],
                         'has-[[data-slot=input-group-control]:focus-visible]:border-transparent',
                         'has-[[data-slot=input-group-control]:focus-visible]:ring-0',
                       )}
@@ -778,7 +816,12 @@ export function HomePage() {
                         }}
                         placeholder={t('classroom.searchPlaceholder')}
                         aria-label={t('classroom.searchAriaLabel')}
-                        className="h-7 pl-3 placeholder:text-muted-foreground/50"
+                        className={cn(
+                          'h-7 pl-3',
+                          isTeacherMode
+                            ? 'text-cyan-50 placeholder:text-cyan-50/45'
+                            : 'placeholder:text-muted-foreground/50',
+                        )}
                       />
                       {searchQuery && (
                         <InputGroupButton
@@ -801,7 +844,12 @@ export function HomePage() {
               <button
                 onClick={triggerFileSelect}
                 disabled={importing}
-                className="group/import grid grid-cols-[auto_0fr] hover:grid-cols-[auto_1fr] items-center gap-1 rounded-full px-1.5 py-0.5 text-[12px] text-muted-foreground/35 hover:text-muted-foreground/70 hover:bg-muted/50 transition-all duration-200 cursor-pointer"
+                className={cn(
+                  'group/import grid grid-cols-[auto_0fr] hover:grid-cols-[auto_1fr] items-center gap-1 rounded-full px-1.5 py-0.5 text-[12px] transition-all duration-200 cursor-pointer',
+                  isTeacherMode
+                    ? 'text-cyan-50/52 hover:bg-cyan-100/10 hover:text-white'
+                    : 'text-muted-foreground/35 hover:text-muted-foreground/70 hover:bg-muted/50',
+                )}
               >
                 <Upload className="size-3" />
                 <span className="overflow-hidden opacity-0 group-hover/import:opacity-100 transition-opacity duration-200 whitespace-nowrap">
@@ -809,7 +857,14 @@ export function HomePage() {
                 </span>
               </button>
             </div>
-            <div className="flex-1 h-px bg-border/40 group-hover:bg-border/70 transition-colors" />
+            <div
+              className={cn(
+                'flex-1 h-px transition-colors',
+                isTeacherMode
+                  ? 'bg-cyan-50/24 group-hover:bg-cyan-50/38'
+                  : 'bg-border/40 group-hover:bg-border/70',
+              )}
+            />
           </div>
 
           {/* Expandable content */}
@@ -823,7 +878,12 @@ export function HomePage() {
                 className="w-full overflow-hidden"
               >
                 {searchQuery.trim() && filteredClassrooms.length === 0 ? (
-                  <div className="pt-8 pb-2 text-center text-[13px] text-muted-foreground/60">
+                  <div
+                    className={cn(
+                      'pt-8 pb-2 text-center text-[13px]',
+                      isTeacherMode ? 'text-cyan-50/65' : 'text-muted-foreground/60',
+                    )}
+                  >
                     {t('classroom.searchEmpty')}
                   </div>
                 ) : (
@@ -849,6 +909,7 @@ export function HomePage() {
                           onConfirmDelete={() => confirmDelete(classroom.id)}
                           onCancelDelete={() => setPendingDeleteId(null)}
                           onClick={() => router.push(`/classroom/${classroom.id}`)}
+                          teacherMode={isTeacherMode}
                         />
                       </motion.div>
                     ))}
@@ -870,7 +931,7 @@ function isCustomAvatar(src: string) {
   return src.startsWith('data:');
 }
 
-function GreetingBar({ label }: { label?: string }) {
+function GreetingBar({ label, teacherMode = false }: { label?: string; teacherMode?: boolean }) {
   const { t } = useI18n();
   const avatar = useUserProfileStore((s) => s.avatar);
   const nickname = useUserProfileStore((s) => s.nickname);
@@ -958,25 +1019,63 @@ function GreetingBar({ label }: { label?: string }) {
       {/* ── Collapsed pill (always in flow) ── */}
       {!open && (
         <div
-          className="flex items-center gap-2.5 cursor-pointer transition-all duration-200 group rounded-full px-2.5 py-1.5 border border-border/50 text-muted-foreground/70 hover:text-foreground hover:bg-muted/60 active:scale-[0.97]"
+          className={cn(
+            'flex items-center gap-2.5 cursor-pointer transition-all duration-200 group rounded-full px-2.5 py-1.5 border active:scale-[0.97]',
+            teacherMode
+              ? 'border-cyan-100/22 bg-slate-900/34 text-cyan-50/80 hover:border-cyan-100/40 hover:bg-cyan-100/10 hover:text-white'
+              : 'border-border/50 text-muted-foreground/70 hover:text-foreground hover:bg-muted/60',
+          )}
           onClick={() => setOpen(true)}
         >
           <div className="shrink-0 relative">
-            <div className="size-8 rounded-full overflow-hidden ring-[1.5px] ring-border/30 group-hover:ring-violet-400/60 dark:group-hover:ring-violet-400/40 transition-all duration-300">
+            <div
+              className={cn(
+                'size-8 rounded-full overflow-hidden ring-[1.5px] transition-all duration-300',
+                teacherMode
+                  ? 'ring-cyan-100/30 group-hover:ring-cyan-200/70'
+                  : 'ring-border/30 group-hover:ring-violet-400/60 dark:group-hover:ring-violet-400/40',
+              )}
+            >
               <img src={appPath(avatar)} alt="" className="size-full object-cover" />
             </div>
-            <div className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full bg-white dark:bg-slate-800 border border-border/40 flex items-center justify-center opacity-60 group-hover:opacity-100 transition-opacity">
-              <Pencil className="size-[7px] text-muted-foreground/70" />
+            <div
+              className={cn(
+                'absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full border flex items-center justify-center opacity-70 group-hover:opacity-100 transition-opacity',
+                teacherMode
+                  ? 'border-cyan-100/30 bg-slate-950 text-cyan-50'
+                  : 'bg-white dark:bg-slate-800 border-border/40',
+              )}
+            >
+              <Pencil
+                className={cn(
+                  'size-[7px]',
+                  teacherMode ? 'text-cyan-50/75' : 'text-muted-foreground/70',
+                )}
+              />
             </div>
           </div>
           <div className="flex-1 min-w-0">
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="leading-none select-none flex items-center gap-1">
-                  <span className="text-[13px] font-semibold text-foreground/85 group-hover:text-foreground transition-colors">
+                  <span
+                    className={cn(
+                      'text-[13px] font-semibold transition-colors',
+                      teacherMode
+                        ? 'text-cyan-50 group-hover:text-white'
+                        : 'text-foreground/85 group-hover:text-foreground',
+                    )}
+                  >
                     {t('home.greetingWithName', { name: displayName })}
                   </span>
-                  <ChevronDown className="size-3 text-muted-foreground/30 group-hover:text-muted-foreground/60 transition-colors shrink-0" />
+                  <ChevronDown
+                    className={cn(
+                      'size-3 transition-colors shrink-0',
+                      teacherMode
+                        ? 'text-cyan-50/48 group-hover:text-cyan-50/80'
+                        : 'text-muted-foreground/30 group-hover:text-muted-foreground/60',
+                    )}
+                  />
                 </span>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={4}>
@@ -1159,6 +1258,7 @@ function ClassroomCard({
   onConfirmDelete,
   onCancelDelete,
   onClick,
+  teacherMode = false,
 }: {
   classroom: StageListItem;
   slide?: Slide;
@@ -1169,6 +1269,7 @@ function ClassroomCard({
   onConfirmDelete: () => void;
   onCancelDelete: () => void;
   onClick: () => void;
+  teacherMode?: boolean;
 }) {
   const { t } = useI18n();
   const thumbRef = useRef<HTMLDivElement>(null);
@@ -1211,7 +1312,12 @@ function ClassroomCard({
       {/* Thumbnail — large radius, no border, subtle bg */}
       <div
         ref={thumbRef}
-        className="relative w-full aspect-[16/9] rounded-2xl bg-slate-100 dark:bg-slate-800/80 overflow-hidden transition-transform duration-200 group-hover:scale-[1.02]"
+        className={cn(
+          'relative w-full aspect-[16/9] rounded-2xl overflow-hidden transition-transform duration-200 group-hover:scale-[1.02]',
+          teacherMode
+            ? 'bg-slate-900/75 ring-1 ring-cyan-100/12 shadow-[0_18px_42px_rgba(2,6,23,0.32)]'
+            : 'bg-slate-100 dark:bg-slate-800/80',
+        )}
       >
         {slide && thumbWidth > 0 ? (
           <ThumbnailSlide
@@ -1320,7 +1426,14 @@ function ClassroomCard({
 
       {/* Info — outside the thumbnail */}
       <div className="mt-2.5 px-1 flex items-center gap-2">
-        <span className="shrink-0 inline-flex items-center rounded-full bg-violet-100 dark:bg-violet-900/30 px-2 py-0.5 text-[11px] font-medium text-violet-600 dark:text-violet-400">
+        <span
+          className={cn(
+            'shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
+            teacherMode
+              ? 'bg-cyan-50 text-violet-700 shadow-[0_0_16px_rgba(103,232,249,0.16)]'
+              : 'bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400',
+          )}
+        >
           {classroom.sceneCount} {t('classroom.slides')} · {formatDate(classroom.updatedAt)}
         </span>
         {editing ? (
@@ -1336,14 +1449,22 @@ function ClassroomCard({
               onBlur={commitRename}
               maxLength={100}
               placeholder={t('classroom.renamePlaceholder')}
-              className="w-full bg-transparent border-b border-violet-400/60 text-[15px] font-medium text-foreground/90 outline-none placeholder:text-muted-foreground/40"
+              className={cn(
+                'w-full bg-transparent border-b text-[15px] font-medium outline-none',
+                teacherMode
+                  ? 'border-cyan-200/65 text-white placeholder:text-cyan-50/45'
+                  : 'border-violet-400/60 text-foreground/90 placeholder:text-muted-foreground/40',
+              )}
             />
           </div>
         ) : (
           <Tooltip>
             <TooltipTrigger asChild>
               <p
-                className="font-medium text-[15px] truncate text-foreground/90 min-w-0 cursor-text"
+                className={cn(
+                  'font-medium text-[15px] truncate min-w-0 cursor-text',
+                  teacherMode ? 'text-cyan-50' : 'text-foreground/90',
+                )}
                 onDoubleClick={startRename}
               >
                 {classroom.name}

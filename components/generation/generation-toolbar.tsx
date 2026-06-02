@@ -47,6 +47,7 @@ export interface GenerationToolbarProps {
   webSearch: boolean;
   onWebSearchChange: (v: boolean) => void;
   onSettingsOpen: (section?: SettingsSection) => void;
+  tone?: 'default' | 'teacher';
   // PDF
   pdfFile: File | null;
   onPdfFileChange: (file: File | null) => void;
@@ -58,6 +59,7 @@ export function GenerationToolbar({
   webSearch,
   onWebSearchChange,
   onSettingsOpen,
+  tone = 'default',
   pdfFile,
   onPdfFileChange,
   onPdfError,
@@ -127,8 +129,16 @@ export function GenerationToolbar({
   // ─── Pill button helper ─────────────────────────────
   const pillCls =
     'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all cursor-pointer select-none whitespace-nowrap border';
-  const pillMuted = `${pillCls} border-border/50 text-muted-foreground/70 hover:text-foreground hover:bg-muted/60`;
-  const pillActive = `${pillCls} border-violet-200/60 dark:border-violet-700/50 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300`;
+  const pillMuted =
+    tone === 'teacher'
+      ? `${pillCls} border-cyan-100/22 bg-slate-900/45 text-cyan-50/78 hover:border-cyan-100/40 hover:bg-cyan-100/10 hover:text-white`
+      : `${pillCls} border-border/50 text-muted-foreground/70 hover:text-foreground hover:bg-muted/60`;
+  const pillActive =
+    tone === 'teacher'
+      ? `${pillCls} border-cyan-200/45 bg-cyan-300/14 text-cyan-50 shadow-[0_0_16px_rgba(34,211,238,0.12)]`
+      : `${pillCls} border-violet-200/60 dark:border-violet-700/50 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300`;
+  const separatorClass =
+    tone === 'teacher' ? 'w-px h-4 bg-cyan-100/25 mx-1' : 'w-px h-4 bg-border/60 mx-1';
 
   return (
     <div className="flex items-center gap-1 flex-wrap">
@@ -168,7 +178,7 @@ export function GenerationToolbar({
 
       <div className="flex min-w-0 items-center gap-1">
         {/* ── Separator ── */}
-        <div className="w-px h-4 bg-border/60 mx-1" />
+        <div className={separatorClass} />
 
         {/* ── PDF (parser + upload) combined Popover ── */}
         <Popover>
@@ -390,7 +400,12 @@ export function GenerationToolbar({
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                className={cn(pillCls, 'text-muted-foreground/40 cursor-not-allowed')}
+                className={cn(
+                  pillCls,
+                  tone === 'teacher'
+                    ? 'border-cyan-100/12 bg-slate-900/30 text-cyan-50/30 cursor-not-allowed'
+                    : 'text-muted-foreground/40 cursor-not-allowed',
+                )}
                 disabled
               >
                 <Globe2 className="size-3.5" />
@@ -401,7 +416,7 @@ export function GenerationToolbar({
         )}
 
         {/* ── Separator ── */}
-        <div className="w-px h-4 bg-border/60 mx-1" />
+        <div className={separatorClass} />
 
         {/* ── Media popover ── */}
         <MediaPopover onSettingsOpen={onSettingsOpen} />

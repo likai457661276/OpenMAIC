@@ -218,9 +218,13 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
         <button
           className={cn(
             'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all cursor-pointer select-none whitespace-nowrap border',
-            enabledCount > 0
-              ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border-violet-200/60 dark:border-violet-700/50'
-              : 'text-muted-foreground/70 hover:text-foreground hover:bg-muted/60 border-border/50',
+            isTeacherMode
+              ? enabledCount > 0
+                ? 'border-cyan-200/45 bg-cyan-300/14 text-cyan-50 shadow-[0_0_16px_rgba(34,211,238,0.12)]'
+                : 'border-cyan-100/22 bg-slate-900/45 text-cyan-50/78 hover:border-cyan-100/40 hover:bg-cyan-100/10 hover:text-white'
+              : enabledCount > 0
+                ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border-violet-200/60 dark:border-violet-700/50'
+                : 'text-muted-foreground/70 hover:text-foreground hover:bg-muted/60 border-border/50',
           )}
         >
           <SlidersHorizontal className="size-3.5" />
