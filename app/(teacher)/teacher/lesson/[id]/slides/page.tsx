@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Download } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TeacherSlideEditor } from '@/components/teacher/slide-editor';
 import { getTeacherLesson } from '@/lib/teacher/lesson-service';
@@ -26,12 +26,6 @@ export default async function LessonSlidesPage({ params }: SlidesPageProps) {
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">{lesson.title} · 课件</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button asChild variant="outline">
-            <Link href={`/teacher/lesson/${id}/export`}>
-              <Download className="size-4" />
-              导出
-            </Link>
-          </Button>
           <Button asChild variant="outline">
             <Link href={`/teacher/lesson/${id}`}>
               <ArrowLeft className="size-4" />

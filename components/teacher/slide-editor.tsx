@@ -165,7 +165,6 @@ export function TeacherSlideEditor({ slideSet }: { readonly slideSet: TeacherSli
           index={activeIndex}
           count={slides.length}
           pending={pending}
-          exportHref={`/teacher/lesson/${slideSet.lessonId}/export`}
           onPrev={() => setActiveIndex((current) => Math.max(0, current - 1))}
           onNext={() => setActiveIndex((current) => Math.min(slides.length - 1, current + 1))}
           onAdd={addSlide}

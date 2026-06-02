@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { FileText, Presentation, Puzzle, Sparkles } from 'lucide-react';
+import { Presentation, Puzzle, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LessonEditor } from '@/components/teacher/lesson-editor';
 import { LessonViewer } from '@/components/teacher/lesson-viewer';
@@ -15,7 +15,6 @@ const lessonSections = [
   { href: 'slides', label: '课件预览', icon: Presentation },
   { href: 'quiz', label: 'Quiz 互动', icon: Sparkles },
   { href: 'pbl', label: 'PBL 管理', icon: Puzzle },
-  { href: 'export', label: '导出', icon: FileText },
 ];
 
 export default async function LessonDetailPage({ params }: LessonPageProps) {
@@ -34,7 +33,7 @@ export default async function LessonDetailPage({ params }: LessonPageProps) {
           <SlideConfigDialog lesson={lesson} />
         </div>
       </section>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {lessonSections.map((item) => (
           <Button key={item.href} asChild variant="outline" className="h-16 justify-start">
             <Link href={`/teacher/lesson/${id}/${item.href}`}>

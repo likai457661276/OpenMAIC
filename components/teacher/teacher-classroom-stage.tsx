@@ -6,11 +6,16 @@ import {
   ArrowLeft,
   AlertCircle,
   BookOpen,
+  Archive,
   ChevronLeft,
   ChevronRight,
+  Download,
   FileText,
+  FileDown,
+  Loader2,
   Monitor,
   Moon,
+  Package,
   PanelLeftClose,
   PanelLeftOpen,
   PanelRightClose,
@@ -22,6 +27,9 @@ import { SceneProvider } from '@/lib/contexts/scene-context';
 import { useTheme } from '@/lib/hooks/use-theme';
 import { useStageStore } from '@/lib/store';
 import { PENDING_SCENE_ID } from '@/lib/store/stage';
+import { useMediaGenerationStore } from '@/lib/store/media-generation';
+import { useExportPPTX } from '@/lib/export/use-export-pptx';
+import { useExportClassroom } from '@/lib/export/use-export-classroom';
 import { cn } from '@/lib/utils';
 import { SceneRenderer } from '@/components/stage/scene-renderer';
 import { LectureNotesView } from '@/components/chat/lecture-notes-view';
@@ -268,12 +276,17 @@ export function TeacherClassroomStage({
   const setCurrentSceneId = useStageStore((state) => state.setCurrentSceneId);
   const generatingOutlines = useStageStore((state) => state.generatingOutlines);
   const failedOutlines = useStageStore((state) => state.failedOutlines);
+  const mediaTasks = useMediaGenerationStore((state) => state.tasks);
+  const { exporting: isExportingPptx, exportPPTX, exportResourcePack } = useExportPPTX();
+  const { exporting: isExportingClassroom, exportClassroomZip } = useExportClassroom();
 
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(true);
   const [themeOpen, setThemeOpen] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [retryingOutlineId, setRetryingOutlineId] = useState<string | null>(null);
   const themeRef = useRef<HTMLDivElement>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
 
   const pendingOutline = generatingOutlines[0] ?? null;
   const isPendingScene = currentSceneId === PENDING_SCENE_ID;
@@ -299,6 +312,12 @@ export function TeacherClassroomStage({
       : 0;
   const lectureNotes = useMemo(() => buildTeacherLectureNotes(scenes), [scenes]);
   const showNotes = currentScene?.type === 'slide';
+  const canExport =
+    scenes.some((scene) => scene.content.type === 'slide') &&
+    generatingOutlines.length === 0 &&
+    failedOutlines.length === 0 &&
+    Object.values(mediaTasks).every((task) => task.status === 'done' || task.status === 'failed');
+  const isExporting = isExportingPptx || isExportingClassroom;
 
   const goToScene = useCallback(
     (index: number) => {
@@ -347,17 +366,20 @@ export function TeacherClassroomStage({
   }, [currentSceneIndex, goToScene]);
 
   useEffect(() => {
-    if (!themeOpen) return;
+    if (!themeOpen && !exportMenuOpen) return;
 
     const handleClickOutside = (event: MouseEvent) => {
       if (themeRef.current && !themeRef.current.contains(event.target as Node)) {
         setThemeOpen(false);
       }
+      if (exportRef.current && !exportRef.current.contains(event.target as Node)) {
+        setExportMenuOpen(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [themeOpen]);
+  }, [themeOpen, exportMenuOpen]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100">
@@ -515,6 +537,73 @@ export function TeacherClassroomStage({
                   </div>
                 )}
               </div>
+            </div>
+            <div className="relative" ref={exportRef}>
+              <button
+                onClick={() => {
+                  if (!canExport || isExporting) return;
+                  setExportMenuOpen((open) => !open);
+                }}
+                disabled={!canExport || isExporting}
+                className={cn(
+                  'flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white transition-colors dark:border-gray-700 dark:bg-gray-800',
+                  canExport && !isExporting
+                    ? 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'
+                    : 'cursor-not-allowed text-gray-300 opacity-50 dark:text-gray-600',
+                )}
+                aria-label={isExporting ? '正在导出' : '导出课件'}
+                title={canExport ? (isExporting ? '正在导出' : '导出课件') : '课件生成完成后可导出'}
+              >
+                {isExporting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+              </button>
+              {exportMenuOpen && (
+                <div className="absolute right-0 top-full z-50 mt-2 min-w-[210px] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                  <button
+                    onClick={() => {
+                      setExportMenuOpen(false);
+                      exportPPTX();
+                    }}
+                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                  >
+                    <FileDown className="h-4 w-4 shrink-0 text-gray-400" />
+                    <span>PPTX</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setExportMenuOpen(false);
+                      exportResourcePack();
+                    }}
+                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                  >
+                    <Package className="h-4 w-4 shrink-0 text-gray-400" />
+                    <div>
+                      <div>资源包</div>
+                      <div className="text-[11px] text-gray-400 dark:text-gray-500">
+                        PPTX 和互动页面
+                      </div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setExportMenuOpen(false);
+                      exportClassroomZip();
+                    }}
+                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                  >
+                    <Archive className="h-4 w-4 shrink-0 text-gray-400" />
+                    <div>
+                      <div>课堂备份 ZIP</div>
+                      <div className="text-[11px] text-gray-400 dark:text-gray-500">
+                        课堂数据和媒体文件
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              )}
             </div>
             <button
               onClick={() => goToScene(currentSceneIndex - 1)}
