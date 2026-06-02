@@ -237,16 +237,17 @@ PPTX 导出是教师使用场景中的核心能力，需要完整保留。
 ```text
 teacher-extension/
   pages/
-    create-lesson
+    teacher-home
     lesson-editor
+    teacher-classroom-preview
     slide-preview
     quiz-interaction
     pbl-dashboard
     export
 
   components/
-    LessonForm
     LessonEditor
+    TeacherClassroomStage
     SlidePreview
     QuizPanel
     PBLPanel

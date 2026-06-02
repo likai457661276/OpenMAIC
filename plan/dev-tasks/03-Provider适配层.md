@@ -115,7 +115,6 @@ PlaybackEngine → ActionEngine → 展示/互动
 ```
 lib/teacher/adapters/
   base-adapter.ts               — 适配器基类
-  lesson-adapter.ts             — 教案生成适配器
   slide-adapter.ts              — 课件生成适配器
   quiz-adapter.ts               — Quiz 生成适配器
   pbl-adapter.ts                — PBL 生成适配器
@@ -141,15 +140,14 @@ abstract class BaseTeacherAdapter<TInput, TOutput> {
 }
 ```
 
-### 3.3 教案生成适配器
+### 3.3 当前教师入口生成策略
 
-负责将教师模式的教案创建请求转换为 OpenMAIC 原有的生成 API 调用：
+独立 `LessonAdapter` 与 `/api/teacher/generate-lesson` 已清理。当前教师模式从 `/teacher` 直接复用原首页生成会话：
 
-**输入转换**：
-- 教师输入：学科、年级、课题、教学目标、课时 → 转换为原有 generate API 的入参
-
-**输出转换**：
-- 原有输出：完整课程结构 → 提取教案部分（教学目标、重点难点、教学流程等）
+- `app/page.tsx` 在教师模式下写入 `generationSession.teacherMode=true`；
+- `/generation-preview` 根据 `teacherMode` 跳过 Agent 生成和 TTS 生成；
+- 生成完成后进入 `/classroom/teacher/[id]`；
+- `lib/teacher/lesson-service.ts` 与 `/api/teacher/lessons` 仍保留，用于结构化教案数据的 CRUD、课件/Quiz/PBL/导出链路的数据依赖。
 
 ### 3.4 课件生成适配器
 
@@ -167,7 +165,6 @@ abstract class BaseTeacherAdapter<TInput, TOutput> {
 
 ```
 app/api/teacher/
-  generate-lesson/route.ts      — 教案生成
   generate-slides/route.ts      — 课件生成
   generate-quiz/route.ts        — Quiz 生成
   generate-pbl/route.ts         — PBL 生成
@@ -177,7 +174,8 @@ app/api/teacher/
 每个 API 路由内部通过适配器调用原有能力，不直接复制原有逻辑。
 
 当前实现中：
-- `generate-lesson`、`generate-slides`、`generate-quiz`、`generate-pbl` 通过对应 Adapter 转换为 `GenerateClassroomInput`
+- `/teacher` 统一入口复用原生成主流程，不再保留独立 `generate-lesson` 适配 API
+- `generate-slides`、`generate-quiz`、`generate-pbl` 通过对应 Adapter 转换为 `GenerateClassroomInput`
 - API 路由创建课堂生成 Job，并返回 `jobId`、`pollUrl`、`pollIntervalMs`
 - `export` 路由先提供导出适配合同，实际文件导出在后续课件预览/导出功能中接入现有导出 Hook
 
@@ -188,14 +186,12 @@ app/api/teacher/
 | 文件路径 | 说明 |
 |---------|------|
 | `lib/teacher/adapters/base-adapter.ts` | 适配器基类 |
-| `lib/teacher/adapters/lesson-adapter.ts` | 教案适配器 |
 | `lib/teacher/adapters/slide-adapter.ts` | 课件适配器 |
 | `lib/teacher/adapters/quiz-adapter.ts` | Quiz 适配器 |
 | `lib/teacher/adapters/pbl-adapter.ts` | PBL 适配器 |
 | `lib/teacher/adapters/export-adapter.ts` | 导出适配器 |
 | `lib/teacher/adapters/types.ts` | 适配层类型 |
 | `lib/teacher/adapters/index.ts` | 统一导出 |
-| `app/api/teacher/generate-lesson/route.ts` | 教案生成 API |
 | `app/api/teacher/generate-slides/route.ts` | 课件生成 API |
 | `app/api/teacher/generate-quiz/route.ts` | Quiz 生成 API |
 | `app/api/teacher/generate-pbl/route.ts` | PBL 生成 API |
@@ -218,29 +214,14 @@ app/api/teacher/
 
 ## 六、接口设计
 
-### 教案生成 API
+### 教师统一生成入口
 
-```
-POST /api/teacher/generate-lesson
-Body: {
-  subject: string;         // 学科
-  grade: string;           // 年级
-  topic: string;           // 课题
-  objectives?: string[];   // 教学目标
-  duration?: number;       // 课时（分钟）
-  style?: string;          // 教学风格偏好
-}
-Response: {
-  jobId: string;
-  status: string;
-  pollUrl: string;
-  pollIntervalMs: number;
-  metadata: {
-    subject: string;
-    grade: string;
-    topic: string;
-  };
-}
+```text
+/teacher
+  输入互动课件需求
+  → sessionStorage.generationSession.teacherMode = true
+  → /generation-preview
+  → /classroom/teacher/:id
 ```
 
 ### 课件生成 API

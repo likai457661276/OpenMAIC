@@ -11,19 +11,6 @@ export interface TeacherGenerationJobPayload {
   metadata: Record<string, unknown>;
 }
 
-export interface TeacherLessonGenerationInput {
-  subject: string;
-  grade: string;
-  topic: string;
-  objectives?: string[];
-  duration?: number;
-  style?: string;
-  additionalRequirements?: string;
-  enableWebSearch?: boolean;
-  enableImageGeneration?: boolean;
-  enableVideoGeneration?: boolean;
-}
-
 export interface TeacherSlideGenerationInput {
   lessonId: string;
   lessonTitle?: string;

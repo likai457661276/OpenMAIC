@@ -373,7 +373,7 @@ export function Roundtable({
     setIsInputOpen(false);
   };
 
-  const handleToggleInput = () => {
+  const handleToggleInput = useCallback(() => {
     if (isSendCooldown) return;
     if (!isInputOpen) {
       onInputActivate?.();
@@ -384,9 +384,9 @@ export function Roundtable({
       cancelRecording();
       setIsVoiceOpen(false);
     }
-  };
+  }, [cancelRecording, isInputOpen, isProcessing, isSendCooldown, isVoiceOpen, onInputActivate]);
 
-  const handleToggleVoice = () => {
+  const handleToggleVoice = useCallback(() => {
     if (isVoiceOpen) {
       if (isRecording) {
         stopRecording();
@@ -399,7 +399,15 @@ export function Roundtable({
       setIsInputOpen(false);
       startRecording();
     }
-  };
+  }, [
+    isProcessing,
+    isRecording,
+    isSendCooldown,
+    isVoiceOpen,
+    onInputActivate,
+    startRecording,
+    stopRecording,
+  ]);
 
   // Keyboard shortcuts for roundtable interaction (#255)
   // T = toggle text input, V = toggle voice input, Escape = dismiss panels,
@@ -464,6 +472,9 @@ export function Roundtable({
     currentSpeech,
     onDiscussionPause,
     onDiscussionResume,
+    cancelRecording,
+    handleToggleInput,
+    handleToggleVoice,
     asrEnabled,
     isInputOpen,
     isVoiceOpen,
