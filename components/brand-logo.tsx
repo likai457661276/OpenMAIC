@@ -4,18 +4,30 @@ import { useId } from 'react';
 import { cn } from '@/lib/utils';
 
 interface BrandLogoProps {
+  readonly text?: string;
+  readonly ariaLabel?: string;
+  readonly gradientStart?: string;
+  readonly gradientEnd?: string;
   readonly className?: string;
   readonly iconClassName?: string;
   readonly textClassName?: string;
 }
 
-export function BrandLogo({ className, iconClassName, textClassName }: BrandLogoProps) {
+export function BrandLogo({
+  text = '宾果AI智慧课堂',
+  ariaLabel = text,
+  gradientStart = '#8B7BFF',
+  gradientEnd = '#5D7CFF',
+  className,
+  iconClassName,
+  textClassName,
+}: BrandLogoProps) {
   const gradientId = useId();
 
   return (
     <div
       role="img"
-      aria-label="宾果AI智慧课堂"
+      aria-label={ariaLabel}
       className={cn('inline-flex items-center justify-center gap-3', className)}
     >
       <svg
@@ -26,8 +38,8 @@ export function BrandLogo({ className, iconClassName, textClassName }: BrandLogo
       >
         <defs>
           <linearGradient id={gradientId} x1="10" y1="8" x2="54" y2="56">
-            <stop offset="0%" stopColor="#8B7BFF" />
-            <stop offset="100%" stopColor="#5D7CFF" />
+            <stop offset="0%" stopColor={gradientStart} />
+            <stop offset="100%" stopColor={gradientEnd} />
           </linearGradient>
         </defs>
         <path
@@ -57,7 +69,7 @@ export function BrandLogo({ className, iconClassName, textClassName }: BrandLogo
           textClassName,
         )}
       >
-        宾果AI智慧课堂
+        {text}
       </span>
     </div>
   );

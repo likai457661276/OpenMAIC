@@ -145,6 +145,7 @@ export function HomePage() {
 
   const [themeOpen, setThemeOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
   const [classrooms, setClassrooms] = useState<StageListItem[]>([]);
   const [thumbnails, setThumbnails] = useState<Record<string, Slide>>({});
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -271,11 +272,20 @@ export function HomePage() {
     }
 
     setError(null);
+    setGenerating(true);
 
     try {
       const userProfile = useUserProfileStore.getState();
       const requirements: UserRequirements = {
-        requirement: form.requirement,
+        requirement: isTeacherMode
+          ? [
+              '请根据以下教师备课需求生成教师可直接使用的教案与课堂内容。',
+              '内容应面向教师备课，而不是向学生展示提示词。',
+              '请生成结构化教学流程、重点难点、课堂活动、练习或测验建议，并在后续页面中呈现为可用内容。',
+              '',
+              form.requirement,
+            ].join('\n')
+          : form.requirement,
         userNickname: userProfile.nickname || undefined,
         userBio: userProfile.bio || undefined,
         webSearch: form.webSearch || undefined,
@@ -314,6 +324,7 @@ export function HomePage() {
         pdfProviderConfig,
         sceneOutlines: null,
         currentStep: 'generating' as const,
+        teacherMode: isTeacherMode || undefined,
       };
       sessionStorage.setItem('generationSession', JSON.stringify(sessionState));
 
@@ -321,6 +332,8 @@ export function HomePage() {
     } catch (err) {
       log.error('Error preparing generation:', err);
       setError(err instanceof Error ? err.message : t('upload.generateFailed'));
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -336,7 +349,7 @@ export function HomePage() {
     return date.toLocaleDateString();
   };
 
-  const canGenerate = !!form.requirement.trim() && hasUsableProvider;
+  const canGenerate = !!form.requirement.trim() && hasUsableProvider && !generating;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -346,7 +359,14 @@ export function HomePage() {
   };
 
   return (
-    <div className="min-h-[100dvh] w-full bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex flex-col items-center p-4 pt-16 md:p-8 md:pt-16 overflow-x-hidden">
+    <div
+      className={cn(
+        'relative min-h-[100dvh] w-full flex flex-col items-center p-4 pt-16 md:p-8 md:pt-16 overflow-x-hidden',
+        isTeacherMode
+          ? 'bg-[#06111f] text-slate-100'
+          : 'bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900',
+      )}
+    >
       <input
         ref={fileInputRef}
         type="file"
@@ -357,7 +377,12 @@ export function HomePage() {
       {/* ═══ Top-right pill (unchanged) ═══ */}
       <div
         ref={toolbarRef}
-        className="fixed top-4 right-4 z-50 flex items-center gap-1 bg-white/60 dark:bg-gray-800/60 backdrop-blur-md px-2 py-1.5 rounded-full border border-gray-100/50 dark:border-gray-700/50 shadow-sm"
+        className={cn(
+          'fixed top-4 right-4 z-50 flex items-center gap-1 backdrop-blur-md px-2 py-1.5 rounded-full border shadow-sm',
+          isTeacherMode
+            ? 'bg-slate-950/55 border-cyan-200/10'
+            : 'bg-white/60 dark:bg-gray-800/60 border-gray-100/50 dark:border-gray-700/50',
+        )}
       >
         {/* Language Selector */}
         <LanguageSwitcher onOpen={() => setThemeOpen(false)} />
@@ -459,16 +484,31 @@ export function HomePage() {
       />
 
       {/* ═══ Background Decor ═══ */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div
-          className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse"
-          style={{ animationDuration: '4s' }}
-        />
-        <div
-          className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse"
-          style={{ animationDuration: '6s' }}
-        />
-      </div>
+      {isTeacherMode ? (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div
+            className="absolute inset-0 opacity-80"
+            style={{
+              backgroundImage:
+                'linear-gradient(115deg, rgba(14,165,233,0.22) 0%, transparent 24%, transparent 68%, rgba(250,204,21,0.12) 100%), linear-gradient(rgba(148,163,184,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.08) 1px, transparent 1px)',
+              backgroundSize: '100% 100%, 36px 36px, 36px 36px',
+            }}
+          />
+          <div className="absolute left-0 top-0 h-1/2 w-full bg-gradient-to-b from-cyan-400/10 via-transparent to-transparent" />
+          <div className="absolute bottom-0 h-px w-full bg-gradient-to-r from-transparent via-cyan-200/30 to-transparent" />
+        </div>
+      ) : (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div
+            className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse"
+            style={{ animationDuration: '4s' }}
+          />
+          <div
+            className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse"
+            style={{ animationDuration: '6s' }}
+          />
+        </div>
+      )}
 
       {/* ═══ Hero section: title + input (centered, wider) ═══ */}
       <motion.div
@@ -493,8 +533,19 @@ export function HomePage() {
           className="mb-3"
         >
           <BrandLogo
-            iconClassName="h-14 w-14 md:h-[4.5rem] md:w-[4.5rem]"
-            textClassName="text-[2.1rem] md:text-[3.4rem]"
+            text={isTeacherMode ? '宾果AI互动课件' : undefined}
+            gradientStart={isTeacherMode ? '#38E8FF' : undefined}
+            gradientEnd={isTeacherMode ? '#F7D35C' : undefined}
+            className={isTeacherMode ? 'drop-shadow-[0_18px_42px_rgba(34,211,238,0.18)]' : undefined}
+            iconClassName={cn(
+              'h-14 w-14 md:h-[4.5rem] md:w-[4.5rem]',
+              isTeacherMode && 'md:h-16 md:w-16',
+            )}
+            textClassName={cn(
+              'text-[2.1rem] md:text-[3.4rem]',
+              isTeacherMode &&
+                'bg-gradient-to-r from-cyan-200 via-slate-50 to-amber-200 bg-clip-text text-transparent',
+            )}
           />
         </motion.div>
 
@@ -503,9 +554,14 @@ export function HomePage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.25 }}
-          className="text-xs md:text-sm text-muted-foreground/60 mb-8"
+          className={cn(
+            'text-xs md:text-sm mb-8 text-center',
+            isTeacherMode ? 'text-cyan-50/55' : 'text-muted-foreground/60',
+          )}
         >
-          {t('home.slogan')}
+          {isTeacherMode
+            ? '输入教学主题或备课要求，生成可演示、可互动、可导出的课堂课件'
+            : t('home.slogan')}
         </motion.p>
 
         {/* ── Unified input area ── */}
@@ -515,20 +571,38 @@ export function HomePage() {
           transition={{ delay: 0.35 }}
           className="w-full"
         >
-          <div className="w-full rounded-2xl border border-border/60 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-xl shadow-black/[0.03] dark:shadow-black/20 transition-shadow focus-within:shadow-2xl focus-within:shadow-violet-500/[0.06]">
+          <div
+            className={cn(
+              'w-full rounded-2xl border backdrop-blur-xl shadow-xl transition-shadow focus-within:shadow-2xl',
+              isTeacherMode
+                ? 'border-cyan-200/15 bg-slate-950/62 shadow-cyan-950/25 focus-within:border-cyan-200/35 focus-within:shadow-cyan-500/[0.08]'
+                : 'border-border/60 bg-white/80 dark:bg-slate-900/80 shadow-black/[0.03] dark:shadow-black/20 focus-within:shadow-violet-500/[0.06]',
+            )}
+          >
             {/* ── Greeting + Profile + Agents ── */}
             <div className="relative z-20 flex items-start justify-between">
-              <GreetingBar />
-              <div className="pr-3 pt-3.5 shrink-0">
-                <AgentBar />
-              </div>
+              <GreetingBar label={isTeacherMode ? '教师备课' : undefined} />
+              {!isTeacherMode && (
+                <div className="pr-3 pt-3.5 shrink-0">
+                  <AgentBar />
+                </div>
+              )}
             </div>
 
             {/* Textarea */}
             <textarea
               ref={textareaRef}
-              placeholder={t('upload.requirementPlaceholder')}
-              className="w-full resize-none border-0 bg-transparent px-4 pt-1 pb-2 text-[13px] leading-relaxed placeholder:text-muted-foreground/40 focus:outline-none min-h-[140px] max-h-[300px]"
+              placeholder={
+                isTeacherMode
+                  ? '输入互动课件需求，例如：\n「高中一年级数学，函数单调性，生成 45 分钟互动课件，包含探究任务和随堂测验」\n「初中二年级物理，浮力，加入分层练习、课堂提问和可演示动画」'
+                  : t('upload.requirementPlaceholder')
+              }
+              className={cn(
+                'w-full resize-none border-0 bg-transparent px-4 pt-1 pb-2 text-[13px] leading-relaxed focus:outline-none min-h-[140px] max-h-[300px]',
+                isTeacherMode
+                  ? 'text-slate-100 placeholder:text-cyan-50/35'
+                  : 'placeholder:text-muted-foreground/40',
+              )}
               value={form.requirement}
               onChange={(e) => updateForm('requirement', e.target.value)}
               onKeyDown={handleKeyDown}
@@ -562,12 +636,36 @@ export function HomePage() {
                     : 'bg-muted text-muted-foreground/40 cursor-not-allowed',
                 )}
               >
-                <span className="text-xs font-medium">{t('toolbar.enterClassroom')}</span>
+                <span className="text-xs font-medium">
+                  {generating
+                    ? isTeacherMode
+                      ? '生成中'
+                      : t('toolbar.enterClassroom')
+                    : isTeacherMode
+                      ? '生成教案'
+                      : t('toolbar.enterClassroom')}
+                </span>
                 <ArrowUp className="size-3.5" />
               </button>
             </div>
           </div>
         </motion.div>
+
+        {!isTeacherMode && (
+          <FeatureGate feature="teacherExtension">
+            <motion.button
+              type="button"
+              onClick={() => router.push('/teacher')}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45, duration: 0.25, ease: 'easeOut' }}
+              className="mt-4 inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/10 px-4 py-2 text-sm font-medium text-primary shadow-sm transition-all hover:-translate-y-0.5 hover:bg-primary/15 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              <GraduationCap className="size-4" />
+              <span>进入教师课件生成</span>
+            </motion.button>
+          </FeatureGate>
+        )}
 
         {/* ── Error ── */}
         <AnimatePresence>
@@ -777,7 +875,7 @@ function isCustomAvatar(src: string) {
   return src.startsWith('data:');
 }
 
-function GreetingBar() {
+function GreetingBar({ label }: { label?: string }) {
   const { t } = useI18n();
   const avatar = useUserProfileStore((s) => s.avatar);
   const nickname = useUserProfileStore((s) => s.nickname);
@@ -794,7 +892,7 @@ function GreetingBar() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const displayName = nickname || t('profile.defaultNickname');
+  const displayName = label || nickname || t('profile.defaultNickname');
 
   // Click-outside to collapse
   useEffect(() => {
