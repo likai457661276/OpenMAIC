@@ -28,6 +28,9 @@ export interface GenerationSessionState {
   researchSources?: Array<{ title: string; url: string }>;
   // Language directive inferred from outline generation
   languageDirective?: string;
+  // Teacher extension generation: reuse normal content generation UI, but skip
+  // role reveal and voice synthesis.
+  teacherMode?: boolean;
 }
 
 export type GenerationStep = {
@@ -87,6 +90,7 @@ export const getActiveSteps = (session: GenerationSessionState | null) => {
   return ALL_STEPS.filter((step) => {
     if (step.id === 'pdf-analysis') return !!session?.pdfStorageKey;
     if (step.id === 'web-search') return !!session?.requirements?.webSearch;
+    if (step.id === 'agent-generation' && session?.teacherMode) return false;
     if (step.id === 'agent-generation') return useSettingsStore.getState().agentMode === 'auto';
     return true;
   });

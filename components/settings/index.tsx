@@ -65,7 +65,6 @@ import { AddProviderDialog, type NewProviderData } from './add-provider-dialog';
 import { AddAudioProviderDialog, type NewAudioProviderData } from './add-audio-provider-dialog';
 import { isCustomTTSProvider, isCustomASRProvider } from '@/lib/audio/types';
 import type { SettingsSection, EditingModel } from '@/lib/types/settings';
-import { useFeatureFlag } from '@/lib/hooks/use-feature-flag';
 import { useTeacherMode } from '@/lib/teacher/teacher-mode-provider';
 
 // ─── Provider List Column (reusable) ───
@@ -224,10 +223,8 @@ interface SettingsDialogProps {
 export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsDialogProps) {
   const { t } = useI18n();
   const { isTeacherMode } = useTeacherMode();
-  const voiceNarrationEnabled = useFeatureFlag('voiceNarration');
-  const voicePlaybackEnabled = useFeatureFlag('voicePlayback');
-  const showTTSSettings = !isTeacherMode || voiceNarrationEnabled;
-  const showASRSettings = !isTeacherMode || voicePlaybackEnabled;
+  const showTTSSettings = !isTeacherMode;
+  const showASRSettings = !isTeacherMode;
   const [settingsAuthStatus, setSettingsAuthStatus] = useState<'checking' | 'locked' | 'unlocked'>(
     'checking',
   );

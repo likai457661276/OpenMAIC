@@ -231,15 +231,7 @@ function GenerationPreviewContent() {
       modelId,
       autoConfigApplied,
     });
-  }, [
-    autoConfigApplied,
-    hasUsableModelSelection,
-    modelId,
-    providerId,
-    session,
-    sessionLoaded,
-    t,
-  ]);
+  }, [autoConfigApplied, hasUsableModelSelection, modelId, providerId, session, sessionLoaded, t]);
 
   // Main generation flow
   const startGeneration = async (sessionOverride?: GenerationSessionState) => {
@@ -645,6 +637,7 @@ function GenerationPreviewContent() {
 
       // ── Agent generation (after outlines — uses languageDirective + outlines) ──
       const settings = useSettingsStore.getState();
+      const teacherMode = !!currentSession.teacherMode;
       let agents: Array<{
         id: string;
         name: string;
@@ -652,7 +645,7 @@ function GenerationPreviewContent() {
         persona?: string;
       }> = [];
 
-      if (settings.agentMode === 'auto') {
+      if (!teacherMode && settings.agentMode === 'auto') {
         const agentStepIdx = activeSteps.findIndex((s) => s.id === 'agent-generation');
         if (agentStepIdx >= 0) setCurrentStepIndex(agentStepIdx);
 
@@ -901,7 +894,7 @@ function GenerationPreviewContent() {
       }
 
       // Generate TTS for first scene (part of actions step — blocking)
-      if (settings.ttsEnabled && settings.ttsProviderId !== 'browser-native-tts') {
+      if (!teacherMode && settings.ttsEnabled && settings.ttsProviderId !== 'browser-native-tts') {
         const ttsProviderConfig = settings.ttsProvidersConfig?.[settings.ttsProviderId];
         const providerOptions =
           settings.ttsProviderId === 'voxcpm-tts'
@@ -993,7 +986,7 @@ function GenerationPreviewContent() {
 
       sessionStorage.removeItem('generationSession');
       await store.saveToStorage();
-      router.push(`/classroom/${stage.id}`);
+      router.push(teacherMode ? `/classroom/teacher/${stage.id}` : `/classroom/${stage.id}`);
     } catch (err) {
       setIsOutlineStreaming(false);
       // AbortError is expected when navigating away — don't show as error
@@ -1015,11 +1008,12 @@ function GenerationPreviewContent() {
   };
 
   const goBackToHome = () => {
+    const backPath = session?.teacherMode ? '/teacher' : '/';
     abortControllerRef.current?.abort();
     clearOutlineReviewTimer();
     outlineReviewIntentRef.current = false;
     sessionStorage.removeItem('generationSession');
-    router.push('/');
+    router.push(backPath);
   };
 
   // Triggered when the user clicks the streaming outline card mid-stream.

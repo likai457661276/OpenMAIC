@@ -34,7 +34,6 @@ import type { ASRProviderId } from '@/lib/audio/types';
 import { isCustomASRProvider } from '@/lib/audio/types';
 import { appPath } from '@/lib/app-paths';
 import type { SettingsSection } from '@/lib/types/settings';
-import { useFeatureFlag } from '@/lib/hooks/use-feature-flag';
 import { useTeacherMode } from '@/lib/teacher/teacher-mode-provider';
 
 // ─── Provider icon maps ───
@@ -71,8 +70,6 @@ interface MediaPopoverProps {
 export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
   const { t } = useI18n();
   const { isTeacherMode } = useTeacherMode();
-  const voiceNarrationEnabled = useFeatureFlag('voiceNarration');
-  const voicePlaybackEnabled = useFeatureFlag('voicePlayback');
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('image');
 
@@ -105,8 +102,8 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
   const setASRProvider = useSettingsStore((s) => s.setASRProvider);
   const setASRLanguage = useSettingsStore((s) => s.setASRLanguage);
 
-  const showTTS = !isTeacherMode || voiceNarrationEnabled;
-  const showASR = !isTeacherMode || voicePlaybackEnabled;
+  const showTTS = !isTeacherMode;
+  const showASR = !isTeacherMode;
   const visibleTabs = useMemo(
     () =>
       TABS.filter((tab) => {
