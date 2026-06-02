@@ -122,6 +122,12 @@ describe('OpenAI provider defaults', () => {
       { enable_thinking: true, thinking_budget: 4096 },
     ],
     [
+      'qwen',
+      'deepseek-v4-flash',
+      { mode: 'enabled', budgetTokens: 4096 },
+      { enable_thinking: true, thinking_budget: 4096 },
+    ],
+    [
       'siliconflow',
       'deepseek-ai/DeepSeek-R1',
       { mode: 'enabled', budgetTokens: 2048 },

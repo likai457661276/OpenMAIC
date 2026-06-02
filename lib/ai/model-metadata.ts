@@ -297,6 +297,7 @@ const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
   [getModelMetadataKey('qwen', 'qwen3.5-plus')]: qwenBudgetEnabled,
   [getModelMetadataKey('qwen', 'qwen3-max')]: qwenBudgetDisabled,
   [getModelMetadataKey('qwen', 'qwen3-vl-plus')]: qwenBudgetDisabled,
+  [getModelMetadataKey('qwen', 'deepseek-v4-flash')]: qwenBudgetEnabled,
 
   [getModelMetadataKey('deepseek', 'deepseek-v4-pro')]: deepseekEffort,
   [getModelMetadataKey('deepseek', 'deepseek-v4-flash')]: deepseekEffort,
