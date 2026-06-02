@@ -16,7 +16,7 @@ function getThinking(providerId: ProviderId, modelId: string) {
 
 describe('thinking config metadata', () => {
   it('marks configurable models with adapter-backed thinking capabilities', () => {
-    const thinking = getThinking('qwen', 'qwen3.6-plus');
+    const thinking = getThinking('qwen', 'qwen3.7-plus');
     const qwenDeepSeekThinking = getThinking('qwen', 'deepseek-v4-flash');
 
     expect(supportsConfigurableThinking(thinking)).toBe(true);
@@ -30,6 +30,7 @@ describe('thinking config metadata', () => {
   it('includes DashScope DeepSeek Flash under the Qwen provider catalog', () => {
     const qwenModels = getProvider('qwen')?.models.map((item) => item.id);
 
+    expect(qwenModels).toContain('qwen3.7-plus');
     expect(qwenModels).toContain('deepseek-v4-flash');
   });
 

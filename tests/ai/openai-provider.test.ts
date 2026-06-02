@@ -117,7 +117,7 @@ describe('OpenAI provider defaults', () => {
     ],
     [
       'qwen',
-      'qwen3.6-plus',
+      'qwen3.7-plus',
       { mode: 'enabled', budgetTokens: 4096 },
       { enable_thinking: true, thinking_budget: 4096 },
     ],
