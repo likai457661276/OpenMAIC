@@ -62,6 +62,7 @@ import { AddProviderDialog, type NewProviderData } from './add-provider-dialog';
 import { AddAudioProviderDialog, type NewAudioProviderData } from './add-audio-provider-dialog';
 import { isCustomTTSProvider, isCustomASRProvider } from '@/lib/audio/types';
 import type { SettingsSection, EditingModel } from '@/lib/types/settings';
+import { useTeacherMode } from '@/lib/teacher/teacher-mode-provider';
 
 // ─── Provider List Column (reusable) ───
 function ProviderListColumn<T extends string>({
@@ -218,6 +219,7 @@ interface SettingsDialogProps {
 
 export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsDialogProps) {
   const { t } = useI18n();
+  const { isTeacherMode } = useTeacherMode();
 
   // Get settings from store
   const providerId = useSettingsStore((state) => state.providerId);
@@ -244,6 +246,10 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
 
   // Navigation
   const [activeSection, setActiveSection] = useState<SettingsSection>('providers');
+  const activeSectionRef = useRef(activeSection);
+  useEffect(() => {
+    activeSectionRef.current = activeSection;
+  }, [activeSection]);
   const [selectedProviderId, setSelectedProviderId] = useState<ProviderId>(providerId);
   const [selectedPdfProviderId, setSelectedPdfProviderId] = useState<PDFProviderId>(pdfProviderId);
   const [selectedWebSearchProviderId, setSelectedWebSearchProviderId] =
@@ -254,11 +260,18 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
     useState<VideoProviderId>(videoProviderId);
   // Navigate to initialSection when dialog opens
   useEffect(() => {
-    if (open && initialSection) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Sync section from prop when dialog opens
-      setActiveSection(initialSection);
+    if (open) {
+      const currentActive = activeSectionRef.current;
+      const section = initialSection || currentActive;
+      if (isTeacherMode && (section === 'tts' || section === 'asr')) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Sync section from prop when dialog opens
+        setActiveSection('providers');
+      } else if (initialSection) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Sync section from prop when dialog opens
+        setActiveSection(initialSection);
+      }
     }
-  }, [open, initialSection]);
+  }, [open, initialSection, isTeacherMode]);
 
   // Model editing state
   const [editingModel, setEditingModel] = useState<EditingModel | null>(null);
@@ -754,31 +767,35 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
               <span className="truncate">{t('settings.videoSettings')}</span>
             </button>
 
-            <button
-              onClick={() => setActiveSection('tts')}
-              className={cn(
-                'w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors text-left min-w-0',
-                activeSection === 'tts'
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'hover:bg-muted',
-              )}
-            >
-              <Volume2 className="h-4 w-4 shrink-0" />
-              <span className="truncate">{t('settings.ttsSettings')}</span>
-            </button>
+            {!isTeacherMode && (
+              <>
+                <button
+                  onClick={() => setActiveSection('tts')}
+                  className={cn(
+                    'w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors text-left min-w-0',
+                    activeSection === 'tts'
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'hover:bg-muted',
+                  )}
+                >
+                  <Volume2 className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{t('settings.ttsSettings')}</span>
+                </button>
 
-            <button
-              onClick={() => setActiveSection('asr')}
-              className={cn(
-                'w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors text-left min-w-0',
-                activeSection === 'asr'
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'hover:bg-muted',
-              )}
-            >
-              <Mic className="h-4 w-4 shrink-0" />
-              <span className="truncate">{t('settings.asrSettings')}</span>
-            </button>
+                <button
+                  onClick={() => setActiveSection('asr')}
+                  className={cn(
+                    'w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors text-left min-w-0',
+                    activeSection === 'asr'
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'hover:bg-muted',
+                  )}
+                >
+                  <Mic className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{t('settings.asrSettings')}</span>
+                </button>
+              </>
+            )}
 
             <button
               onClick={() => setActiveSection('pdf')}

@@ -33,6 +33,7 @@ import type { ImageProviderId, VideoProviderId } from '@/lib/media/types';
 import type { ASRProviderId } from '@/lib/audio/types';
 import { isCustomASRProvider } from '@/lib/audio/types';
 import type { SettingsSection } from '@/lib/types/settings';
+import { useTeacherMode } from '@/lib/teacher/teacher-mode-provider';
 
 interface MediaPopoverProps {
   onSettingsOpen: (section: SettingsSection) => void;
@@ -65,6 +66,7 @@ const TABS: Array<{ id: TabId; icon: LucideIcon; label: string }> = [
 
 export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
   const { t } = useI18n();
+  const { isTeacherMode } = useTeacherMode();
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('image');
 
@@ -190,12 +192,20 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
     return groups;
   }, [asrProvidersConfig, cfgOk]);
 
+  const filteredTabs = useMemo(() => {
+    return TABS.filter((tab) => {
+      if (isTeacherMode && tab.id === 'tts') return false;
+      if (isTeacherMode && tab.id === 'asr') return false;
+      return true;
+    });
+  }, [isTeacherMode]);
+
   // Auto-select first enabled tab on open
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
     if (isOpen) {
-      const first = (['image', 'video', 'tts', 'asr'] as TabId[]).find((id) => enabledMap[id]);
-      setActiveTab(first || 'image');
+      const first = filteredTabs.find((tab) => enabledMap[tab.id]);
+      setActiveTab(first?.id || filteredTabs[0]?.id || 'image');
     }
   };
 
@@ -213,8 +223,8 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
           <SlidersHorizontal className="size-3.5" />
           {imageGenerationEnabled && <ImageIcon className="size-3.5" />}
           {videoGenerationEnabled && <Video className="size-3.5" />}
-          {ttsEnabled && <Volume2 className="size-3.5" />}
-          {asrEnabled && <Mic className="size-3.5" />}
+          {ttsEnabled && !isTeacherMode && <Volume2 className="size-3.5" />}
+          {asrEnabled && !isTeacherMode && <Mic className="size-3.5" />}
         </button>
       </PopoverTrigger>
 
@@ -222,7 +232,7 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
         {/* ── Tab bar (segmented control) ── */}
         <div className="p-2 pb-0">
           <div className="flex gap-0.5 p-0.5 bg-muted/60 rounded-lg">
-            {TABS.map((tab) => {
+            {filteredTabs.map((tab) => {
               const isActive = activeTab === tab.id;
               const isEnabled = enabledMap[tab.id];
               const Icon = tab.icon;

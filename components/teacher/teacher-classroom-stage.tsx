@@ -278,6 +278,7 @@ export function TeacherClassroomStage({
   const setCurrentSceneId = useStageStore((state) => state.setCurrentSceneId);
   const generatingOutlines = useStageStore((state) => state.generatingOutlines);
   const failedOutlines = useStageStore((state) => state.failedOutlines);
+  const outlines = useStageStore((state) => state.outlines) ?? [];
   const mediaTasks = useMediaGenerationStore((state) => state.tasks);
   const { exporting: isExportingPptx, exportPPTX, exportResourcePack } = useExportPPTX();
   const { exporting: isExportingClassroom, exportClassroomZip } = useExportClassroom();
@@ -441,6 +442,29 @@ export function TeacherClassroomStage({
           <h1 className="mt-1 line-clamp-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
             {stage?.name || '教师课件'}
           </h1>
+          {outlines.length > 0 ? (
+            <div className="mt-2 flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+              {generatingOutlines.length > 0 ? (
+                <>
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-purple-400 opacity-75 dark:bg-purple-500"></span>
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-purple-500 dark:bg-purple-400"></span>
+                  </span>
+                  <span>
+                    正在生成第 {scenes.length + 1} 页 / 共 {outlines.length} 页
+                  </span>
+                </>
+              ) : (
+                <span>共 {outlines.length} 页</span>
+              )}
+            </div>
+          ) : (
+            scenes.length > 0 && (
+              <div className="mt-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                共 {scenes.length} 页
+              </div>
+            )
+          )}
         </div>
         <div className="scrollbar-hide min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
           {scenes.map((scene, index) => {
