@@ -9,6 +9,7 @@ import { describe, test, expect } from 'vitest';
 
 import { getDefaultAgents } from '@/lib/orchestration/registry/store';
 import { AGENT_COLOR_PALETTE, AGENT_DEFAULT_AVATARS } from '@/lib/constants/agent-defaults';
+import { buildClassroomResultUrl } from '@/lib/server/classroom-generation';
 
 interface DefaultModeFields {
   agentIds: string[];
@@ -111,5 +112,14 @@ describe('#353: generatedAgentConfigs conditional on agentMode', () => {
       'default-5',
       'default-6',
     ]);
+  });
+
+  test('teacher mode returns the teacher classroom route without changing normal routes', () => {
+    expect(buildClassroomResultUrl('http://localhost', 'classroom-1')).toBe(
+      'http://localhost/classroom/classroom-1',
+    );
+    expect(buildClassroomResultUrl('http://localhost', 'classroom-1', true)).toBe(
+      'http://localhost/classroom/teacher/classroom-1',
+    );
   });
 });

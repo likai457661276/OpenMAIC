@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
       previousSpeeches: incomingPreviousSpeeches,
       userProfile,
       languageDirective,
+      returnActionsOnly,
     } = body as {
       outline: SceneOutline;
       allOutlines: SceneOutline[];
@@ -58,6 +59,7 @@ export async function POST(req: NextRequest) {
       previousSpeeches?: string[];
       userProfile?: string;
       languageDirective?: string;
+      returnActionsOnly?: boolean;
     };
 
     // Validate required fields
@@ -151,6 +153,14 @@ export async function POST(req: NextRequest) {
     });
 
     log.info(`Generated ${actions.length} actions for: "${outline.title}"`);
+
+    if (returnActionsOnly) {
+      const outputPreviousSpeeches = actions
+        .filter((a): a is SpeechAction => a.type === 'speech')
+        .map((a) => a.text);
+
+      return apiSuccess({ actions, previousSpeeches: outputPreviousSpeeches });
+    }
 
     // ── Build complete scene ──
     const scene = buildCompleteScene(outline, content, actions, stageId);

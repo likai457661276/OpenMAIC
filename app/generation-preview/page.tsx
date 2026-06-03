@@ -26,17 +26,122 @@ import { db } from '@/lib/utils/database';
 import { MAX_PDF_CONTENT_CHARS, MAX_VISION_IMAGES } from '@/lib/constants/generation';
 import { buildVideoManifestFromOutlines } from '@/lib/media/video-manifest';
 import { nanoid } from 'nanoid';
-import type { Stage } from '@/lib/types/stage';
+import type { Stage, Scene } from '@/lib/types/stage';
 import type { SceneOutline, PdfImage, ImageMapping } from '@/lib/types/generation';
+import type { Action, SpeechAction } from '@/lib/types/action';
+import type { AgentInfo } from '@/lib/generation/pipeline-types';
 import { AgentRevealModal } from '@/components/agent/agent-reveal-modal';
 import { createLogger } from '@/lib/logger';
 import { apiPath, assetPath } from '@/lib/app-paths';
 import { isProviderUsable } from '@/lib/store/settings-validation';
+import { generateAndStoreTTS } from '@/lib/hooks/use-scene-generator';
+import { splitLongSpeechActions } from '@/lib/audio/tts-utils';
 import { type GenerationSessionState, ALL_STEPS, getActiveSteps } from './types';
 import { StepVisualizer } from './components/visualizers';
 
 const log = createLogger('GenerationPreview');
 const OUTLINE_REVIEW_AUTO_CONTINUE_MS = 2500;
+
+function cloneJson<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function extractSceneText(scene: Scene): string {
+  if (scene.content.type === 'slide') {
+    const elements = scene.content.canvas.elements as unknown as Array<Record<string, unknown>>;
+    return elements
+      .map((element) => {
+        const content = element.content;
+        if (typeof content === 'string') return content.replace(/<[^>]*>/g, '').trim();
+        const text = element.text;
+        return typeof text === 'string' ? text.trim() : '';
+      })
+      .filter(Boolean)
+      .slice(0, 8)
+      .join('；');
+  }
+  if (scene.content.type === 'quiz') {
+    return scene.content.questions
+      .map((question) => question.question)
+      .filter(Boolean)
+      .slice(0, 5)
+      .join('；');
+  }
+  if (scene.content.type === 'interactive') {
+    return scene.content.widgetConfig
+      ? JSON.stringify(scene.content.widgetConfig).slice(0, 500)
+      : scene.content.html?.replace(/<[^>]*>/g, '').slice(0, 500) || scene.title;
+  }
+  if (scene.content.type === 'pbl') {
+    return (
+      scene.content.projectConfig.projectInfo.description ||
+      scene.content.projectConfig.projectInfo.title
+    );
+  }
+  return scene.title;
+}
+
+function buildOutlineFromScene(scene: Scene, index: number): SceneOutline {
+  const sceneText = extractSceneText(scene);
+  return {
+    id: nanoid(),
+    type: scene.type,
+    title: scene.title || `第 ${index + 1} 页`,
+    description: [
+      '基于已有教师课件页面补齐互动课堂讲解动作，不要重新设计页面内容。',
+      '讲解必须面向学生：把课件内容转化为教师对学生上课时会说的话，不要写成给教师看的备课解读或授课建议。',
+      sceneText ? `页面内容摘要：${sceneText}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n'),
+    keyPoints: [scene.title, sceneText].filter(Boolean).slice(0, 5),
+    teachingObjective: '为当前页面补齐面向学生的教师讲解、学生互动、课堂讨论和阶段反馈。',
+    order: scene.order ?? index + 1,
+  };
+}
+
+function toActionGenerationContent(scene: Scene): unknown {
+  if (scene.content.type === 'slide') {
+    return {
+      elements: scene.content.canvas.elements,
+      background: scene.content.canvas.background,
+      remark: extractSceneText(scene),
+    };
+  }
+  if (scene.content.type === 'quiz') {
+    return { questions: scene.content.questions };
+  }
+  if (scene.content.type === 'interactive') {
+    return {
+      html: scene.content.html || '',
+      widgetType: scene.content.widgetType,
+      widgetConfig: scene.content.widgetConfig,
+      teacherActions: scene.content.teacherActions,
+    };
+  }
+  return { projectConfig: scene.content.projectConfig };
+}
+
+async function generateTTSForExistingScene(
+  stageId: string,
+  scene: Scene,
+  language?: string,
+  signal?: AbortSignal,
+) {
+  const settings = useSettingsStore.getState();
+  if (!settings.ttsEnabled || settings.ttsProviderId === 'browser-native-tts') return;
+
+  scene.actions = splitLongSpeechActions(scene.actions || [], settings.ttsProviderId);
+  const speechActions = scene.actions.filter(
+    (action): action is SpeechAction => action.type === 'speech' && !!action.text,
+  );
+
+  for (const action of speechActions) {
+    const audioId = `tts_${stageId}_s${scene.order}_${action.id}`;
+    action.audioId = audioId;
+    await generateAndStoreTTS(audioId, action.text, language, signal);
+  }
+}
 
 function GenerationPreviewContent() {
   const router = useRouter();
@@ -201,6 +306,277 @@ function GenerationPreviewContent() {
     return thinkingConfig ? { ...body, thinkingConfig } : body;
   };
 
+  const generateAgentsForStage = async (
+    stage: Stage,
+    outlines: SceneOutline[],
+    languageDirective: string | undefined,
+    signal: AbortSignal,
+    activeStepsForRun: ReturnType<typeof getActiveSteps>,
+  ): Promise<AgentInfo[]> => {
+    const settings = useSettingsStore.getState();
+    let agents: AgentInfo[] = [];
+
+    if (settings.agentMode === 'auto') {
+      const agentStepIdx = activeStepsForRun.findIndex((s) => s.id === 'agent-generation');
+      if (agentStepIdx >= 0) setCurrentStepIndex(agentStepIdx);
+
+      try {
+        const allAvatars = [
+          {
+            path: assetPath('/avatars/teacher.png'),
+            desc: 'Male teacher with glasses, holding a book, green background',
+          },
+          {
+            path: assetPath('/avatars/teacher-2.png'),
+            desc: 'Female teacher with long dark hair, blue traditional outfit, gentle expression',
+          },
+          {
+            path: assetPath('/avatars/assist.png'),
+            desc: 'Young female assistant with glasses, pink background, friendly smile',
+          },
+          {
+            path: assetPath('/avatars/assist-2.png'),
+            desc: 'Young female in orange top and purple overalls, cheerful and approachable',
+          },
+          {
+            path: assetPath('/avatars/clown.png'),
+            desc: 'Energetic girl with glasses pointing up, green shirt, lively and fun',
+          },
+          {
+            path: assetPath('/avatars/clown-2.png'),
+            desc: 'Playful girl with curly hair doing rock gesture, blue shirt, humorous vibe',
+          },
+          {
+            path: assetPath('/avatars/curious.png'),
+            desc: 'Surprised boy with glasses, hand on cheek, curious expression',
+          },
+          {
+            path: assetPath('/avatars/curious-2.png'),
+            desc: 'Boy with backpack holding a book and question mark bubble, inquisitive',
+          },
+          {
+            path: assetPath('/avatars/note-taker.png'),
+            desc: 'Studious boy with glasses, blue shirt, calm and organized',
+          },
+          {
+            path: assetPath('/avatars/note-taker-2.png'),
+            desc: 'Active boy with yellow backpack waving, blue outfit, enthusiastic learner',
+          },
+          {
+            path: assetPath('/avatars/thinker.png'),
+            desc: 'Thoughtful girl with hand on chin, purple background, contemplative',
+          },
+          {
+            path: assetPath('/avatars/thinker-2.png'),
+            desc: 'Girl reading a book intently, long dark hair, intellectual and focused',
+          },
+        ];
+
+        const providers = getAvailableProvidersWithVoices(
+          settings.ttsProvidersConfig,
+          voxcpmProfiles,
+        );
+        const availableVoices = providers.flatMap((provider) =>
+          provider.voices.map((voice) => ({
+            providerId: provider.providerId,
+            voiceId: voice.id,
+            voiceName: voice.name,
+            voiceLanguage: voice.language,
+          })),
+        );
+
+        const agentResp = await fetch(apiPath('/api/generate/agent-profiles'), {
+          method: 'POST',
+          headers: getApiHeaders(),
+          body: JSON.stringify(
+            withThinkingConfig({
+              stageInfo: { name: stage.name, description: stage.description },
+              sceneOutlines: outlines.map((outline) => ({
+                title: outline.title,
+                description: outline.description,
+              })),
+              languageDirective,
+              availableAvatars: allAvatars.map((avatar) => avatar.path),
+              avatarDescriptions: allAvatars.map((avatar) => ({
+                path: avatar.path,
+                desc: avatar.desc,
+              })),
+              availableVoices,
+            }),
+          ),
+          signal,
+        });
+
+        if (!agentResp.ok) throw new Error('Agent generation failed');
+        const agentData = await agentResp.json();
+        if (!agentData.success) throw new Error(agentData.error || 'Agent generation failed');
+
+        const { saveGeneratedAgents } = await import('@/lib/orchestration/registry/store');
+        const savedIds = await saveGeneratedAgents(stage.id, agentData.agents);
+        settings.setSelectedAgentIds(savedIds);
+        stage.agentIds = savedIds;
+
+        setGeneratedAgents(agentData.agents);
+        setShowAgentReveal(true);
+        await new Promise<void>((resolve) => {
+          agentRevealResolveRef.current = resolve;
+        });
+
+        agents = savedIds
+          .map((id) => useAgentRegistry.getState().getAgent(id))
+          .filter(Boolean)
+          .map((agent) => ({
+            id: agent!.id,
+            name: agent!.name,
+            role: agent!.role,
+            persona: agent!.persona,
+          }));
+      } catch (err: unknown) {
+        log.warn('[Generation] Agent generation failed, falling back to presets:', err);
+        const registry = useAgentRegistry.getState();
+        const fallbackIds = settings.selectedAgentIds.filter((id) => {
+          const agent = registry.getAgent(id);
+          return agent && !agent.isGenerated;
+        });
+        agents = fallbackIds
+          .map((id) => registry.getAgent(id))
+          .filter(Boolean)
+          .map((agent) => ({
+            id: agent!.id,
+            name: agent!.name,
+            role: agent!.role,
+            persona: agent!.persona,
+          }));
+        stage.agentIds = fallbackIds;
+      }
+    } else {
+      const registry = useAgentRegistry.getState();
+      const presetAgentIds = settings.selectedAgentIds.filter((id) => {
+        const agent = registry.getAgent(id);
+        return agent && !agent.isGenerated;
+      });
+      agents = presetAgentIds
+        .map((id) => registry.getAgent(id))
+        .filter(Boolean)
+        .map((agent) => ({
+          id: agent!.id,
+          name: agent!.name,
+          role: agent!.role,
+          persona: agent!.persona,
+        }));
+      stage.agentIds = presetAgentIds;
+    }
+
+    return agents;
+  };
+
+  const enrichTeacherInteractiveClassroom = async (
+    currentSession: GenerationSessionState,
+    signal: AbortSignal,
+  ) => {
+    const source = currentSession.teacherInteractiveSource;
+    if (!source?.stage || !source.scenes?.length) {
+      throw new Error('缺少待转换的教师课件内容，请返回课件预览页重新点击转换。');
+    }
+
+    const sourceScenes = cloneJson(source.scenes).sort((a, b) => a.order - b.order);
+    const stageId = nanoid(10);
+    const now = Date.now();
+    const stage: Stage = {
+      ...cloneJson(source.stage),
+      id: stageId,
+      name: currentSession.originalRequirement || `${source.stage.name || '教师课件'}（互动课堂）`,
+      createdAt: now,
+      updatedAt: now,
+      interactiveMode: true,
+      teacherMode: undefined,
+    };
+
+    const outlines = sourceScenes.map(buildOutlineFromScene);
+    const languageDirective =
+      currentSession.languageDirective ||
+      source.stage.languageDirective ||
+      'Teach in the language that matches the existing teacher classroom.';
+    const activeStepsForRun = getActiveSteps(currentSession);
+
+    const store = useStageStore.getState();
+    store.setStage(stage);
+    store.setOutlines(outlines);
+    store.setGeneratingOutlines([]);
+
+    await useSettingsStore.getState().fetchServerProviders();
+    const agents = await generateAgentsForStage(
+      stage,
+      outlines,
+      languageDirective,
+      signal,
+      activeStepsForRun,
+    );
+
+    const actionsStepIdx = activeStepsForRun.findIndex((s) => s.id === 'actions');
+    if (actionsStepIdx >= 0) setCurrentStepIndex(actionsStepIdx);
+
+    const enrichedScenes: Scene[] = [];
+    let previousSpeeches: string[] = [];
+    for (let index = 0; index < sourceScenes.length; index++) {
+      if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+      const sourceScene = sourceScenes[index];
+      const outline = outlines[index];
+      const scene: Scene = {
+        ...sourceScene,
+        id: nanoid(),
+        stageId,
+        order: sourceScene.order ?? index + 1,
+        content: cloneJson(sourceScene.content),
+        actions: [],
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      const actionsResp = await fetch(apiPath('/api/generate/scene-actions'), {
+        method: 'POST',
+        headers: getApiHeaders(),
+        body: JSON.stringify(
+          withThinkingConfig({
+            outline,
+            allOutlines: outlines,
+            content: toActionGenerationContent(sourceScene),
+            stageId,
+            agents,
+            previousSpeeches,
+            languageDirective,
+            returnActionsOnly: true,
+          }),
+        ),
+        signal,
+      });
+
+      if (!actionsResp.ok) {
+        const errorData = await actionsResp.json().catch(() => ({ error: 'Request failed' }));
+        throw new Error(errorData.error || t('generation.sceneGenerateFailed'));
+      }
+
+      const actionData = await actionsResp.json();
+      if (!actionData.success || !Array.isArray(actionData.actions)) {
+        throw new Error(actionData.error || t('generation.sceneGenerateFailed'));
+      }
+
+      scene.actions = actionData.actions as Action[];
+      await generateTTSForExistingScene(stageId, scene, languageDirective, signal);
+      previousSpeeches = actionData.previousSpeeches || [];
+      enrichedScenes.push(scene);
+      setStatusMessage(`已补齐 ${index + 1}/${sourceScenes.length} 页互动动作`);
+    }
+
+    store.setScenes(enrichedScenes);
+    store.setCurrentSceneId(enrichedScenes[0]?.id ?? null);
+    store.setGenerationStatus('completed');
+    sessionStorage.removeItem('generationSession');
+    sessionStorage.removeItem('generationParams');
+    await store.saveToStorage();
+    router.push(`/classroom/${stage.id}`);
+  };
+
   // Auto-start generation when session is loaded
   useEffect(() => {
     if (!sessionLoaded || !hasUsableModelSelection) return;
@@ -253,6 +629,11 @@ function GenerationPreviewContent() {
     try {
       // Compute active steps for this session (recomputed after session mutations)
       let activeSteps = getActiveSteps(currentSession);
+
+      if (currentSession.teacherInteractiveConversion) {
+        await enrichTeacherInteractiveClassroom(currentSession, signal);
+        return;
+      }
 
       // Determine if we need the PDF analysis step
       const hasPdfToAnalyze = !!currentSession.pdfStorageKey && !currentSession.pdfText;
@@ -643,6 +1024,7 @@ function GenerationPreviewContent() {
       // ── Agent generation (after outlines — uses languageDirective + outlines) ──
       const settings = useSettingsStore.getState();
       const teacherMode = !!currentSession.teacherMode;
+      const useInteractiveSetup = !teacherMode || !!currentSession.teacherInteractiveConversion;
       let agents: Array<{
         id: string;
         name: string;
@@ -650,7 +1032,7 @@ function GenerationPreviewContent() {
         persona?: string;
       }> = [];
 
-      if (!teacherMode && settings.agentMode === 'auto') {
+      if (useInteractiveSetup && settings.agentMode === 'auto') {
         const agentStepIdx = activeSteps.findIndex((s) => s.id === 'agent-generation');
         if (agentStepIdx >= 0) setCurrentStepIndex(agentStepIdx);
 
@@ -899,7 +1281,11 @@ function GenerationPreviewContent() {
       }
 
       // Generate TTS for first scene (part of actions step — blocking)
-      if (!teacherMode && settings.ttsEnabled && settings.ttsProviderId !== 'browser-native-tts') {
+      if (
+        useInteractiveSetup &&
+        settings.ttsEnabled &&
+        settings.ttsProviderId !== 'browser-native-tts'
+      ) {
         const ttsProviderConfig = settings.ttsProvidersConfig?.[settings.ttsProviderId];
         const providerOptions =
           settings.ttsProviderId === 'voxcpm-tts'

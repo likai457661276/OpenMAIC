@@ -24,10 +24,13 @@ import {
   PanelRightOpen,
   RefreshCw,
   Sun,
+  WandSparkles,
 } from 'lucide-react';
+import { nanoid } from 'nanoid';
 import { SceneProvider } from '@/lib/contexts/scene-context';
 import { useTheme } from '@/lib/hooks/use-theme';
 import { useStageStore } from '@/lib/store';
+import { useSettingsStore } from '@/lib/store/settings';
 import { PENDING_SCENE_ID } from '@/lib/store/stage';
 import { useMediaGenerationStore } from '@/lib/store/media-generation';
 import { useExportPPTX } from '@/lib/export/use-export-pptx';
@@ -75,6 +78,49 @@ function buildTeacherLectureNotes(scenes: Scene[]): LectureNoteEntry[] {
     }))
     .filter((note) => note.items.length > 0)
     .sort((a, b) => a.sceneOrder - b.sceneOrder);
+}
+
+function buildInteractiveConversionRequirement(stageName: string, scenes: Scene[]): string {
+  const sceneSummaries = scenes
+    .slice()
+    .sort((a, b) => a.order - b.order)
+    .map((scene) => {
+      const speeches = (scene.actions ?? [])
+        .filter((action): action is SpeechAction => action.type === 'speech')
+        .map((action) => action.text.trim())
+        .filter(Boolean);
+      const discussions = (scene.actions ?? [])
+        .filter((action): action is DiscussionAction => action.type === 'discussion')
+        .map((action) => action.topic.trim())
+        .filter(Boolean);
+
+      return [
+        `${scene.order + 1}. ${scene.title}`,
+        speeches.length ? `   现有讲稿：${speeches.slice(0, 3).join('；')}` : undefined,
+        discussions.length ? `   现有讨论：${discussions.join('；')}` : undefined,
+      ]
+        .filter(Boolean)
+        .join('\n');
+    });
+
+  return [
+    '请把下面这份教师课件预览改造成完整互动课堂。',
+    '',
+    '改造要求：',
+    '- 保留当前课件的主题主线、页面顺序和讲稿重点。',
+    '- 讲解对象始终是学生：所有解读、speech 和讨论提示都应写成教师在课堂上对学生讲解的自然话术。',
+    '- 不要生成面向教师的备课说明、教案建议、授课策略说明或教师视角解读。',
+    '- 生成教师、助教和学生角色，让角色围绕学生理解参与讲解、追问、回应和讨论。',
+    '- 为关键讲授内容生成适合语音合成的 speech 动作，用于对学生教学。',
+    '- 加入播放演示、聚焦、高亮、逐步讲解或视频演示。',
+    '- 在合适页面插入 discussion 动作，引导课堂讨论。',
+    '- 结尾加入总结反馈、学生反思和课后延伸。',
+    '',
+    `当前课件：${stageName}`,
+    '',
+    '当前页面与讲稿：',
+    ...sceneSummaries,
+  ].join('\n');
 }
 
 function SceneThumbnail({
@@ -326,6 +372,7 @@ export function TeacherClassroomStage({
   const canGoPrev = currentSceneIndex > 0;
   const canGoNext = currentSceneIndex < totalSceneCount - 1;
   const fullscreenLabel = isFullscreen ? '退出全屏播放' : '全屏播放';
+  const canConvertInteractive = !!stage?.id && scenes.length > 0 && generatingOutlines.length === 0;
 
   const goToScene = useCallback(
     (index: number) => {
@@ -352,6 +399,44 @@ export function TeacherClassroomStage({
     },
     [onRetryOutline, setCurrentSceneId],
   );
+
+  const convertToInteractiveClassroom = useCallback(() => {
+    if (!stage?.id || scenes.length === 0) return;
+
+    const settings = useSettingsStore.getState();
+    settings.setAgentMode('auto');
+    settings.setTTSEnabled(true);
+
+    const sourceTitle = stage.name || '教师课件';
+    const convertedTitle = sourceTitle.endsWith('（互动课堂）')
+      ? sourceTitle
+      : `${sourceTitle}（互动课堂）`;
+    const requirement = buildInteractiveConversionRequirement(sourceTitle, scenes);
+    sessionStorage.setItem(
+      'generationSession',
+      JSON.stringify({
+        sessionId: nanoid(),
+        requirements: {
+          requirement,
+          interactiveMode: true,
+        },
+        pdfText: '',
+        pdfImages: [],
+        imageStorageIds: [],
+        sceneOutlines: null,
+        currentStep: 'generating',
+        previewPhase: 'preparing',
+        teacherMode: true,
+        teacherInteractiveConversion: true,
+        teacherInteractiveSource: {
+          stage,
+          scenes,
+        },
+        originalRequirement: convertedTitle,
+      }),
+    );
+    router.push('/generation-preview');
+  }, [router, scenes, stage]);
 
   const toggleFullscreen = useCallback(async () => {
     const playbackElement = playbackRef.current;
@@ -667,6 +752,23 @@ export function TeacherClassroomStage({
                 </div>
               )}
             </div>
+            <button
+              onClick={convertToInteractiveClassroom}
+              disabled={!canConvertInteractive}
+              className={cn(
+                'hidden h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors sm:flex',
+                canConvertInteractive
+                  ? 'border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-300 dark:hover:bg-purple-900/50'
+                  : 'cursor-not-allowed border-gray-200 bg-white text-gray-300 opacity-60 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-600',
+              )}
+              aria-label="转换为互动课堂"
+              title={
+                canConvertInteractive ? '转换为互动课堂' : '课件页面生成完成后可转换为互动课堂'
+              }
+            >
+              <WandSparkles className="h-4 w-4" />
+              <span>转互动课堂</span>
+            </button>
             <button
               onClick={toggleFullscreen}
               className={cn(

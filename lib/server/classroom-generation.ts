@@ -45,6 +45,7 @@ export interface GenerateClassroomInput {
   enableVideoGeneration?: boolean;
   enableTTS?: boolean;
   agentMode?: 'default' | 'generate';
+  teacherMode?: boolean;
 }
 
 export type ClassroomGenerationStep =
@@ -72,6 +73,16 @@ export interface GenerateClassroomResult {
   scenes: Scene[];
   scenesCount: number;
   createdAt: string;
+}
+
+export function buildClassroomResultUrl(
+  baseUrl: string,
+  classroomId: string,
+  teacherMode?: boolean,
+): string {
+  return teacherMode
+    ? `${baseUrl}/classroom/teacher/${classroomId}`
+    : `${baseUrl}/classroom/${classroomId}`;
 }
 
 function createInMemoryStore(stage: Stage): StageStore {
@@ -309,7 +320,7 @@ export async function generateClassroom(
 
   // Resolve agents based on agentMode — now AFTER outlines so we can use languageDirective
   let agents: AgentInfo[];
-  const agentMode = input.agentMode || 'default';
+  let agentMode = input.agentMode || 'default';
   if (agentMode === 'generate') {
     log.info('Generating custom agent profiles via LLM...');
     try {
@@ -318,6 +329,7 @@ export async function generateClassroom(
     } catch (e) {
       log.warn('Agent profile generation failed, falling back to defaults:', e);
       agents = getDefaultAgents();
+      agentMode = 'default';
     }
   } else {
     agents = getDefaultAgents();
@@ -333,6 +345,7 @@ export async function generateClassroom(
     style: 'interactive',
     createdAt: Date.now(),
     updatedAt: Date.now(),
+    teacherMode: input.teacherMode || undefined,
     // For LLM-generated agents, embed full configs so the client can
     // hydrate the agent registry without prior IndexedDB data.
     // For default agents, just record IDs — the client already has them.
@@ -462,6 +475,9 @@ export async function generateClassroom(
   );
 
   log.info(`Classroom persisted: ${persisted.id}, URL: ${persisted.url}`);
+  const classroomUrl = input.teacherMode
+    ? buildClassroomResultUrl(options.baseUrl, persisted.id, true)
+    : persisted.url;
 
   await options.onProgress?.({
     step: 'completed',
@@ -473,7 +489,7 @@ export async function generateClassroom(
 
   return {
     id: persisted.id,
-    url: persisted.url,
+    url: classroomUrl,
     stage,
     scenes,
     scenesCount: scenes.length,

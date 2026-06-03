@@ -181,8 +181,7 @@ export function Roundtable({
   const { t } = useI18n();
   const { isTeacherMode } = useTeacherMode();
   const complexRealtimePlaybackFeatureEnabled = useFeatureFlag('complexRealtimePlayback');
-  const complexRealtimePlaybackEnabled =
-    !isTeacherMode || complexRealtimePlaybackFeatureEnabled;
+  const complexRealtimePlaybackEnabled = !isTeacherMode || complexRealtimePlaybackFeatureEnabled;
   const ttsMuted = useSettingsStore((s) => s.ttsMuted);
   const setTTSMuted = useSettingsStore((s) => s.setTTSMuted);
   const ttsEnabled = useSettingsStore((state) => state.ttsEnabled);
@@ -668,9 +667,7 @@ export function Roundtable({
       onVolumeChange={(v) => setTTSVolume(v)}
       autoPlayLecture={autoPlayLecture}
       onToggleAutoPlay={
-        complexRealtimePlaybackEnabled
-          ? () => setAutoPlayLecture(!autoPlayLecture)
-          : undefined
+        complexRealtimePlaybackEnabled ? () => setAutoPlayLecture(!autoPlayLecture) : undefined
       }
       playbackSpeed={complexRealtimePlaybackEnabled ? playbackSpeed : 1}
       onCycleSpeed={complexRealtimePlaybackEnabled ? handleCycleSpeed : undefined}
@@ -689,9 +686,7 @@ export function Roundtable({
           side="left"
           onBubbleClick={handlePresentationBubbleClick}
           audioIndicatorState={audioIndicatorState ?? 'idle'}
-          buttonState={
-            complexRealtimePlaybackEnabled ? enrichedPlaybackView?.buttonState : 'none'
-          }
+          buttonState={complexRealtimePlaybackEnabled ? enrichedPlaybackView?.buttonState : 'none'}
           isPaused={isDiscussionPaused || engineMode === 'paused'}
         />
 
@@ -1099,7 +1094,7 @@ export function Roundtable({
         {toolbar}
       </div>
       {/* ── Interaction area — three-column layout ── */}
-      <div className="flex-1 flex items-stretch min-h-0">
+      <div className="flex-1 flex min-w-0 items-stretch overflow-hidden">
         {/* Left: Teacher identity */}
         <div
           className={cn(
@@ -1228,7 +1223,7 @@ export function Roundtable({
         </div>
 
         {/* Center: Interaction stage */}
-        <div className="flex-1 relative mx-3 mb-2">
+        <div className="relative mx-3 mb-2 min-w-0 flex-1">
           {/* End flash banner (Issue 3) */}
           <AnimatePresence>
             {endFlashVisible && (
@@ -1563,11 +1558,11 @@ export function Roundtable({
                   }}
                   exit={{ opacity: 0, y: -8, transition: { duration: 0.12 } }}
                   transition={{ duration: 0.2, ease: [0.21, 1, 0.36, 1] }}
-                  className="w-full flex items-center relative z-10"
+                  className="relative z-10 flex w-full min-w-0 items-center"
                 >
                   <div
                     className={cn(
-                      'flex w-full transition-all duration-500',
+                      'flex w-full min-w-0 transition-all duration-500',
                       bubbleRole === 'teacher' ? 'justify-start' : 'justify-end',
                     )}
                   >
@@ -1596,7 +1591,7 @@ export function Roundtable({
                         }
                       }}
                       className={cn(
-                        'relative px-4 pt-2 pb-3 rounded-2xl text-[15px] leading-relaxed transition-all border w-[min(420px,calc(100%-3rem))] group/bubble flex flex-col max-h-[110px]',
+                        'relative px-4 pt-2 pb-3 rounded-2xl text-[15px] leading-relaxed transition-all border w-[min(420px,calc(100%-3rem))] min-w-0 group/bubble flex flex-col max-h-[110px]',
                         bubbleRole === 'teacher' ? 'pl-4 pr-10' : 'pl-4 pr-10',
                         bubbleRole === 'user'
                           ? 'bg-purple-600/95 dark:bg-purple-500/95 backdrop-blur-sm border-purple-400/40 dark:border-purple-300/40 text-white rounded-br-sm shadow-md shadow-purple-300/30 dark:shadow-purple-800/30'
@@ -1800,7 +1795,7 @@ export function Roundtable({
         {/* Right: Participants area */}
         <div
           className={cn(
-            'w-[140px] shrink-0 flex flex-col py-3 border-l border-gray-100/50 dark:border-gray-700/50 bg-gray-50/30 dark:bg-gray-900/30 overflow-visible transition-opacity duration-300',
+            'w-[176px] shrink-0 flex flex-col py-3 border-l border-gray-100/50 dark:border-gray-700/50 bg-gray-50/30 dark:bg-gray-900/30 overflow-visible transition-opacity duration-300',
             isPresenting && !controlsVisible && 'opacity-0 pointer-events-none',
           )}
         >

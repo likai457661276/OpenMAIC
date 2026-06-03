@@ -6,6 +6,7 @@ import type {
   PdfImage,
   ImageMapping,
 } from '@/lib/types/generation';
+import type { Stage, Scene } from '@/lib/types/stage';
 
 // Session state stored in sessionStorage
 export interface GenerationSessionState {
@@ -31,6 +32,13 @@ export interface GenerationSessionState {
   // Teacher extension generation: reuse normal content generation UI, but skip
   // role reveal and voice synthesis.
   teacherMode?: boolean;
+  // Teacher classroom preview conversion: keep teacher output route while
+  // enriching an existing teacher classroom copy with roles/actions/TTS.
+  teacherInteractiveConversion?: boolean;
+  teacherInteractiveSource?: {
+    stage: Stage;
+    scenes: Scene[];
+  };
   originalRequirement?: string;
 }
 
@@ -89,9 +97,18 @@ export const ALL_STEPS: GenerationStep[] = [
 
 export const getActiveSteps = (session: GenerationSessionState | null) => {
   return ALL_STEPS.filter((step) => {
+    if (session?.teacherInteractiveConversion) {
+      return step.id === 'agent-generation' || step.id === 'actions';
+    }
     if (step.id === 'pdf-analysis') return !!session?.pdfStorageKey;
     if (step.id === 'web-search') return !!session?.requirements?.webSearch;
-    if (step.id === 'agent-generation' && session?.teacherMode) return false;
+    if (
+      step.id === 'agent-generation' &&
+      session?.teacherMode &&
+      !session.teacherInteractiveConversion
+    ) {
+      return false;
+    }
     if (step.id === 'agent-generation') return useSettingsStore.getState().agentMode === 'auto';
     return true;
   });

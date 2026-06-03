@@ -676,6 +676,20 @@ export function HomePage() {
           </FeatureGate>
         )}
 
+        {isTeacherMode && (
+          <motion.button
+            type="button"
+            onClick={() => router.push('/')}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.45, duration: 0.25, ease: 'easeOut' }}
+            className="mt-4 inline-flex items-center gap-2 rounded-full border border-cyan-100/18 bg-cyan-100/10 px-4 py-2 text-sm font-medium text-cyan-50 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-cyan-100/16 hover:shadow-[0_14px_34px_rgba(34,211,238,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/40"
+          >
+            <Atom className="size-4" />
+            <span>进入互动课堂首页</span>
+          </motion.button>
+        )}
+
         {/* ── Error ── */}
         <AnimatePresence>
           {error && (
