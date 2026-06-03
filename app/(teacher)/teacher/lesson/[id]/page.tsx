@@ -1,10 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Presentation, Puzzle, Sparkles } from 'lucide-react';
+import { Puzzle, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LessonEditor } from '@/components/teacher/lesson-editor';
 import { LessonViewer } from '@/components/teacher/lesson-viewer';
-import { SlideConfigDialog } from '@/components/teacher/slide-config-dialog';
 import { getTeacherLesson } from '@/lib/teacher/lesson-service';
 
 interface LessonPageProps {
@@ -12,7 +11,6 @@ interface LessonPageProps {
 }
 
 const lessonSections = [
-  { href: 'slides', label: '课件预览', icon: Presentation },
   { href: 'quiz', label: 'Quiz 互动', icon: Sparkles },
   { href: 'pbl', label: 'PBL 管理', icon: Puzzle },
 ];
@@ -30,7 +28,6 @@ export default async function LessonDetailPage({ params }: LessonPageProps) {
             <div className="text-sm text-muted-foreground">教案 ID：{id}</div>
             <h1 className="mt-2 text-2xl font-semibold tracking-tight">{lesson.title}</h1>
           </div>
-          <SlideConfigDialog lesson={lesson} />
         </div>
       </section>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

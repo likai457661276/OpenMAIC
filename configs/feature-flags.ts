@@ -1,7 +1,6 @@
 export interface FeatureFlags {
   teacherExtension: boolean;
   lessonGeneration: boolean;
-  slideGeneration: boolean;
   richCourseware: boolean;
   quizGeneration: boolean;
   pblGeneration: boolean;
@@ -23,7 +22,6 @@ export type FeatureFlagEnvironment = 'development' | 'staging' | 'production' | 
 export const DEFAULT_TEACHER_MODE_FLAGS: FeatureFlags = {
   teacherExtension: true,
   lessonGeneration: true,
-  slideGeneration: true,
   richCourseware: true,
   quizGeneration: true,
   pblGeneration: true,
@@ -48,7 +46,6 @@ export const DEFAULT_FEATURE_FLAGS_BY_ENV: Record<FeatureFlagEnvironment, Featur
 export const FEATURE_FLAG_ENV_NAMES: Record<FeatureFlagKey, string> = {
   teacherExtension: 'FEATURE_TEACHER_EXTENSION',
   lessonGeneration: 'FEATURE_LESSON_GENERATION',
-  slideGeneration: 'FEATURE_SLIDE_GENERATION',
   richCourseware: 'FEATURE_RICH_COURSEWARE',
   quizGeneration: 'FEATURE_QUIZ_GENERATION',
   pblGeneration: 'FEATURE_PBL_GENERATION',
@@ -66,7 +63,6 @@ export const FEATURE_FLAG_ENV_NAMES: Record<FeatureFlagKey, string> = {
 export const PUBLIC_FEATURE_FLAG_ENV_NAMES: Record<FeatureFlagKey, string> = {
   teacherExtension: 'NEXT_PUBLIC_FEATURE_TEACHER_EXTENSION',
   lessonGeneration: 'NEXT_PUBLIC_FEATURE_LESSON_GENERATION',
-  slideGeneration: 'NEXT_PUBLIC_FEATURE_SLIDE_GENERATION',
   richCourseware: 'NEXT_PUBLIC_FEATURE_RICH_COURSEWARE',
   quizGeneration: 'NEXT_PUBLIC_FEATURE_QUIZ_GENERATION',
   pblGeneration: 'NEXT_PUBLIC_FEATURE_PBL_GENERATION',

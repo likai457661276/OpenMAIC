@@ -13,6 +13,8 @@ import {
   FileText,
   FileDown,
   Loader2,
+  Maximize2,
+  Minimize2,
   Monitor,
   Moon,
   Package,
@@ -285,6 +287,8 @@ export function TeacherClassroomStage({
   const [themeOpen, setThemeOpen] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [retryingOutlineId, setRetryingOutlineId] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const playbackRef = useRef<HTMLElement>(null);
   const themeRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
 
@@ -318,6 +322,9 @@ export function TeacherClassroomStage({
     failedOutlines.length === 0 &&
     Object.values(mediaTasks).every((task) => task.status === 'done' || task.status === 'failed');
   const isExporting = isExportingPptx || isExportingClassroom;
+  const canGoPrev = currentSceneIndex > 0;
+  const canGoNext = currentSceneIndex < totalSceneCount - 1;
+  const fullscreenLabel = isFullscreen ? '退出全屏播放' : '全屏播放';
 
   const goToScene = useCallback(
     (index: number) => {
@@ -345,6 +352,31 @@ export function TeacherClassroomStage({
     [onRetryOutline, setCurrentSceneId],
   );
 
+  const toggleFullscreen = useCallback(async () => {
+    const playbackElement = playbackRef.current;
+    if (!playbackElement) return;
+
+    try {
+      if (document.fullscreenElement === playbackElement) {
+        await document.exitFullscreen();
+        return;
+      }
+
+      await playbackElement.requestFullscreen();
+    } catch {
+      console.warn('[TeacherClassroomStage] Fullscreen request denied by browser policy');
+    }
+  }, []);
+
+  useEffect(() => {
+    function handleFullscreenChange() {
+      setIsFullscreen(document.fullscreenElement === playbackRef.current);
+    }
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -352,7 +384,13 @@ export function TeacherClassroomStage({
         return;
       }
 
-      if (event.key === 'ArrowUp') {
+      if (isFullscreen && event.key === 'ArrowLeft') {
+        event.preventDefault();
+        goToScene(currentSceneIndex - 1);
+      } else if (isFullscreen && (event.key === 'ArrowRight' || event.key === ' ')) {
+        event.preventDefault();
+        goToScene(currentSceneIndex + 1);
+      } else if (event.key === 'ArrowUp') {
         event.preventDefault();
         goToScene(currentSceneIndex - 1);
       } else if (event.key === 'ArrowDown') {
@@ -363,7 +401,7 @@ export function TeacherClassroomStage({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentSceneIndex, goToScene]);
+  }, [currentSceneIndex, goToScene, isFullscreen]);
 
   useEffect(() => {
     if (!themeOpen && !exportMenuOpen) return;
@@ -606,8 +644,21 @@ export function TeacherClassroomStage({
               )}
             </div>
             <button
+              onClick={toggleFullscreen}
+              className={cn(
+                'flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white transition-colors dark:border-gray-700 dark:bg-gray-800',
+                isFullscreen
+                  ? 'text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/20'
+                  : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100',
+              )}
+              aria-label={fullscreenLabel}
+              title={fullscreenLabel}
+            >
+              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
+            <button
               onClick={() => goToScene(currentSceneIndex - 1)}
-              disabled={currentSceneIndex <= 0}
+              disabled={!canGoPrev}
               className="flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
               aria-label="上一页"
             >
@@ -618,7 +669,7 @@ export function TeacherClassroomStage({
             </span>
             <button
               onClick={() => goToScene(currentSceneIndex + 1)}
-              disabled={currentSceneIndex >= totalSceneCount - 1}
+              disabled={!canGoNext}
               className="flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
               aria-label="下一页"
             >
@@ -641,8 +692,26 @@ export function TeacherClassroomStage({
         </header>
 
         <div className="flex min-h-0 flex-1">
-          <section className="flex min-w-0 flex-1 items-center justify-center p-3 md:p-6">
-            <div className="aspect-video w-full max-w-5xl overflow-hidden rounded-lg bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+          <section
+            ref={playbackRef}
+            className={cn(
+              'relative flex min-w-0 flex-1 items-center justify-center bg-gray-50 p-3 dark:bg-gray-900 md:p-6',
+              isFullscreen && 'h-screen w-screen bg-slate-950 p-4 md:p-8',
+            )}
+          >
+            <div
+              className={cn(
+                'aspect-video w-full overflow-hidden rounded-lg bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700',
+                isFullscreen ? 'max-w-none rounded-md shadow-2xl' : 'max-w-5xl',
+              )}
+              style={
+                isFullscreen
+                  ? {
+                      width: 'min(calc(100vw - 2rem), calc((100vh - 5.5rem) * 16 / 9))',
+                    }
+                  : undefined
+              }
+            >
               {isPendingScene ? (
                 <PendingPage
                   failed={pendingFailed}
@@ -664,6 +733,40 @@ export function TeacherClassroomStage({
                 </div>
               )}
             </div>
+            {isFullscreen && (
+              <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center px-4">
+                <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/80 px-3 py-2 text-white shadow-2xl backdrop-blur-md">
+                  <button
+                    onClick={() => goToScene(currentSceneIndex - 1)}
+                    disabled={!canGoPrev}
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+                    aria-label="上一页"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <span className="min-w-16 text-center text-sm font-medium tabular-nums text-white/80">
+                    {totalSceneCount > 0 ? currentSceneIndex + 1 : 0} / {totalSceneCount}
+                  </span>
+                  <button
+                    onClick={() => goToScene(currentSceneIndex + 1)}
+                    disabled={!canGoNext}
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+                    aria-label="下一页"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                  <div className="mx-1 h-5 w-px bg-white/15" />
+                  <button
+                    onClick={toggleFullscreen}
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                    aria-label="退出全屏播放"
+                    title="退出全屏播放"
+                  >
+                    <Minimize2 className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+            )}
           </section>
 
           {showNotes && (

@@ -1,21 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_TEACHER_MODE_FLAGS } from '@/lib/feature-flags';
-import { QuizAdapter, SlideAdapter } from '@/lib/teacher/adapters';
+import { QuizAdapter } from '@/lib/teacher/adapters';
 
 describe('teacher adapters', () => {
-  it('blocks disabled adapter features before execution', async () => {
-    const adapter = new SlideAdapter({
-      featureFlags: {
-        ...DEFAULT_TEACHER_MODE_FLAGS,
-        slideGeneration: false,
-      },
-    });
-
-    await expect(adapter.execute({ lessonId: 'lesson-1' })).rejects.toThrow(
-      'Feature "slideGeneration" is disabled.',
-    );
-  });
-
   it('keeps quiz generation focused on quiz content', () => {
     const adapter = new QuizAdapter({ featureFlags: DEFAULT_TEACHER_MODE_FLAGS });
 
