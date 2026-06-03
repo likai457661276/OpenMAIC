@@ -20,7 +20,7 @@ export function SlidePresenter({
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape' && !document.fullscreenElement) onClose();
       if (event.key === 'ArrowRight' || event.key === ' ') {
         setIndex((current) => Math.min(slides.length - 1, current + 1));
       }
