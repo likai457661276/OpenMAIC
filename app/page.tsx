@@ -175,10 +175,13 @@ export function HomePage() {
   const loadClassrooms = useCallback(async () => {
     try {
       const list = await listStages();
-      setClassrooms(list);
+      const visibleList = list.filter((stage) =>
+        isTeacherMode ? stage.teacherMode : !stage.teacherMode,
+      );
+      setClassrooms(visibleList);
       // Load first slide thumbnails
-      if (list.length > 0) {
-        const slides = await getFirstSlideByStages(list.map((c) => c.id));
+      if (visibleList.length > 0) {
+        const slides = await getFirstSlideByStages(visibleList.map((c) => c.id));
         replaceThumbnails(slides);
       } else {
         replaceThumbnails({});
@@ -186,7 +189,7 @@ export function HomePage() {
     } catch (err) {
       log.error('Failed to load classrooms:', err);
     }
-  }, [replaceThumbnails]);
+  }, [isTeacherMode, replaceThumbnails]);
 
   const { importing, fileInputRef, triggerFileSelect, handleFileChange } = useImportClassroom(
     () => {
@@ -320,6 +323,7 @@ export function HomePage() {
         sceneOutlines: null,
         currentStep: 'generating' as const,
         teacherMode: isTeacherMode || undefined,
+        originalRequirement: form.requirement,
       };
       sessionStorage.setItem('generationSession', JSON.stringify(sessionState));
 
@@ -908,7 +912,13 @@ export function HomePage() {
                           confirmingDelete={pendingDeleteId === classroom.id}
                           onConfirmDelete={() => confirmDelete(classroom.id)}
                           onCancelDelete={() => setPendingDeleteId(null)}
-                          onClick={() => router.push(`/classroom/${classroom.id}`)}
+                          onClick={() =>
+                            router.push(
+                              classroom.teacherMode
+                                ? `/classroom/teacher/${classroom.id}`
+                                : `/classroom/${classroom.id}`,
+                            )
+                          }
                           teacherMode={isTeacherMode}
                         />
                       </motion.div>

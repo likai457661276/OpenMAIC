@@ -58,6 +58,12 @@ export interface Stage {
    * Absent on legacy classrooms, imports, and regular-mode generations.
    */
   interactiveMode?: boolean;
+  /**
+   * True when this classroom was created from the teacher entry point.
+   * Teacher classrooms use the teacher display route and stay out of the
+   * regular interactive classroom history.
+   */
+  teacherMode?: boolean;
 }
 
 /**

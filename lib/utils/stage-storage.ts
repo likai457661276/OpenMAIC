@@ -30,6 +30,7 @@ export interface StageListItem {
   createdAt: number;
   updatedAt: number;
   interactiveMode?: boolean;
+  teacherMode?: boolean;
 }
 
 /**
@@ -52,6 +53,7 @@ export async function saveStageData(stageId: string, data: StageStoreData): Prom
       agentIds: data.stage.agentIds,
       videoManifest: data.stage.videoManifest,
       interactiveMode: data.stage.interactiveMode,
+      teacherMode: data.stage.teacherMode,
     });
 
     // Delete old scenes first to avoid orphaned data
@@ -164,6 +166,9 @@ export async function listStages(): Promise<StageListItem[]> {
           createdAt: stage.createdAt,
           updatedAt: stage.updatedAt,
           interactiveMode: stage.interactiveMode,
+          teacherMode:
+            stage.teacherMode ??
+            stage.name.startsWith('请根据以下教师备课需求生成教师可直接使用的教案与课堂内容。'),
         };
       }),
     );

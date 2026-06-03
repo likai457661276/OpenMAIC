@@ -466,12 +466,17 @@ function GenerationPreviewContent() {
       const stageId = nanoid(10);
       const stage: Stage = {
         id: stageId,
-        name: extractTopicFromRequirement(currentSession.requirements.requirement),
+        name: extractTopicFromRequirement(
+          currentSession.teacherMode
+            ? currentSession.originalRequirement || currentSession.requirements.requirement
+            : currentSession.requirements.requirement,
+        ),
         description: '',
         style: 'professional',
         createdAt: Date.now(),
         updatedAt: Date.now(),
         interactiveMode: !!currentSession.requirements.interactiveMode,
+        teacherMode: currentSession.teacherMode || undefined,
       };
 
       // ── Generate outlines first (infers languageDirective) ──

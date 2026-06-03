@@ -31,6 +31,7 @@ export interface GenerationSessionState {
   // Teacher extension generation: reuse normal content generation UI, but skip
   // role reveal and voice synthesis.
   teacherMode?: boolean;
+  originalRequirement?: string;
 }
 
 export type GenerationStep = {

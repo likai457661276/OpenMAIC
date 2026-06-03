@@ -50,6 +50,7 @@ export interface StageRecord {
   agentIds?: string[]; // Agent IDs selected at creation time
   videoManifest?: VideoManifest; // Generated video request manifest; non-indexed
   interactiveMode?: boolean; // Interactive Mode flag; non-indexed
+  teacherMode?: boolean; // Teacher classroom flag; non-indexed
 }
 
 /**
