@@ -20,16 +20,12 @@ import {
   Volume2,
   VolumeX,
   Loader2,
-  MessageSquare,
-  Minus,
-  Plus,
   Search,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { AgentConfig } from '@/lib/orchestration/registry/types';
 import type { TTSProviderId } from '@/lib/audio/types';
 import type { ProviderWithVoices } from '@/lib/audio/voice-resolver';
-import { apiPath, appPath } from '@/lib/app-paths';
 
 function matchesVoiceQuery(value: string | undefined, query: string): boolean {
   return !!value?.toLowerCase().includes(query);
@@ -154,7 +150,7 @@ function AgentVoicePill({
                 })),
               }
             : undefined;
-        const res = await fetch(apiPath('/api/generate/tts'), {
+        const res = await fetch('/api/generate/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -165,10 +161,9 @@ function AgentVoicePill({
             ttsVoice: voiceId,
             ttsSpeed: 1,
             ttsApiKey: providerConfig?.apiKey,
-            ttsBaseUrl:
-              providerConfig?.serverBaseUrl ||
-              providerConfig?.baseUrl ||
-              providerConfig?.customDefaultBaseUrl,
+            // Managed providers resolve their base URL server-side; only send
+            // the client's own base URL (custom providers).
+            ttsBaseUrl: providerConfig?.baseUrl || providerConfig?.customDefaultBaseUrl,
             ttsProviderOptions: providerOptions,
           }),
           signal: controller.signal,
@@ -435,7 +430,7 @@ function TeacherVoicePill({
                 })),
               }
             : undefined;
-        const res = await fetch(apiPath('/api/generate/tts'), {
+        const res = await fetch('/api/generate/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -446,10 +441,9 @@ function TeacherVoicePill({
             ttsVoice: voiceId,
             ttsSpeed: 1,
             ttsApiKey: providerConfig?.apiKey,
-            ttsBaseUrl:
-              providerConfig?.serverBaseUrl ||
-              providerConfig?.baseUrl ||
-              providerConfig?.customDefaultBaseUrl,
+            // Managed providers resolve their base URL server-side; only send
+            // the client's own base URL (custom providers).
+            ttsBaseUrl: providerConfig?.baseUrl || providerConfig?.customDefaultBaseUrl,
             ttsProviderOptions: providerOptions,
           }),
           signal: controller.signal,
@@ -616,8 +610,6 @@ export function AgentBar() {
   const { listAgents } = useAgentRegistry();
   const selectedAgentIds = useSettingsStore((s) => s.selectedAgentIds);
   const setSelectedAgentIds = useSettingsStore((s) => s.setSelectedAgentIds);
-  const maxTurns = useSettingsStore((s) => s.maxTurns);
-  const setMaxTurns = useSettingsStore((s) => s.setMaxTurns);
   const agentMode = useSettingsStore((s) => s.agentMode);
   const setAgentMode = useSettingsStore((s) => s.setAgentMode);
   const ttsProvidersConfig = useSettingsStore((s) => s.ttsProvidersConfig);
@@ -723,7 +715,7 @@ export function AgentBar() {
       {teacherAgent && (
         <div className="size-8 rounded-full overflow-hidden ring-2 ring-blue-400/40 dark:ring-blue-500/30 shrink-0">
           <img
-            src={appPath(teacherAgent.avatar)}
+            src={teacherAgent.avatar}
             alt={getAgentName(teacherAgent)}
             className="size-full object-cover"
           />
@@ -736,7 +728,7 @@ export function AgentBar() {
             {agents.find((a) => a.role === 'assistant') && (
               <div className="size-6 rounded-full overflow-hidden ring-[1.5px] ring-background">
                 <img
-                  src={appPath(agents.find((a) => a.role === 'assistant')!.avatar)}
+                  src={agents.find((a) => a.role === 'assistant')!.avatar}
                   alt=""
                   className="size-full object-cover"
                 />
@@ -755,7 +747,7 @@ export function AgentBar() {
                   className="size-6 rounded-full overflow-hidden ring-[1.5px] ring-background"
                 >
                   <img
-                    src={appPath(agent.avatar)}
+                    src={agent.avatar}
                     alt={getAgentName(agent)}
                     className="size-full object-cover"
                   />
@@ -803,11 +795,7 @@ export function AgentBar() {
           className="size-7 rounded-full overflow-hidden shrink-0 ring-1 ring-border/40"
           style={{ boxShadow: isSelected ? `0 0 0 2px ${agent.color}30` : undefined }}
         >
-          <img
-            src={appPath(agent.avatar)}
-            alt={getAgentName(agent)}
-            className="size-full object-cover"
-          />
+          <img src={agent.avatar} alt={getAgentName(agent)} className="size-full object-cover" />
         </div>
         <span className="text-[13px] font-medium truncate min-w-0 flex-1">
           {getAgentName(agent)}
@@ -874,7 +862,7 @@ export function AgentBar() {
                     style={{ boxShadow: `0 0 0 2px ${teacherAgent.color}30` }}
                   >
                     <img
-                      src={appPath(teacherAgent.avatar)}
+                      src={teacherAgent.avatar}
                       alt={getAgentName(teacherAgent)}
                       className="size-full object-cover"
                     />
@@ -942,57 +930,6 @@ export function AgentBar() {
                   </div>
                 </div>
               )}
-
-              {/* Max turns — compact stepper */}
-              <div className="flex items-center gap-1.5 px-2 py-1 mt-1 border-t border-border/30">
-                <MessageSquare className="size-3 text-muted-foreground/40 shrink-0" />
-                <span className="text-[11px] text-muted-foreground/50 flex-1">
-                  {t('settings.maxTurns')}
-                </span>
-                <div className="flex items-center rounded-full bg-muted/50 h-5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const v = Math.max(1, parseInt(maxTurns || '1') - 1);
-                      setMaxTurns(String(v));
-                    }}
-                    className="size-5 flex items-center justify-center text-muted-foreground/60 hover:text-foreground transition-colors rounded-full hover:bg-muted"
-                  >
-                    <Minus className="size-2.5" />
-                  </button>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={maxTurns}
-                    onChange={(e) => {
-                      const raw = e.target.value.replace(/\D/g, '');
-                      if (!raw) {
-                        setMaxTurns('');
-                        return;
-                      }
-                      const v = Math.min(20, Math.max(1, parseInt(raw)));
-                      setMaxTurns(String(v));
-                    }}
-                    onBlur={() => {
-                      if (!maxTurns || parseInt(maxTurns) < 1) setMaxTurns('1');
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    className="w-5 h-5 text-[11px] font-medium tabular-nums text-center bg-transparent outline-none border-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const v = Math.min(20, parseInt(maxTurns || '1') + 1);
-                      setMaxTurns(String(v));
-                    }}
-                    className="size-5 flex items-center justify-center text-muted-foreground/60 hover:text-foreground transition-colors rounded-full hover:bg-muted"
-                  >
-                    <Plus className="size-2.5" />
-                  </button>
-                </div>
-              </div>
             </div>
           </motion.div>
         )}

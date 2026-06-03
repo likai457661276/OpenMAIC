@@ -15,19 +15,6 @@ import { isProviderUsable } from '@/lib/store/settings-validation';
 
 // Minimal built-in provider registry used by the store
 vi.mock('@/lib/ai/providers', () => ({
-  parseModelString: (modelString: string) => {
-    const colonIndex = modelString.indexOf(':');
-    if (colonIndex > 0) {
-      return {
-        providerId: modelString.slice(0, colonIndex),
-        modelId: modelString.slice(colonIndex + 1),
-      };
-    }
-    return {
-      providerId: 'openai',
-      modelId: modelString,
-    };
-  },
   PROVIDERS: {
     openai: {
       id: 'openai',
@@ -41,27 +28,6 @@ vi.mock('@/lib/ai/providers', () => ({
         { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
         { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' },
       ],
-    },
-    siliconflow: {
-      id: 'siliconflow',
-      name: 'SiliconFlow',
-      type: 'openai',
-      defaultBaseUrl: 'https://api.siliconflow.cn/v1',
-      requiresApiKey: true,
-      icon: '/logos/siliconflow.svg',
-      models: [
-        { id: 'Pro/MiniMaxAI/MiniMax-M2.5', name: 'MiniMax-M2.5 Pro' },
-        { id: 'deepseek-ai/DeepSeek-V3.2', name: 'DeepSeek V3.2' },
-      ],
-    },
-    doubao: {
-      id: 'doubao',
-      name: 'Doubao',
-      type: 'openai',
-      defaultBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
-      requiresApiKey: true,
-      icon: '/logos/doubao.svg',
-      models: [{ id: 'ep-20260225155849-krdlt', name: 'Doubao Seed 2.0 Lite' }],
     },
     anthropic: {
       id: 'anthropic',
@@ -128,7 +94,7 @@ vi.mock('@/lib/audio/constants', () => ({
       requiresApiKey: true,
       defaultModelId: 'gpt-4o-mini-transcribe',
       models: [{ id: 'gpt-4o-mini-transcribe', name: 'GPT-4o Mini Transcribe' }],
-      supportedLanguages: ['zh', 'en'],
+      supportedLanguages: ['auto', 'zh'],
       supportedFormats: ['webm'],
     },
     'browser-native': {
@@ -137,7 +103,7 @@ vi.mock('@/lib/audio/constants', () => ({
       requiresApiKey: false,
       defaultModelId: '',
       models: [],
-      supportedLanguages: ['zh-CN', 'en-US'],
+      supportedLanguages: ['zh'],
       supportedFormats: ['browser'],
     },
   },
@@ -165,11 +131,6 @@ vi.mock('@/lib/media/image-providers', () => ({
       id: 'seedream',
       requiresApiKey: true,
       models: [{ id: 'doubao-seedream-5-0-260128', name: 'Seedream 5.0' }],
-    },
-    'siliconflow-image': {
-      id: 'siliconflow-image',
-      requiresApiKey: true,
-      models: [{ id: 'Qwen/Qwen-Image', name: 'Qwen / Qwen-Image' }],
     },
     'qwen-image': {
       id: 'qwen-image',
@@ -224,20 +185,6 @@ vi.stubGlobal('window', { localStorage: localStorageStub });
 /** Full server response shape */
 interface MockServerResponse {
   providers?: Record<string, { models?: string[]; baseUrl?: string }>;
-  defaultModel?: string;
-  defaults?: {
-    model?: string;
-    ttsProvider?: string;
-    ttsVoice?: string;
-    asrProvider?: string;
-    asrLanguage?: string;
-    pdfProvider?: string;
-    imageProvider?: string;
-    imageModel?: string;
-    videoProvider?: string;
-    videoModel?: string;
-    webSearchProvider?: string;
-  };
   tts?: Record<string, { baseUrl?: string }>;
   asr?: Record<string, { baseUrl?: string }>;
   pdf?: Record<string, { baseUrl?: string }>;
@@ -251,7 +198,6 @@ function mockServerResponse(overrides: MockServerResponse = {}) {
     ok: true,
     json: async () => ({
       providers: {},
-      defaults: {},
       tts: {},
       asr: {},
       pdf: {},
@@ -322,6 +268,56 @@ describe('settings rehydrate — built-in provider models', () => {
     ]);
     expect(models[0].name).toBe('GPT-4o');
     expect(models[3].name).toBe('Custom Earlier');
+  });
+
+  it('strips a legacy serverBaseUrl from persisted provider configs on rehydrate (#620)', async () => {
+    storage.set(
+      'settings-storage',
+      JSON.stringify({
+        state: {
+          providerId: 'openai',
+          modelId: 'gpt-4o',
+          providersConfig: {
+            openai: {
+              apiKey: '',
+              baseUrl: '',
+              models: [{ id: 'gpt-4o', name: 'GPT-4o' }],
+              name: 'OpenAI',
+              type: 'openai',
+              defaultBaseUrl: 'https://api.openai.com/v1',
+              requiresApiKey: true,
+              isBuiltIn: true,
+              isServerConfigured: true,
+              serverBaseUrl: 'https://internal-gateway.local/v1',
+            },
+          },
+          webSearchProvidersConfig: {
+            bocha: {
+              apiKey: '',
+              baseUrl: '',
+              enabled: true,
+              requiresApiKey: true,
+              isServerConfigured: true,
+              serverBaseUrl: 'https://api.bocha.cn',
+            },
+          },
+        },
+        version: 2,
+      }),
+    );
+
+    const store = await getStore();
+    const openai = store.getState().providersConfig.openai as unknown as Record<string, unknown>;
+    const bocha = store.getState().webSearchProvidersConfig.bocha as unknown as Record<
+      string,
+      unknown
+    >;
+
+    // The removed field must not linger in persisted client state...
+    expect('serverBaseUrl' in openai).toBe(false);
+    expect('serverBaseUrl' in bocha).toBe(false);
+    // ...while the managed flag itself is preserved.
+    expect(openai.isServerConfigured).toBe(true);
   });
 });
 
@@ -560,114 +556,6 @@ describe('fetchServerProviders — provider availability sync', () => {
     expect(store.getState().modelId).toBe('gpt-4o');
   });
 
-  it('applies server default model on first sync', async () => {
-    const store = await getStore();
-
-    mockServerResponse({
-      providers: {
-        siliconflow: { models: ['Pro/MiniMaxAI/MiniMax-M2.5'] },
-      },
-      defaultModel: 'siliconflow:Pro/MiniMaxAI/MiniMax-M2.5',
-    });
-
-    await store.getState().fetchServerProviders();
-
-    expect(store.getState().providerId).toBe('siliconflow');
-    expect(store.getState().modelId).toBe('Pro/MiniMaxAI/MiniMax-M2.5');
-  });
-
-  it('uses server default model to recover when current model is empty', async () => {
-    const store = await getStore();
-
-    store.setState({
-      providerId: 'siliconflow',
-      modelId: '',
-      autoConfigApplied: true,
-    });
-
-    mockServerResponse({
-      providers: {
-        siliconflow: { models: ['Pro/MiniMaxAI/MiniMax-M2.5'] },
-      },
-      defaultModel: 'siliconflow:Pro/MiniMaxAI/MiniMax-M2.5',
-    });
-
-    await store.getState().fetchServerProviders();
-
-    expect(store.getState().providerId).toBe('siliconflow');
-    expect(store.getState().modelId).toBe('Pro/MiniMaxAI/MiniMax-M2.5');
-  });
-
-  it('keeps a valid user model selection instead of reapplying server default', async () => {
-    const store = await getStore();
-
-    store.setState({
-      providerId: 'siliconflow',
-      modelId: 'Pro/MiniMaxAI/MiniMax-M2.5',
-      autoConfigApplied: true,
-    });
-
-    mockServerResponse({
-      providers: {
-        siliconflow: { models: ['Pro/MiniMaxAI/MiniMax-M2.5'] },
-        doubao: { models: ['ep-20260225155849-krdlt'] },
-      },
-      defaultModel: 'doubao:ep-20260225155849-krdlt',
-    });
-
-    await store.getState().fetchServerProviders();
-
-    expect(store.getState().providerId).toBe('siliconflow');
-    expect(store.getState().modelId).toBe('Pro/MiniMaxAI/MiniMax-M2.5');
-  });
-
-  it('keeps a valid model in the same provider when server default points at another model', async () => {
-    const store = await getStore();
-
-    store.setState({
-      providerId: 'siliconflow',
-      modelId: 'deepseek-ai/DeepSeek-V4-Flash',
-      autoConfigApplied: true,
-    });
-
-    mockServerResponse({
-      providers: {
-        siliconflow: {
-          models: ['deepseek-ai/DeepSeek-V4-Flash', 'deepseek-ai/DeepSeek-V4-Pro'],
-        },
-      },
-      defaultModel: 'siliconflow:deepseek-ai/DeepSeek-V4-Pro',
-    });
-
-    await store.getState().fetchServerProviders();
-
-    expect(store.getState().providerId).toBe('siliconflow');
-    expect(store.getState().modelId).toBe('deepseek-ai/DeepSeek-V4-Flash');
-  });
-
-  it('uses server default model to recover when current persisted model is unavailable', async () => {
-    const store = await getStore();
-
-    store.setState({
-      providerId: 'siliconflow',
-      modelId: 'deepseek-ai/DeepSeek-V3.2',
-      autoConfigApplied: true,
-    });
-
-    mockServerResponse({
-      providers: {
-        siliconflow: { models: ['Pro/MiniMaxAI/MiniMax-M2.5'] },
-        doubao: { models: ['ep-20260225155849-krdlt'] },
-      },
-      defaultModel: 'doubao:ep-20260225155849-krdlt',
-    });
-
-    await store.getState().fetchServerProviders();
-
-    expect(store.getState().providerId).toBe('doubao');
-    expect(store.getState().modelId).toBe('ep-20260225155849-krdlt');
-  });
-
   it('keeps modelId when selected model is still available after server sync', async () => {
     const store = await getStore();
 
@@ -776,88 +664,6 @@ describe('fetchServerProviders — TTS stale selection', () => {
 
     expect(store.getState().ttsProviderId).toBe('openai-tts');
   });
-
-  it('applies env-configured default TTS provider and voice on first sync', async () => {
-    const store = await getStore();
-
-    mockServerResponse({
-      defaults: {
-        ttsProvider: 'azure-tts',
-        ttsVoice: 'zh-CN-XiaoxiaoNeural',
-      },
-      tts: { 'openai-tts': {}, 'azure-tts': {} },
-    });
-
-    await store.getState().fetchServerProviders();
-
-    expect(store.getState().ttsProviderId).toBe('azure-tts');
-    expect(store.getState().ttsVoice).toBe('zh-CN-XiaoxiaoNeural');
-    expect(store.getState().ttsSelectionLocked).toBe(true);
-  });
-
-  it('overrides persisted local TTS selection when env-configured default is present', async () => {
-    const store = await getStore();
-
-    store.setState({
-      ttsProviderId: 'openai-tts',
-      ttsVoice: 'alloy',
-      autoConfigApplied: true,
-    });
-
-    mockServerResponse({
-      defaults: {
-        ttsProvider: 'browser-native-tts',
-        ttsVoice: 'default',
-      },
-      tts: { 'openai-tts': {} },
-    });
-
-    await store.getState().fetchServerProviders();
-
-    expect(store.getState().ttsProviderId).toBe('browser-native-tts');
-    expect(store.getState().ttsVoice).toBe('default');
-    expect(store.getState().ttsSelectionLocked).toBe(true);
-  });
-
-  it('rejects local TTS selection changes after env-configured default locks TTS', async () => {
-    const store = await getStore();
-
-    mockServerResponse({
-      defaults: {
-        ttsProvider: 'browser-native-tts',
-        ttsVoice: 'default',
-      },
-      tts: { 'openai-tts': {} },
-    });
-
-    await store.getState().fetchServerProviders();
-
-    store.getState().setTTSProvider('openai-tts');
-    store.getState().setTTSVoice('alloy');
-
-    expect(store.getState().ttsProviderId).toBe('browser-native-tts');
-    expect(store.getState().ttsVoice).toBe('default');
-  });
-
-  it('keeps browser-native-tts after sync even when server TTS providers are available', async () => {
-    const store = await getStore();
-
-    // Round 1: server exposes openai-tts (simulates server-side TTS availability)
-    mockServerResponse({ tts: { 'openai-tts': {} } });
-    await store.getState().fetchServerProviders();
-
-    // User explicitly switches to browser-native-tts
-    store.getState().setTTSProvider('browser-native-tts');
-    store.getState().setTTSVoice('default');
-    expect(store.getState().ttsProviderId).toBe('browser-native-tts');
-
-    // Round 2: next sync should not force fallback to server provider
-    mockServerResponse({ tts: { 'openai-tts': {} } });
-    await store.getState().fetchServerProviders();
-
-    expect(store.getState().ttsProviderId).toBe('browser-native-tts');
-    expect(store.getState().ttsVoice).toBe('default');
-  });
 });
 
 describe('fetchServerProviders — ASR stale selection', () => {
@@ -898,85 +704,6 @@ describe('fetchServerProviders — ASR stale selection', () => {
 
     expect(store.getState().asrProviderId).toBe('openai-whisper');
   });
-
-  it('applies env-configured default ASR provider and language on first sync', async () => {
-    const store = await getStore();
-
-    mockServerResponse({
-      defaults: {
-        asrProvider: 'openai-whisper',
-        asrLanguage: 'en',
-      },
-      asr: { 'openai-whisper': {} },
-    });
-
-    await store.getState().fetchServerProviders();
-
-    expect(store.getState().asrProviderId).toBe('openai-whisper');
-    expect(store.getState().asrLanguage).toBe('en');
-    expect(store.getState().asrSelectionLocked).toBe(true);
-  });
-
-  it('overrides persisted local ASR selection when env-configured default is present', async () => {
-    const store = await getStore();
-
-    store.setState({
-      asrProviderId: 'browser-native',
-      asrLanguage: 'zh',
-      autoConfigApplied: true,
-    });
-
-    mockServerResponse({
-      defaults: {
-        asrProvider: 'openai-whisper',
-        asrLanguage: 'en',
-      },
-      asr: { 'openai-whisper': {} },
-    });
-
-    await store.getState().fetchServerProviders();
-
-    expect(store.getState().asrProviderId).toBe('openai-whisper');
-    expect(store.getState().asrLanguage).toBe('en');
-    expect(store.getState().asrSelectionLocked).toBe(true);
-  });
-
-  it('rejects local ASR selection changes after env-configured default locks ASR', async () => {
-    const store = await getStore();
-
-    mockServerResponse({
-      defaults: {
-        asrProvider: 'openai-whisper',
-        asrLanguage: 'en',
-      },
-      asr: { 'openai-whisper': {} },
-    });
-
-    await store.getState().fetchServerProviders();
-
-    store.getState().setASRProvider('browser-native');
-    store.getState().setASRLanguage('zh-CN');
-
-    expect(store.getState().asrProviderId).toBe('openai-whisper');
-    expect(store.getState().asrLanguage).toBe('en');
-  });
-
-  it('falls back to Chinese when env-configured ASR language is outside the whitelist', async () => {
-    const store = await getStore();
-
-    mockServerResponse({
-      defaults: {
-        asrProvider: 'openai-whisper',
-        asrLanguage: 'ja',
-      },
-      asr: { 'openai-whisper': {} },
-    });
-
-    await store.getState().fetchServerProviders();
-
-    expect(store.getState().asrProviderId).toBe('openai-whisper');
-    expect(store.getState().asrLanguage).toBe('zh');
-  });
 });
 
 describe('fetchServerProviders — Web Search provider sync', () => {
@@ -991,20 +718,20 @@ describe('fetchServerProviders — Web Search provider sync', () => {
     return useSettingsStore;
   }
 
-  it('marks Bocha as server-configured and stores serverBaseUrl', async () => {
+  it('marks Bocha as server-configured without storing a server base URL', async () => {
     const store = await getStore();
     mockServerResponse({
       webSearch: {
-        bocha: { baseUrl: 'https://api.bocha.cn' },
+        bocha: {},
       },
     });
 
     await store.getState().fetchServerProviders();
 
-    expect(store.getState().webSearchProvidersConfig.bocha).toMatchObject({
-      isServerConfigured: true,
-      serverBaseUrl: 'https://api.bocha.cn',
-    });
+    const bocha = store.getState().webSearchProvidersConfig.bocha;
+    expect(bocha.isServerConfigured).toBe(true);
+    // The server base URL is never exposed to / stored on the client.
+    expect((bocha as Record<string, unknown>).serverBaseUrl).toBeUndefined();
   });
 
   it('falls back to Bocha when selected Tavily loses server config and has no client key', async () => {
@@ -1160,10 +887,10 @@ describe('fetchServerProviders — Image stale selection', () => {
   it('preserves user-disabled image generation across server syncs', async () => {
     const store = await getStore();
 
-    // Server has seedream, but image generation stays off until the user enables it
+    // Server has seedream, auto-enabled on first sync
     mockServerResponse({ image: { seedream: {} } });
     await store.getState().fetchServerProviders();
-    expect(store.getState().imageGenerationEnabled).toBe(false);
+    expect(store.getState().imageGenerationEnabled).toBe(true);
 
     // User intentionally disables
     store.getState().setImageGenerationEnabled(false);
@@ -1178,16 +905,16 @@ describe('fetchServerProviders — Image stale selection', () => {
   it('falls back to another server-configured image provider', async () => {
     const store = await getStore();
 
-    mockServerResponse({ image: { seedream: {}, 'siliconflow-image': {} } });
+    mockServerResponse({ image: { seedream: {}, 'qwen-image': {} } });
     await store.getState().fetchServerProviders();
     store.getState().setImageProvider('seedream');
     store.getState().setImageModelId('doubao-seedream-5-0-260128');
 
-    mockServerResponse({ image: { 'siliconflow-image': {} } });
+    mockServerResponse({ image: { 'qwen-image': {} } });
     await store.getState().fetchServerProviders();
 
-    expect(store.getState().imageProviderId).toBe('siliconflow-image');
-    expect(store.getState().imageModelId).toBe('Qwen/Qwen-Image');
+    expect(store.getState().imageProviderId).toBe('qwen-image');
+    expect(store.getState().imageModelId).toBe('qwen-image-max');
   });
 
   it('auto-selects provider and model when server adds image provider after empty state', async () => {
@@ -1200,46 +927,30 @@ describe('fetchServerProviders — Image stale selection', () => {
     expect(store.getState().imageModelId).toBe('');
     expect(store.getState().imageGenerationEnabled).toBe(false);
 
-    // Server adds siliconflow-image
-    mockServerResponse({ image: { 'siliconflow-image': {} } });
+    // Server adds seedream
+    mockServerResponse({ image: { seedream: {} } });
     await store.getState().fetchServerProviders();
 
-    expect(store.getState().imageProviderId).toBe('siliconflow-image');
-    expect(store.getState().imageModelId).toBe('Qwen/Qwen-Image');
+    expect(store.getState().imageProviderId).toBe('seedream');
+    expect(store.getState().imageModelId).toBe('doubao-seedream-5-0-260128');
+    // Provider recovered but generation stays off — user enables manually
     expect(store.getState().imageGenerationEnabled).toBe(false);
   });
 
-  it('keeps image generation disabled on first load when server has image provider', async () => {
+  it('auto-enables image generation on first load when server has image provider', async () => {
     const store = await getStore();
 
-    // First ever fetchServerProviders — server has siliconflow-image
-    // Default state: imageProviderId='siliconflow-image', imageGenerationEnabled=false, autoConfigApplied=false
-    mockServerResponse({ image: { 'siliconflow-image': {} } });
+    // First ever fetchServerProviders — server has seedream
+    // Default state: imageProviderId='seedream', imageGenerationEnabled=false, autoConfigApplied=false
+    mockServerResponse({ image: { seedream: {} } });
     await store.getState().fetchServerProviders();
 
-    expect(store.getState().imageGenerationEnabled).toBe(false);
-    expect(store.getState().imageProviderId).toBe('siliconflow-image');
-    expect(store.getState().imageModelId).toBe('Qwen/Qwen-Image');
+    expect(store.getState().imageGenerationEnabled).toBe(true);
+    expect(store.getState().imageProviderId).toBe('seedream');
+    expect(store.getState().imageModelId).toBe('doubao-seedream-5-0-260128');
   });
 
-  it('applies env-configured default image provider and model on first sync', async () => {
-    const store = await getStore();
-
-    mockServerResponse({
-      defaults: {
-        imageProvider: 'siliconflow-image',
-        imageModel: 'Qwen/Qwen-Image',
-      },
-      image: { seedream: {}, 'siliconflow-image': {} },
-    });
-
-    await store.getState().fetchServerProviders();
-
-    expect(store.getState().imageProviderId).toBe('siliconflow-image');
-    expect(store.getState().imageModelId).toBe('Qwen/Qwen-Image');
-  });
-
-  it('does not force-enable when provider is already set but generation was manually disabled', async () => {
+  it('does not force-enable when provider is already set but generation was disabled', async () => {
     const store = await getStore();
 
     // autoConfigApplied=true, provider already set, generation off (user choice)
@@ -1247,46 +958,18 @@ describe('fetchServerProviders — Image stale selection', () => {
     await store.getState().fetchServerProviders(); // sets autoConfigApplied=true
 
     store.setState({
-      imageProviderId: 'siliconflow-image',
-      imageModelId: 'Qwen/Qwen-Image',
+      imageProviderId: 'seedream',
+      imageModelId: '',
+      imageGenerationEnabled: false,
     });
-    store.getState().setImageGenerationEnabled(false);
 
-    // Server has siliconflow-image — should NOT force-enable after a manual disable
-    mockServerResponse({ image: { 'siliconflow-image': {} } });
+    // Server has seedream — should NOT force-enable (provider was already set)
+    mockServerResponse({ image: { seedream: {} } });
     await store.getState().fetchServerProviders();
 
     expect(store.getState().imageGenerationEnabled).toBe(false);
-    expect(store.getState().imageModelId).toBe('Qwen/Qwen-Image');
-  });
-
-  it('does not auto-enable image generation when the selected image model becomes locally usable', async () => {
-    const store = await getStore();
-
-    store.getState().setImageProvider('siliconflow-image');
-    store.getState().setImageModelId('Qwen/Qwen-Image');
-    expect(store.getState().imageGenerationEnabled).toBe(false);
-
-    store.getState().setImageProviderConfig('siliconflow-image', { apiKey: 'sk-local-image' });
-
-    expect(store.getState().imageGenerationEnabled).toBe(false);
-  });
-
-  it('allows manual enabling once the selected image model is usable', async () => {
-    const store = await getStore();
-
-    store.getState().setImageProvider('siliconflow-image');
-    store.getState().setImageModelId('Qwen/Qwen-Image');
-    store.getState().setImageProviderConfig('siliconflow-image', { apiKey: 'sk-local-image' });
-    expect(store.getState().imageGenerationEnabled).toBe(false);
-
-    store.getState().setImageGenerationEnabled(true);
-    expect(store.getState().imageGenerationEnabled).toBe(true);
-
-    store.getState().setImageGenerationEnabled(false);
-    store.getState().setImageProviderConfig('siliconflow-image', { apiKey: 'sk-local-image-2' });
-
-    expect(store.getState().imageGenerationEnabled).toBe(false);
+    // But model should be auto-filled
+    expect(store.getState().imageModelId).toBe('doubao-seedream-5-0-260128');
   });
 });
 
@@ -1772,37 +1455,6 @@ describe('settings merge migration — custom provider baseUrl', () => {
 
     expect(state.providersConfig.openai.baseUrl).toBe('');
     expect(state.providersConfig.openai.defaultBaseUrl).toBe('https://persisted-openai.example/v1');
-  });
-});
-
-describe('settings persistence — image generation toggle', () => {
-  beforeEach(() => {
-    vi.resetModules();
-    storage.clear();
-    mockFetch.mockReset();
-  });
-
-  it('resets image generation to disabled after rehydrate while preserving image selection', async () => {
-    storage.set(
-      'settings-storage',
-      JSON.stringify({
-        state: {
-          imageProviderId: 'siliconflow-image',
-          imageModelId: 'Qwen/Qwen-Image',
-          imageGenerationEnabled: true,
-          imageGenerationTouched: true,
-        },
-        version: 2,
-      }),
-    );
-
-    const { useSettingsStore } = await import('@/lib/store/settings');
-    const state = useSettingsStore.getState();
-
-    expect(state.imageProviderId).toBe('siliconflow-image');
-    expect(state.imageModelId).toBe('Qwen/Qwen-Image');
-    expect(state.imageGenerationEnabled).toBe(false);
-    expect(state.imageGenerationTouched).toBe(false);
   });
 });
 

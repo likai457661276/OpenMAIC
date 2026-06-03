@@ -32,18 +32,18 @@ import { ASR_PROVIDERS, getASRSupportedLanguages } from '@/lib/audio/constants';
 import type { ImageProviderId, VideoProviderId } from '@/lib/media/types';
 import type { ASRProviderId } from '@/lib/audio/types';
 import { isCustomASRProvider } from '@/lib/audio/types';
-import { appPath } from '@/lib/app-paths';
 import type { SettingsSection } from '@/lib/types/settings';
-import { useTeacherMode } from '@/lib/teacher/teacher-mode-provider';
+
+interface MediaPopoverProps {
+  onSettingsOpen: (section: SettingsSection) => void;
+}
 
 // ─── Provider icon maps ───
 const IMAGE_PROVIDER_ICONS: Record<string, string> = {
   seedream: '/logos/doubao.svg',
-  'siliconflow-image': '/logos/siliconflow.svg',
   'openai-image': '/logos/openai.svg',
   'qwen-image': '/logos/bailian.svg',
   'nano-banana': '/logos/gemini.svg',
-  'minimax-image': '/logos/minimax.svg',
   'grok-image': '/logos/grok.svg',
 };
 const VIDEO_PROVIDER_ICONS: Record<string, string> = {
@@ -63,13 +63,8 @@ const TABS: Array<{ id: TabId; icon: LucideIcon; label: string }> = [
   { id: 'asr', icon: Mic, label: 'ASR' },
 ];
 
-interface MediaPopoverProps {
-  onSettingsOpen?: (section: SettingsSection) => void;
-}
-
 export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
   const { t } = useI18n();
-  const { isTeacherMode } = useTeacherMode();
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('image');
 
@@ -97,31 +92,23 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
 
   const asrProviderId = useSettingsStore((s) => s.asrProviderId);
   const asrLanguage = useSettingsStore((s) => s.asrLanguage);
-  const asrSelectionLocked = useSettingsStore((s) => s.asrSelectionLocked);
   const asrProvidersConfig = useSettingsStore((s) => s.asrProvidersConfig);
   const setASRProvider = useSettingsStore((s) => s.setASRProvider);
   const setASRLanguage = useSettingsStore((s) => s.setASRLanguage);
 
-  const showTTS = !isTeacherMode;
-  const showASR = !isTeacherMode;
-  const visibleTabs = useMemo(
-    () =>
-      TABS.filter((tab) => {
-        if (tab.id === 'tts') return showTTS;
-        if (tab.id === 'asr') return showASR;
-        return true;
-      }),
-    [showASR, showTTS],
-  );
-
   const enabledMap: Record<TabId, boolean> = {
     image: imageGenerationEnabled,
     video: videoGenerationEnabled,
-    tts: showTTS && ttsEnabled,
-    asr: showASR && asrEnabled,
+    tts: ttsEnabled,
+    asr: asrEnabled,
   };
 
-  const enabledCount = visibleTabs.filter((tab) => enabledMap[tab.id]).length;
+  const enabledCount = [
+    imageGenerationEnabled,
+    videoGenerationEnabled,
+    ttsEnabled,
+    asrEnabled,
+  ].filter(Boolean).length;
 
   const cfgOk = useCallback(
     (
@@ -207,7 +194,7 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
     if (isOpen) {
-      const first = visibleTabs.find((tab) => enabledMap[tab.id])?.id;
+      const first = (['image', 'video', 'tts', 'asr'] as TabId[]).find((id) => enabledMap[id]);
       setActiveTab(first || 'image');
     }
   };
@@ -218,20 +205,16 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
         <button
           className={cn(
             'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all cursor-pointer select-none whitespace-nowrap border',
-            isTeacherMode
-              ? enabledCount > 0
-                ? 'border-cyan-200/45 bg-cyan-300/14 text-cyan-50 shadow-[0_0_16px_rgba(34,211,238,0.12)]'
-                : 'border-cyan-100/22 bg-slate-900/45 text-cyan-50/78 hover:border-cyan-100/40 hover:bg-cyan-100/10 hover:text-white'
-              : enabledCount > 0
-                ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border-violet-200/60 dark:border-violet-700/50'
-                : 'text-muted-foreground/70 hover:text-foreground hover:bg-muted/60 border-border/50',
+            enabledCount > 0
+              ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border-violet-200/60 dark:border-violet-700/50'
+              : 'text-muted-foreground/70 hover:text-foreground hover:bg-muted/60 border-border/50',
           )}
         >
           <SlidersHorizontal className="size-3.5" />
           {imageGenerationEnabled && <ImageIcon className="size-3.5" />}
           {videoGenerationEnabled && <Video className="size-3.5" />}
-          {showTTS && ttsEnabled && <Volume2 className="size-3.5" />}
-          {showASR && asrEnabled && <Mic className="size-3.5" />}
+          {ttsEnabled && <Volume2 className="size-3.5" />}
+          {asrEnabled && <Mic className="size-3.5" />}
         </button>
       </PopoverTrigger>
 
@@ -239,7 +222,7 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
         {/* ── Tab bar (segmented control) ── */}
         <div className="p-2 pb-0">
           <div className="flex gap-0.5 p-0.5 bg-muted/60 rounded-lg">
-            {visibleTabs.map((tab) => {
+            {TABS.map((tab) => {
               const isActive = activeTab === tab.id;
               const isEnabled = enabledMap[tab.id];
               const Icon = tab.icon;
@@ -305,7 +288,7 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
             </TabPanel>
           )}
 
-          {showTTS && activeTab === 'tts' && (
+          {activeTab === 'tts' && (
             <TabPanel
               icon={Volume2}
               label={t('media.ttsCapability')}
@@ -314,7 +297,7 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
             />
           )}
 
-          {showASR && activeTab === 'asr' && (
+          {activeTab === 'asr' && (
             <TabPanel
               icon={Mic}
               label={t('media.asrCapability')}
@@ -325,7 +308,6 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
                 groups={asrGroups}
                 selectedGroupId={asrProviderId}
                 selectedItemId={asrLanguage}
-                disabled={asrSelectionLocked}
                 onSelect={(gid, iid) => {
                   setASRProvider(gid as ASRProviderId);
                   setASRLanguage(iid);
@@ -335,20 +317,19 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
           )}
         </div>
 
-        {onSettingsOpen && (
-          <div className="border-t border-border/60 p-1">
-            <button
-              onClick={() => {
-                setOpen(false);
-                onSettingsOpen(activeTab);
-              }}
-              className="w-full flex items-center justify-between px-3.5 py-2.5 text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
-            >
-              <span>{t('toolbar.advancedSettings')}</span>
-              <ChevronRight className="size-3" />
-            </button>
-          </div>
-        )}
+        {/* ── Footer ── */}
+        <div className="border-t border-border/40">
+          <button
+            onClick={() => {
+              setOpen(false);
+              onSettingsOpen(activeTab);
+            }}
+            className="w-full flex items-center justify-between px-3.5 py-2.5 text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+          >
+            <span>{t('toolbar.advancedSettings')}</span>
+            <ChevronRight className="size-3" />
+          </button>
+        </div>
       </PopoverContent>
     </Popover>
   );
@@ -409,13 +390,11 @@ function GroupedSelect({
   groups,
   selectedGroupId,
   selectedItemId,
-  disabled = false,
   onSelect,
 }: {
   groups: SelectGroupData[];
   selectedGroupId: string;
   selectedItemId: string;
-  disabled?: boolean;
   onSelect: (groupId: string, itemId: string) => void;
 }) {
   const composite = `${selectedGroupId}::${selectedItemId}`;
@@ -429,7 +408,6 @@ function GroupedSelect({
   return (
     <Select
       value={composite}
-      disabled={disabled}
       onValueChange={(v) => {
         const sep = v.indexOf('::');
         if (sep === -1) return;
@@ -439,11 +417,7 @@ function GroupedSelect({
       <SelectTrigger className="h-8 w-full rounded-lg border-border/40 bg-background/80 hover:bg-muted/40 shadow-none text-xs focus:ring-1 focus:ring-ring/30 px-2.5">
         <span className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
           {selectedGroup?.groupIcon && (
-            <img
-              src={appPath(selectedGroup.groupIcon)}
-              alt=""
-              className="size-4 rounded-sm shrink-0"
-            />
+            <img src={selectedGroup.groupIcon} alt="" className="size-4 rounded-sm shrink-0" />
           )}
           <span className="font-medium truncate">{selectedGroup?.groupName}</span>
           <span className="text-muted-foreground/40">/</span>
@@ -460,7 +434,7 @@ function GroupedSelect({
               <SelectLabel className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider">
                 {group.groupIcon && (
                   <img
-                    src={appPath(group.groupIcon)}
+                    src={group.groupIcon}
                     alt=""
                     className={cn('size-3.5 rounded-sm', !group.available && 'opacity-40')}
                   />

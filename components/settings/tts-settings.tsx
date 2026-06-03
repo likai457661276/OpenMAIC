@@ -78,7 +78,6 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
 
   const ttsVoice = useSettingsStore((state) => state.ttsVoice);
   const ttsSpeed = useSettingsStore((state) => state.ttsSpeed);
-  const ttsSelectionLocked = useSettingsStore((state) => state.ttsSelectionLocked);
   const ttsProvidersConfig = useSettingsStore((state) => state.ttsProvidersConfig);
   const setTTSProviderConfig = useSettingsStore((state) => state.setTTSProviderConfig);
   const activeProviderId = useSettingsStore((state) => state.ttsProviderId);
@@ -165,8 +164,9 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
         voice: effectiveVoice,
         speed: ttsSpeed,
         apiKey: ttsProvidersConfig[selectedProviderId]?.apiKey,
+        // Managed providers resolve their base URL server-side; only send the
+        // client's own base URL (custom providers).
         baseUrl:
-          ttsProvidersConfig[selectedProviderId]?.serverBaseUrl ||
           ttsProvidersConfig[selectedProviderId]?.baseUrl ||
           providerConfig?.customDefaultBaseUrl ||
           '',
@@ -227,8 +227,10 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
         </div>
       )}
 
-      {/* API Key & Base URL */}
-      {(requiresApiKey || isServerConfigured || isCustom || isVoxCPM || isKeylessLocalProvider) &&
+      {/* API Key & Base URL — hidden for managed providers, which are admin-owned
+          and not overridable from the client. */}
+      {!isServerConfigured &&
+        (requiresApiKey || isCustom || isVoxCPM || isKeylessLocalProvider) &&
         (isVoxCPM ? (
           <div className="rounded-lg border border-border/60 bg-background px-3 py-2.5">
             <div className="flex flex-col gap-2 md:flex-row md:items-end">
@@ -239,7 +241,6 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
                 </Label>
                 <Select
                   value={voxcpmBackend}
-                  disabled={ttsSelectionLocked}
                   onValueChange={(backend) =>
                     setTTSProviderConfig(selectedProviderId, {
                       providerOptions: {
@@ -274,7 +275,6 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
                   spellCheck={false}
                   placeholder={ttsProvider?.defaultBaseUrl || t('settings.enterCustomBaseUrl')}
                   value={ttsProvidersConfig[selectedProviderId]?.baseUrl || ''}
-                  disabled={ttsSelectionLocked}
                   onChange={(e) =>
                     setTTSProviderConfig(selectedProviderId, {
                       baseUrl: e.target.value,
@@ -297,7 +297,6 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
                     spellCheck={false}
                     placeholder={VOXCPM_VLLM_MODEL_ID}
                     value={ttsProvidersConfig[selectedProviderId]?.modelId || ''}
-                    disabled={ttsSelectionLocked}
                     onChange={(e) =>
                       setTTSProviderConfig(selectedProviderId, {
                         modelId: e.target.value,
@@ -343,13 +342,8 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
                         autoCapitalize="none"
                         autoCorrect="off"
                         spellCheck={false}
-                        placeholder={
-                          isServerConfigured
-                            ? t('settings.optionalOverride')
-                            : t('settings.enterApiKey')
-                        }
+                        placeholder={t('settings.enterApiKey')}
                         value={doubaoAppId}
-                        disabled={ttsSelectionLocked}
                         onChange={(e) => setDoubaoCompoundKey(e.target.value, doubaoAccessKey)}
                         className="font-mono text-sm pr-10"
                       />
@@ -372,13 +366,8 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
                         autoCapitalize="none"
                         autoCorrect="off"
                         spellCheck={false}
-                        placeholder={
-                          isServerConfigured
-                            ? t('settings.optionalOverride')
-                            : t('settings.enterApiKey')
-                        }
+                        placeholder={t('settings.enterApiKey')}
                         value={doubaoAccessKey}
-                        disabled={ttsSelectionLocked}
                         onChange={(e) => setDoubaoCompoundKey(doubaoAppId, e.target.value)}
                         className="font-mono text-sm pr-10"
                       />
@@ -403,13 +392,8 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
                       autoCapitalize="none"
                       autoCorrect="off"
                       spellCheck={false}
-                      placeholder={
-                        isServerConfigured
-                          ? t('settings.optionalOverride')
-                          : t('settings.enterApiKey')
-                      }
+                      placeholder={t('settings.enterApiKey')}
                       value={ttsProvidersConfig[selectedProviderId]?.apiKey || ''}
-                      disabled={ttsSelectionLocked}
                       onChange={(e) =>
                         setTTSProviderConfig(selectedProviderId, {
                           apiKey: e.target.value,
@@ -441,7 +425,6 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
                       : ttsProvider?.defaultBaseUrl || t('settings.enterCustomBaseUrl')
                   }
                   value={ttsProvidersConfig[selectedProviderId]?.baseUrl || ''}
-                  disabled={ttsSelectionLocked}
                   onChange={(e) =>
                     setTTSProviderConfig(selectedProviderId, {
                       baseUrl: e.target.value,
@@ -788,12 +771,10 @@ function VoxCPMVoiceManager() {
     }
 
     const providerConfig = ttsProvidersConfig[VOXCPM_TTS_PROVIDER_ID];
-    const baseUrl =
-      providerConfig?.serverBaseUrl ||
-      providerConfig?.baseUrl ||
-      providerConfig?.customDefaultBaseUrl ||
-      '';
-    if (!baseUrl.trim()) {
+    // Managed providers resolve their base URL server-side, so only the client's
+    // own base URL is sent; a managed VoxCPM is reachable without a local URL.
+    const baseUrl = providerConfig?.baseUrl || providerConfig?.customDefaultBaseUrl || '';
+    if (!providerConfig?.isServerConfigured && !baseUrl.trim()) {
       toast.error(t('settings.voxcpmBaseUrlRequired'));
       return;
     }
