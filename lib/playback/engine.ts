@@ -83,6 +83,7 @@ export class PlaybackEngine {
   private browserTTSChunkIndex: number = 0; // current chunk being spoken
   private browserTTSPausedChunks: string[] = []; // remaining chunks saved on pause (for cancel+re-speak)
   private speechTimerRemaining: number = 0; // remaining ms (set on pause)
+  private activeUtterance: SpeechSynthesisUtterance | null = null; // 防止被垃圾回收
 
   constructor(
     scenes: Scene[],
@@ -664,6 +665,7 @@ export class PlaybackEngine {
     const settings = useSettingsStore.getState();
     const chunkText = this.browserTTSChunks[this.browserTTSChunkIndex];
     const utterance = new SpeechSynthesisUtterance(chunkText);
+    this.activeUtterance = utterance;
 
     // Apply settings
     const speed = this.callbacks.getPlaybackSpeed?.() ?? 1;
@@ -694,6 +696,7 @@ export class PlaybackEngine {
     }
 
     utterance.onend = () => {
+      this.activeUtterance = null;
       this.browserTTSChunkIndex++;
       if (this.mode === 'playing') {
         this.playBrowserTTSChunk(); // next chunk
@@ -701,6 +704,7 @@ export class PlaybackEngine {
     };
 
     utterance.onerror = (event) => {
+      this.activeUtterance = null;
       // 'canceled' is expected when stop/pause is called — not a real error
       if (event.error !== 'canceled') {
         log.warn('Browser TTS chunk error:', event.error);
@@ -761,6 +765,7 @@ export class PlaybackEngine {
       this.browserTTSChunks = [];
       this.browserTTSChunkIndex = 0;
       this.browserTTSPausedChunks = [];
+      this.activeUtterance = null;
       window.speechSynthesis?.cancel();
     }
   }

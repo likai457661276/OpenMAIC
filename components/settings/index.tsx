@@ -34,6 +34,7 @@ import { toast } from 'sonner';
 import { type ProviderId } from '@/lib/ai/providers';
 import { PROVIDERS, MONO_LOGO_PROVIDERS } from '@/lib/ai/providers';
 import { cn } from '@/lib/utils';
+import { appPath } from '@/lib/app-paths';
 import { createCustomProviderSettings, getProviderTypeLabel } from './utils';
 import { ProviderList } from './provider-list';
 import { ProviderConfigPanel } from './provider-config-panel';
@@ -96,7 +97,7 @@ function ProviderListColumn<T extends string>({
           >
             {provider.icon ? (
               <img
-                src={provider.icon}
+                src={appPath(provider.icon)}
                 alt={provider.name}
                 className={cn(
                   'w-5 h-5 rounded',
@@ -543,7 +544,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
             <>
               {selectedProvider.icon ? (
                 <img
-                  src={selectedProvider.icon}
+                  src={appPath(selectedProvider.icon)}
                   alt={selectedProvider.name}
                   className={cn(
                     'w-8 h-8 rounded',
@@ -578,7 +579,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
           <>
             {pdfProvider.icon ? (
               <img
-                src={pdfProvider.icon}
+                src={appPath(pdfProvider.icon)}
                 alt={pdfProvider.name}
                 className="w-8 h-8 rounded"
                 onError={(e) => {
@@ -599,7 +600,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
           <>
             {wsProvider.icon ? (
               <img
-                src={wsProvider.icon}
+                src={appPath(wsProvider.icon)}
                 alt={wsProvider.name}
                 className="w-8 h-8 rounded"
                 onError={(e) => {
@@ -622,7 +623,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
           <>
             {imgIcon ? (
               <img
-                src={imgIcon}
+                src={appPath(imgIcon)}
                 alt={imgProvider?.name}
                 className="w-8 h-8 rounded"
                 onError={(e) => {
@@ -645,7 +646,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
           <>
             {vidIcon ? (
               <img
-                src={vidIcon}
+                src={appPath(vidIcon)}
                 alt={vidProvider?.name}
                 className="w-8 h-8 rounded"
                 onError={(e) => {
@@ -667,7 +668,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
           <>
             {ttsIcon ? (
               <img
-                src={ttsIcon}
+                src={appPath(ttsIcon)}
                 alt=""
                 className="w-8 h-8 rounded"
                 onError={(e) => {
@@ -687,7 +688,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
           <>
             {asrIcon ? (
               <img
-                src={asrIcon}
+                src={appPath(asrIcon)}
                 alt=""
                 className="w-8 h-8 rounded"
                 onError={(e) => {

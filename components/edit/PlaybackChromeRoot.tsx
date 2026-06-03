@@ -29,6 +29,8 @@ import type { Action, DiscussionAction, SpeechAction } from '@/lib/types/action'
 import { cn } from '@/lib/utils';
 // Playback state persistence removed — refresh always starts from the beginning
 import { ChatArea, type ChatAreaRef } from '@/components/chat/chat-area';
+import { useTeacherMode } from '@/lib/teacher/teacher-mode-provider';
+import { getPublicFeatureFlag } from '@/lib/feature-flags';
 import { agentsToParticipants, useAgentRegistry } from '@/lib/orchestration/registry/store';
 import type { AgentConfig } from '@/lib/orchestration/registry/types';
 import {
@@ -72,6 +74,7 @@ interface PlaybackChromeRootProps {
 export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackChromeRootProps>(
   function PlaybackChromeRoot({ onRetryOutline, canEnterProMode, onEnterProMode }, ref) {
     const { t } = useI18n();
+    const { isTeacherMode } = useTeacherMode();
     const {
       mode,
       getCurrentScene,
@@ -458,6 +461,13 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
 
       // Create new PlaybackEngine
       const engine = new PlaybackEngine([currentScene], actionEngine, audioPlayerRef.current, {
+        featureFlags: {
+          whiteboard: !isTeacherMode || getPublicFeatureFlag('whiteboard'),
+          voiceNarration: !isTeacherMode || getPublicFeatureFlag('voiceNarration'),
+          voicePlayback: !isTeacherMode || getPublicFeatureFlag('voicePlayback'),
+          followPresenter: !isTeacherMode || getPublicFeatureFlag('followPresenter'),
+          complexRealtimePlayback: !isTeacherMode || getPublicFeatureFlag('complexRealtimePlayback'),
+        },
         onModeChange: (mode) => {
           setEngineMode(mode);
         },
