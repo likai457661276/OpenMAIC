@@ -324,6 +324,20 @@ function getTrimmedEnv(name: string): string | undefined {
   return value ? value : undefined;
 }
 
+function getDefaultModelForProvider(providerId: string): string | undefined {
+  const modelString = getTrimmedEnv('DEFAULT_MODEL') || FALLBACK_DEFAULT_MODEL;
+  const parsed = parseModelString(modelString);
+  if (parsed.providerId !== providerId) return undefined;
+  return parsed.modelId.trim() || undefined;
+}
+
+function getPublicModelList(providerId: string, entry: ServerProviderEntry): string[] | undefined {
+  const defaultModel = getDefaultModelForProvider(providerId);
+  const models = (entry.models ?? []).filter((model) => model !== defaultModel);
+  if (defaultModel) models.unshift(defaultModel);
+  return models.length > 0 ? models : undefined;
+}
+
 // ---------------------------------------------------------------------------
 // Managed-provider resolution
 //
@@ -377,7 +391,8 @@ export function getServerProviders(): Record<string, { models?: string[] }> {
   const result: Record<string, { models?: string[] }> = {};
   for (const [id, entry] of Object.entries(cfg.providers)) {
     result[id] = {};
-    if (entry.models && entry.models.length > 0) result[id].models = entry.models;
+    const models = getPublicModelList(id, entry);
+    if (models) result[id].models = models;
   }
   return result;
 }

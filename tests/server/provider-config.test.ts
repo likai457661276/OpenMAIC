@@ -58,6 +58,7 @@ function clearProviderEnv() {
     delete process.env[`${prefix}_BASE_URL`];
     delete process.env[`${prefix}_MODELS`];
   }
+  delete process.env.DEFAULT_MODEL;
   delete process.env.TAVILY_API_KEY;
   delete process.env.BOCHA_API_KEY;
   delete process.env.BOCHA_BASE_URL;
@@ -207,6 +208,28 @@ providers:
 
       expect(Object.keys(providers)).toContain('openai');
       expect(Object.keys(providers)).toContain('anthropic');
+    });
+
+    it('exposes DEFAULT_MODEL as the managed provider model when no model list is set', async () => {
+      vi.stubEnv('DOUBAO_API_KEY', 'sk-doubao');
+      vi.stubEnv('DEFAULT_MODEL', 'doubao:ep-20260225155849-krdlt');
+      const { getServerProviders } = await import('@/lib/server/provider-config');
+      const providers = getServerProviders();
+
+      expect(providers.doubao.models).toEqual(['ep-20260225155849-krdlt']);
+    });
+
+    it('prepends DEFAULT_MODEL to the provider model list without duplicating it', async () => {
+      vi.stubEnv('DOUBAO_API_KEY', 'sk-doubao');
+      vi.stubEnv('DEFAULT_MODEL', 'doubao:ep-20260225155849-krdlt');
+      vi.stubEnv('DOUBAO_MODELS', 'doubao-seed-2-0-pro-260215,ep-20260225155849-krdlt');
+      const { getServerProviders } = await import('@/lib/server/provider-config');
+      const providers = getServerProviders();
+
+      expect(providers.doubao.models).toEqual([
+        'ep-20260225155849-krdlt',
+        'doubao-seed-2-0-pro-260215',
+      ]);
     });
 
     it('maps OpenRouter env prefix to provider ID', async () => {

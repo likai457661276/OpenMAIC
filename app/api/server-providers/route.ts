@@ -12,6 +12,9 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('ServerProviders');
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function GET() {
   try {
     return apiSuccess({
