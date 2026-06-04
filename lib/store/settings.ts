@@ -1489,10 +1489,13 @@ export const useSettingsStore = create<SettingsState>()(
               const serverDefaultTtsConfig = serverDefaultTtsProvider
                 ? newTTSConfig[serverDefaultTtsProvider]
                 : undefined;
+              // 注意：正式环境可能显式配置 DEFAULT_TTS_PROVIDER=browser-native-tts。
+              // 这是有意让生成流程使用浏览器原生 TTS，并跳过 /api/generate/tts；
+              // 后续合并 main 分支时不要把它当成“无服务端 TTS”而自动改回 Doubao 等服务端 provider。
               const hasUsableServerDefaultTts =
                 !!serverDefaultTtsProvider &&
-                serverDefaultTtsProvider !== 'browser-native-tts' &&
-                !!serverDefaultTtsConfig?.isServerConfigured;
+                (serverDefaultTtsProvider === 'browser-native-tts' ||
+                  !!serverDefaultTtsConfig?.isServerConfigured);
               const preferredServerTtsProvider = hasUsableServerDefaultTts
                 ? serverDefaultTtsProvider
                 : firstServerTtsProvider;
@@ -1504,8 +1507,12 @@ export const useSettingsStore = create<SettingsState>()(
                 : undefined;
               const shouldApplyPreferredServerTts =
                 !!preferredServerTtsProvider &&
-                ((state.ttsProviderId === 'browser-native-tts' &&
-                  state.serverDefaultTtsApplied !== preferredServerTtsKey) ||
+                ((hasUsableServerDefaultTts &&
+                  (state.serverDefaultTtsApplied !== preferredServerTtsKey ||
+                    state.ttsProviderId !== preferredServerTtsProvider)) ||
+                  (!hasUsableServerDefaultTts &&
+                    state.ttsProviderId === 'browser-native-tts' &&
+                    state.serverDefaultTtsApplied !== preferredServerTtsKey) ||
                   validTTSProvider !== state.ttsProviderId);
               const parsedServerDefaultModel = serverDefaultModel
                 ? parseModelString(serverDefaultModel)

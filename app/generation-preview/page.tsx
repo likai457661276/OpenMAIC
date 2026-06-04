@@ -1302,6 +1302,7 @@ function GenerationPreviewContent() {
         );
 
         let ttsFailCount = 0;
+        let lastTtsError: string | undefined;
         for (const action of speechActions) {
           const audioId = `tts_${action.id}`;
           action.audioId = audioId;
@@ -1327,12 +1328,24 @@ function GenerationPreviewContent() {
               }),
               signal,
             });
+            const ttsData = await resp
+              .json()
+              .catch(() => ({ success: false, error: resp.statusText || 'Invalid TTS response' }));
             if (!resp.ok) {
+              lastTtsError =
+                ttsData.details || ttsData.error || `TTS request failed: HTTP ${resp.status}`;
+              log.warn(`[TTS] Failed for ${audioId}: ${lastTtsError}`, {
+                providerId: settings.ttsProviderId,
+                status: resp.status,
+              });
               ttsFailCount++;
               continue;
             }
-            const ttsData = await resp.json();
             if (!ttsData.success) {
+              lastTtsError = ttsData.details || ttsData.error || 'Invalid TTS response';
+              log.warn(`[TTS] Failed for ${audioId}: ${lastTtsError}`, {
+                providerId: settings.ttsProviderId,
+              });
               ttsFailCount++;
               continue;
             }
@@ -1347,13 +1360,18 @@ function GenerationPreviewContent() {
               createdAt: Date.now(),
             });
           } catch (err) {
+            lastTtsError = err instanceof Error ? err.message : String(err);
             log.warn(`[TTS] Failed for ${audioId}:`, err);
             ttsFailCount++;
           }
         }
 
         if (ttsFailCount > 0 && speechActions.length > 0) {
-          throw new Error(t('generation.speechFailed'));
+          throw new Error(
+            lastTtsError
+              ? `${t('generation.speechFailed')}: ${lastTtsError}`
+              : t('generation.speechFailed'),
+          );
         }
       }
 

@@ -828,6 +828,22 @@ describe('fetchServerProviders — TTS stale selection', () => {
     expect(store.getState().ttsProviderId).toBe('doubao-tts');
     expect(store.getState().ttsVoice).toBe('zh_female_vv_uranus_bigtts');
   });
+
+  it('respects browser-native server default when a server TTS provider is configured', async () => {
+    const store = await getStore();
+
+    mockServerResponse({
+      tts: { 'doubao-tts': {} },
+      defaults: {
+        ttsProvider: 'browser-native-tts',
+        ttsVoice: 'default',
+      },
+    });
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().ttsProviderId).toBe('browser-native-tts');
+    expect(store.getState().ttsVoice).toBe('default');
+  });
 });
 
 describe('fetchServerProviders — ASR stale selection', () => {

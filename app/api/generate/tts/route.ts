@@ -25,6 +25,21 @@ const log = createLogger('TTS API');
 
 export const maxDuration = 30;
 
+function getTTSFailureStatus(error: unknown): number {
+  if (!(error instanceof Error)) return 500;
+  const message = error.message.toLowerCase();
+  if (
+    message.includes('api key required') ||
+    message.includes('requires a volcengine api key') ||
+    message.includes('browser native tts') ||
+    message.includes('unsupported tts provider') ||
+    message.includes('cannot be empty')
+  ) {
+    return 400;
+  }
+  return 500;
+}
+
 export async function POST(req: NextRequest) {
   let ttsProviderId: string | undefined;
   let ttsVoice: string | undefined;
@@ -121,7 +136,7 @@ export async function POST(req: NextRequest) {
     );
     return apiError(
       'GENERATION_FAILED',
-      500,
+      getTTSFailureStatus(error),
       error instanceof Error ? error.message : String(error),
     );
   }
