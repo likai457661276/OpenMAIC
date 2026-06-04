@@ -59,6 +59,8 @@ function clearProviderEnv() {
     delete process.env[`${prefix}_MODELS`];
   }
   delete process.env.DEFAULT_MODEL;
+  delete process.env.DEFAULT_IMAGE_PROVIDER;
+  delete process.env.DEFAULT_IMAGE_MODEL;
   delete process.env.TAVILY_API_KEY;
   delete process.env.BOCHA_API_KEY;
   delete process.env.BOCHA_BASE_URL;
@@ -230,6 +232,19 @@ providers:
         'ep-20260225155849-krdlt',
         'doubao-seed-2-0-pro-260215',
       ]);
+    });
+
+    it('exposes server default selections without credentials', async () => {
+      vi.stubEnv('DEFAULT_MODEL', 'doubao:deepseek-v4-flash-260425');
+      vi.stubEnv('DEFAULT_IMAGE_PROVIDER', 'siliconflow-image');
+      vi.stubEnv('DEFAULT_IMAGE_MODEL', 'baidu/ERNIE-Image-Turbo');
+      const { getServerDefaultSelections } = await import('@/lib/server/provider-config');
+
+      expect(getServerDefaultSelections()).toEqual({
+        model: 'doubao:deepseek-v4-flash-260425',
+        imageProvider: 'siliconflow-image',
+        imageModel: 'baidu/ERNIE-Image-Turbo',
+      });
     });
 
     it('maps OpenRouter env prefix to provider ID', async () => {

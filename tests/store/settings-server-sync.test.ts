@@ -15,6 +15,15 @@ import { isProviderUsable } from '@/lib/store/settings-validation';
 
 // Minimal built-in provider registry used by the store
 vi.mock('@/lib/ai/providers', () => ({
+  parseModelString: (modelString: string) => {
+    const separatorIndex = modelString.indexOf(':');
+    return separatorIndex >= 0
+      ? {
+          providerId: modelString.slice(0, separatorIndex),
+          modelId: modelString.slice(separatorIndex + 1),
+        }
+      : { providerId: 'openai', modelId: modelString };
+  },
   PROVIDERS: {
     openai: {
       id: 'openai',
@@ -191,6 +200,11 @@ interface MockServerResponse {
   image?: Record<string, { baseUrl?: string }>;
   video?: Record<string, { baseUrl?: string }>;
   webSearch?: Record<string, { baseUrl?: string }>;
+  defaults?: {
+    model?: string;
+    imageProvider?: string;
+    imageModel?: string;
+  };
 }
 
 function mockServerResponse(overrides: MockServerResponse = {}) {
@@ -204,6 +218,7 @@ function mockServerResponse(overrides: MockServerResponse = {}) {
       image: {},
       video: {},
       webSearch: {},
+      defaults: {},
       ...overrides,
     }),
   });
@@ -369,6 +384,53 @@ describe('fetchServerProviders — provider availability sync', () => {
     await store.getState().fetchServerProviders();
 
     expect(store.getState().providersConfig.openai.isServerConfigured).toBe(true);
+    expect(store.getState().providerId).toBe('openai');
+    expect(store.getState().modelId).toBe('gpt-4o');
+  });
+
+  it('applies DEFAULT_MODEL from server defaults instead of picking the first provider', async () => {
+    const store = await getStore();
+    mockServerResponse({
+      providers: {
+        openai: { models: ['gpt-4o'] },
+        anthropic: { models: ['claude-sonnet-4-6'] },
+      },
+      defaults: {
+        model: 'anthropic:claude-sonnet-4-6',
+      },
+    });
+
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().providerId).toBe('anthropic');
+    expect(store.getState().modelId).toBe('claude-sonnet-4-6');
+  });
+
+  it('does not re-apply the same server default after the user switches models', async () => {
+    const store = await getStore();
+    mockServerResponse({
+      providers: {
+        openai: { models: ['gpt-4o'] },
+        anthropic: { models: ['claude-sonnet-4-6'] },
+      },
+      defaults: {
+        model: 'anthropic:claude-sonnet-4-6',
+      },
+    });
+    await store.getState().fetchServerProviders();
+
+    store.getState().setModel('openai', 'gpt-4o');
+    mockServerResponse({
+      providers: {
+        openai: { models: ['gpt-4o'] },
+        anthropic: { models: ['claude-sonnet-4-6'] },
+      },
+      defaults: {
+        model: 'anthropic:claude-sonnet-4-6',
+      },
+    });
+    await store.getState().fetchServerProviders();
+
     expect(store.getState().providerId).toBe('openai');
     expect(store.getState().modelId).toBe('gpt-4o');
   });

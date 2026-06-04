@@ -338,6 +338,14 @@ function getPublicModelList(providerId: string, entry: ServerProviderEntry): str
   return models.length > 0 ? models : undefined;
 }
 
+export function getServerDefaultSelections(): ServerDefaultSelections {
+  return {
+    model: getTrimmedEnv('DEFAULT_MODEL') || FALLBACK_DEFAULT_MODEL,
+    imageProvider: getTrimmedEnv('DEFAULT_IMAGE_PROVIDER'),
+    imageModel: getTrimmedEnv('DEFAULT_IMAGE_MODEL'),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Managed-provider resolution
 //

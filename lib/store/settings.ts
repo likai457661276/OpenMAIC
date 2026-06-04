@@ -7,7 +7,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { ProviderId } from '@/lib/ai/providers';
 import type { ProvidersConfig } from '@/lib/types/settings';
-import { PROVIDERS } from '@/lib/ai/providers';
+import { parseModelString, PROVIDERS } from '@/lib/ai/providers';
 import type { ThinkingConfig } from '@/lib/types/provider';
 import { getThinkingConfigKey, supportsConfigurableThinking } from '@/lib/ai/thinking-config';
 import type { TTSProviderId, ASRProviderId, BuiltInTTSProviderId } from '@/lib/audio/types';
@@ -178,6 +178,7 @@ export interface SettingsState {
 
   // Auto-config lifecycle flag (persisted)
   autoConfigApplied: boolean;
+  serverDefaultModelApplied?: string;
 
   // Playback controls
   ttsMuted: boolean;
@@ -1205,6 +1206,11 @@ export const useSettingsStore = create<SettingsState>()(
               image: Record<string, { models?: string[] }>;
               video: Record<string, Record<string, never>>;
               webSearch: Record<string, Record<string, never>>;
+              defaults?: {
+                model?: string;
+                imageProvider?: string;
+                imageModel?: string;
+              };
             };
 
             set((state) => {
@@ -1468,6 +1474,19 @@ export const useSettingsStore = create<SettingsState>()(
                   ? DEFAULT_TTS_VOICES[validTTSProvider as BuiltInTTSProviderId] || 'default'
                   : state.ttsVoice;
 
+              const serverDefaultModel = data.defaults?.model?.trim();
+              const parsedServerDefaultModel = serverDefaultModel
+                ? parseModelString(serverDefaultModel)
+                : undefined;
+              const defaultLLMConfig = parsedServerDefaultModel
+                ? newProvidersConfig[parsedServerDefaultModel.providerId as ProviderId]
+                : undefined;
+              const shouldApplyServerDefaultModel =
+                !!serverDefaultModel &&
+                state.serverDefaultModelApplied !== serverDefaultModel &&
+                !!defaultLLMConfig?.isServerConfigured &&
+                defaultLLMConfig.models.some((m) => m.id === parsedServerDefaultModel?.modelId);
+
               // Auto-disable image/video generation when no provider is usable
               const shouldDisableImage = !validImageProvider && state.imageGenerationEnabled;
               const shouldDisableVideo = !validVideoProvider && state.videoGenerationEnabled;
@@ -1558,10 +1577,17 @@ export const useSettingsStore = create<SettingsState>()(
                 webSearchProvidersConfig: newWebSearchConfig,
                 autoConfigApplied: true,
                 // Validated selections
-                ...(validLLMProvider !== state.providerId && {
+                ...(shouldApplyServerDefaultModel
+                  ? { providerId: parsedServerDefaultModel!.providerId as ProviderId }
+                  : validLLMProvider !== state.providerId && {
                   providerId: validLLMProvider as ProviderId,
+                    }),
+                ...(shouldApplyServerDefaultModel
+                  ? { modelId: parsedServerDefaultModel!.modelId }
+                  : validLLMModel !== state.modelId && { modelId: validLLMModel }),
+                ...(shouldApplyServerDefaultModel && {
+                  serverDefaultModelApplied: serverDefaultModel,
                 }),
-                ...(validLLMModel !== state.modelId && { modelId: validLLMModel }),
                 ...(validTTSProvider !== state.ttsProviderId && {
                   ttsProviderId: validTTSProvider as TTSProviderId,
                   ttsVoice: validTTSVoice,
