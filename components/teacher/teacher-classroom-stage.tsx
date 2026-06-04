@@ -326,7 +326,7 @@ export function TeacherClassroomStage({
   const { exporting: isExportingPptx, exportPPTX, exportResourcePack } = useExportPPTX();
   const { exporting: isExportingClassroom, exportClassroomZip } = useExportClassroom();
 
-  const [drawerOpen, setDrawerOpen] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(true);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [retryingOutlineId, setRetryingOutlineId] = useState<string | null>(null);
@@ -762,22 +762,19 @@ export function TeacherClassroomStage({
           <section
             ref={playbackRef}
             className={cn(
-              'relative flex min-w-0 flex-1 items-center justify-center bg-gray-50 p-3 dark:bg-gray-900 md:p-6',
+              'relative flex min-w-0 flex-1 items-center justify-center bg-gray-50 p-3 [container-type:size] dark:bg-gray-900 md:p-6',
               isFullscreen && 'h-screen w-screen bg-slate-950 p-4 md:p-8',
             )}
           >
             <div
               className={cn(
-                'aspect-video w-full overflow-hidden rounded-lg bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700',
-                isFullscreen ? 'max-w-none rounded-md shadow-2xl' : 'max-w-5xl',
+                'overflow-hidden rounded-lg bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700',
+                isFullscreen && 'rounded-md shadow-2xl',
               )}
-              style={
-                isFullscreen
-                  ? {
-                      width: 'min(calc(100vw - 2rem), calc((100vh - 5.5rem) * 16 / 9))',
-                    }
-                  : undefined
-              }
+              style={{
+                width: 'min(100cqw, calc(100cqh * 16 / 9))',
+                height: 'min(100cqh, calc(100cqw * 9 / 16))',
+              }}
             >
               {isPendingScene ? (
                 <PendingPage
@@ -838,21 +835,30 @@ export function TeacherClassroomStage({
 
           {showNotes && (
             <aside
+              aria-hidden={!drawerOpen}
               className={cn(
                 'hidden shrink-0 border-l border-gray-200 bg-white transition-[width] duration-200 dark:border-gray-800 dark:bg-gray-900 md:flex md:flex-col',
-                drawerOpen ? 'w-[360px] xl:w-[420px]' : 'w-0 overflow-hidden border-l-0',
+                drawerOpen
+                  ? 'basis-[22%] min-w-[18%] max-w-[24%]'
+                  : 'w-0 overflow-hidden border-l-0',
               )}
             >
-              <div className="flex h-16 shrink-0 items-center justify-between border-b border-gray-100 px-5 dark:border-gray-800">
-                <div className="flex items-center gap-2">
-                  <BookOpen className="h-4 w-4 text-gray-900 dark:text-gray-100" />
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">笔记</h3>
-                </div>
-                <span className="text-xs text-gray-400 dark:text-gray-500">
-                  第 {currentSceneIndex + 1} 页
-                </span>
-              </div>
-              <LectureNotesView notes={lectureNotes} currentSceneId={currentScene?.id} />
+              {drawerOpen && (
+                <>
+                  <div className="flex h-16 shrink-0 items-center justify-between border-b border-gray-100 px-5 dark:border-gray-800">
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="h-4 w-4 text-gray-900 dark:text-gray-100" />
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                        笔记
+                      </h3>
+                    </div>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                      第 {currentSceneIndex + 1} 页
+                    </span>
+                  </div>
+                  <LectureNotesView notes={lectureNotes} currentSceneId={currentScene?.id} />
+                </>
+              )}
             </aside>
           )}
         </div>
