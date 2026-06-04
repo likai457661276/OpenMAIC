@@ -36,6 +36,7 @@ import { SceneRenderer } from '@/components/stage/scene-renderer';
 import { LectureNotesView } from '@/components/chat/lecture-notes-view';
 import { ThumbnailSlide } from '@/components/slide-renderer/components/ThumbnailSlide';
 import { ThumbnailInteractive } from '@/components/slide-renderer/components/ThumbnailInteractive';
+import { InteractiveIframeHost } from '@/components/scene-renderers/InteractiveIframeHost';
 import { ThemeSwitcher } from '@/components/theme-switcher';
 import type { DiscussionAction, SpeechAction } from '@/lib/types/action';
 import type { InteractiveContent, Scene, SlideContent } from '@/lib/types/stage';
@@ -856,6 +857,7 @@ export function TeacherClassroomStage({
           )}
         </div>
       </main>
+      <InteractiveIframeHost />
     </div>
   );
 }
