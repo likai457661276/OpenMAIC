@@ -341,6 +341,8 @@ function getPublicModelList(providerId: string, entry: ServerProviderEntry): str
 export function getServerDefaultSelections(): ServerDefaultSelections {
   return {
     model: getTrimmedEnv('DEFAULT_MODEL') || FALLBACK_DEFAULT_MODEL,
+    ttsProvider: getTrimmedEnv('DEFAULT_TTS_PROVIDER'),
+    ttsVoice: getTrimmedEnv('DEFAULT_TTS_VOICE'),
     imageProvider: getTrimmedEnv('DEFAULT_IMAGE_PROVIDER'),
     imageModel: getTrimmedEnv('DEFAULT_IMAGE_MODEL'),
   };

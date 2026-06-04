@@ -179,6 +179,7 @@ export interface SettingsState {
   // Auto-config lifecycle flag (persisted)
   autoConfigApplied: boolean;
   serverDefaultModelApplied?: string;
+  serverDefaultTtsApplied?: string;
 
   // Playback controls
   ttsMuted: boolean;
@@ -1208,6 +1209,8 @@ export const useSettingsStore = create<SettingsState>()(
               webSearch: Record<string, Record<string, never>>;
               defaults?: {
                 model?: string;
+                ttsProvider?: string;
+                ttsVoice?: string;
                 imageProvider?: string;
                 imageModel?: string;
               };
@@ -1475,6 +1478,35 @@ export const useSettingsStore = create<SettingsState>()(
                   : state.ttsVoice;
 
               const serverDefaultModel = data.defaults?.model?.trim();
+              const serverTtsIds = Object.keys(data.tts) as TTSProviderId[];
+              const firstServerTtsProvider = serverTtsIds.find(
+                (id) => id !== 'browser-native-tts' && newTTSConfig[id]?.isServerConfigured,
+              );
+              const serverDefaultTtsProvider = data.defaults?.ttsProvider?.trim() as
+                | TTSProviderId
+                | undefined;
+              const serverDefaultTtsVoice = data.defaults?.ttsVoice?.trim();
+              const serverDefaultTtsConfig = serverDefaultTtsProvider
+                ? newTTSConfig[serverDefaultTtsProvider]
+                : undefined;
+              const hasUsableServerDefaultTts =
+                !!serverDefaultTtsProvider &&
+                serverDefaultTtsProvider !== 'browser-native-tts' &&
+                !!serverDefaultTtsConfig?.isServerConfigured;
+              const preferredServerTtsProvider = hasUsableServerDefaultTts
+                ? serverDefaultTtsProvider
+                : firstServerTtsProvider;
+              const preferredServerTtsVoice = hasUsableServerDefaultTts
+                ? serverDefaultTtsVoice
+                : undefined;
+              const preferredServerTtsKey = preferredServerTtsProvider
+                ? `${hasUsableServerDefaultTts ? 'default' : 'server'}:${preferredServerTtsProvider}:${preferredServerTtsVoice || ''}`
+                : undefined;
+              const shouldApplyPreferredServerTts =
+                !!preferredServerTtsProvider &&
+                ((state.ttsProviderId === 'browser-native-tts' &&
+                  state.serverDefaultTtsApplied !== preferredServerTtsKey) ||
+                  validTTSProvider !== state.ttsProviderId);
               const parsedServerDefaultModel = serverDefaultModel
                 ? parseModelString(serverDefaultModel)
                 : undefined;
@@ -1514,8 +1546,8 @@ export const useSettingsStore = create<SettingsState>()(
                 }
 
                 // TTS: select first server provider if current is not server-configured
-                const serverTtsIds = Object.keys(data.tts) as TTSProviderId[];
                 if (
+                  !shouldApplyPreferredServerTts &&
                   serverTtsIds.length > 0 &&
                   !newTTSConfig[state.ttsProviderId]?.isServerConfigured
                 ) {
@@ -1580,7 +1612,7 @@ export const useSettingsStore = create<SettingsState>()(
                 ...(shouldApplyServerDefaultModel
                   ? { providerId: parsedServerDefaultModel!.providerId as ProviderId }
                   : validLLMProvider !== state.providerId && {
-                  providerId: validLLMProvider as ProviderId,
+                      providerId: validLLMProvider as ProviderId,
                     }),
                 ...(shouldApplyServerDefaultModel
                   ? { modelId: parsedServerDefaultModel!.modelId }
@@ -1591,6 +1623,14 @@ export const useSettingsStore = create<SettingsState>()(
                 ...(validTTSProvider !== state.ttsProviderId && {
                   ttsProviderId: validTTSProvider as TTSProviderId,
                   ttsVoice: validTTSVoice,
+                }),
+                ...(shouldApplyPreferredServerTts && {
+                  ttsProviderId: preferredServerTtsProvider,
+                  ttsVoice:
+                    preferredServerTtsVoice ||
+                    DEFAULT_TTS_VOICES[preferredServerTtsProvider as BuiltInTTSProviderId] ||
+                    'default',
+                  serverDefaultTtsApplied: preferredServerTtsKey,
                 }),
                 ...(validASRProvider !== state.asrProviderId && {
                   asrProviderId: validASRProvider as ASRProviderId,

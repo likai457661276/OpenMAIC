@@ -85,6 +85,15 @@ vi.mock('@/lib/audio/constants', () => ({
       voices: [{ id: 'zh-CN-XiaoxiaoNeural', name: 'Xiaoxiao', language: 'zh-CN' }],
       supportedFormats: ['mp3'],
     },
+    'doubao-tts': {
+      id: 'doubao-tts',
+      name: 'Doubao TTS',
+      requiresApiKey: true,
+      defaultModelId: '',
+      models: [],
+      voices: [{ id: 'zh_female_vv_uranus_bigtts', name: 'Doubao', language: 'zh-CN' }],
+      supportedFormats: ['mp3'],
+    },
     'browser-native-tts': {
       id: 'browser-native-tts',
       name: 'Browser Native TTS',
@@ -118,6 +127,7 @@ vi.mock('@/lib/audio/constants', () => ({
   },
   DEFAULT_TTS_VOICES: {
     'openai-tts': 'alloy',
+    'doubao-tts': 'zh_female_vv_uranus_bigtts',
     'browser-native-tts': 'default',
   },
 }));
@@ -202,6 +212,8 @@ interface MockServerResponse {
   webSearch?: Record<string, { baseUrl?: string }>;
   defaults?: {
     model?: string;
+    ttsProvider?: string;
+    ttsVoice?: string;
     imageProvider?: string;
     imageModel?: string;
   };
@@ -779,6 +791,42 @@ describe('fetchServerProviders — TTS stale selection', () => {
     await store.getState().fetchServerProviders();
 
     expect(store.getState().ttsProviderId).toBe('openai-tts');
+  });
+
+  it('applies server default TTS after an earlier sync left browser-native selected', async () => {
+    const store = await getStore();
+
+    mockServerResponse({});
+    await store.getState().fetchServerProviders();
+    expect(store.getState().autoConfigApplied).toBe(true);
+    expect(store.getState().ttsProviderId).toBe('browser-native-tts');
+
+    mockServerResponse({
+      tts: { 'doubao-tts': {} },
+      defaults: {
+        ttsProvider: 'doubao-tts',
+        ttsVoice: 'zh_female_vv_uranus_bigtts',
+      },
+    });
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().ttsProviderId).toBe('doubao-tts');
+    expect(store.getState().ttsVoice).toBe('zh_female_vv_uranus_bigtts');
+  });
+
+  it('recovers browser-native TTS to the first server TTS after an earlier empty sync', async () => {
+    const store = await getStore();
+
+    mockServerResponse({});
+    await store.getState().fetchServerProviders();
+    expect(store.getState().autoConfigApplied).toBe(true);
+    expect(store.getState().ttsProviderId).toBe('browser-native-tts');
+
+    mockServerResponse({ tts: { 'doubao-tts': {} } });
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().ttsProviderId).toBe('doubao-tts');
+    expect(store.getState().ttsVoice).toBe('zh_female_vv_uranus_bigtts');
   });
 });
 
