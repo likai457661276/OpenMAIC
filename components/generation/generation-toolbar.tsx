@@ -131,14 +131,16 @@ export function GenerationToolbar({
     'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all cursor-pointer select-none whitespace-nowrap border';
   const pillMuted =
     tone === 'teacher'
-      ? `${pillCls} border-cyan-100/22 bg-slate-900/45 text-cyan-50/78 hover:border-cyan-100/40 hover:bg-cyan-100/10 hover:text-white`
+      ? `${pillCls} border-cyan-200/70 bg-white/55 text-slate-600 hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-800 dark:border-cyan-100/22 dark:bg-slate-900/45 dark:text-cyan-50/78 dark:hover:border-cyan-100/40 dark:hover:bg-cyan-100/10 dark:hover:text-white`
       : `${pillCls} border-border/50 text-muted-foreground/70 hover:text-foreground hover:bg-muted/60`;
   const pillActive =
     tone === 'teacher'
-      ? `${pillCls} border-cyan-200/45 bg-cyan-300/14 text-cyan-50 shadow-[0_0_16px_rgba(34,211,238,0.12)]`
+      ? `${pillCls} border-cyan-300/80 bg-cyan-100/85 text-cyan-800 shadow-[0_0_16px_rgba(8,145,178,0.12)] dark:border-cyan-200/45 dark:bg-cyan-300/14 dark:text-cyan-50 dark:shadow-[0_0_16px_rgba(34,211,238,0.12)]`
       : `${pillCls} border-violet-200/60 dark:border-violet-700/50 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300`;
   const separatorClass =
-    tone === 'teacher' ? 'w-px h-4 bg-cyan-100/25 mx-1' : 'w-px h-4 bg-border/60 mx-1';
+    tone === 'teacher'
+      ? 'w-px h-4 bg-cyan-700/18 dark:bg-cyan-100/25 mx-1'
+      : 'w-px h-4 bg-border/60 mx-1';
 
   return (
     <div className="flex items-center gap-1 flex-wrap">
@@ -403,7 +405,7 @@ export function GenerationToolbar({
                 className={cn(
                   pillCls,
                   tone === 'teacher'
-                    ? 'border-cyan-100/12 bg-slate-900/30 text-cyan-50/30 cursor-not-allowed'
+                    ? 'border-cyan-200/50 bg-white/40 text-slate-400 cursor-not-allowed dark:border-cyan-100/12 dark:bg-slate-900/30 dark:text-cyan-50/30'
                     : 'text-muted-foreground/40 cursor-not-allowed',
                 )}
                 disabled

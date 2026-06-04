@@ -15,20 +15,16 @@ import {
   Loader2,
   Maximize2,
   Minimize2,
-  Monitor,
-  Moon,
   Package,
   PanelLeftClose,
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
   RefreshCw,
-  Sun,
   WandSparkles,
 } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { SceneProvider } from '@/lib/contexts/scene-context';
-import { useTheme } from '@/lib/hooks/use-theme';
 import { useStageStore } from '@/lib/store';
 import { useSettingsStore } from '@/lib/store/settings';
 import { PENDING_SCENE_ID } from '@/lib/store/stage';
@@ -40,6 +36,7 @@ import { SceneRenderer } from '@/components/stage/scene-renderer';
 import { LectureNotesView } from '@/components/chat/lecture-notes-view';
 import { ThumbnailSlide } from '@/components/slide-renderer/components/ThumbnailSlide';
 import { ThumbnailInteractive } from '@/components/slide-renderer/components/ThumbnailInteractive';
+import { ThemeSwitcher } from '@/components/theme-switcher';
 import type { DiscussionAction, SpeechAction } from '@/lib/types/action';
 import type { InteractiveContent, Scene, SlideContent } from '@/lib/types/stage';
 import type { LectureNoteEntry } from '@/lib/types/chat';
@@ -317,7 +314,6 @@ export function TeacherClassroomStage({
   readonly onRetryOutline?: (outlineId: string) => Promise<void>;
 }) {
   const router = useRouter();
-  const { theme, setTheme } = useTheme();
   const stage = useStageStore((state) => state.stage);
   const scenes = useStageStore((state) => state.scenes);
   const currentSceneId = useStageStore((state) => state.currentSceneId);
@@ -331,12 +327,10 @@ export function TeacherClassroomStage({
 
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(true);
-  const [themeOpen, setThemeOpen] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [retryingOutlineId, setRetryingOutlineId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const playbackRef = useRef<HTMLElement>(null);
-  const themeRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
 
   const pendingOutline = generatingOutlines[0] ?? null;
@@ -490,12 +484,9 @@ export function TeacherClassroomStage({
   }, [currentSceneIndex, goToScene, isFullscreen]);
 
   useEffect(() => {
-    if (!themeOpen && !exportMenuOpen) return;
+    if (!exportMenuOpen) return;
 
     const handleClickOutside = (event: MouseEvent) => {
-      if (themeRef.current && !themeRef.current.contains(event.target as Node)) {
-        setThemeOpen(false);
-      }
       if (exportRef.current && !exportRef.current.contains(event.target as Node)) {
         setExportMenuOpen(false);
       }
@@ -503,7 +494,7 @@ export function TeacherClassroomStage({
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [themeOpen, exportMenuOpen]);
+  }, [exportMenuOpen]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100">
@@ -627,63 +618,12 @@ export function TeacherClassroomStage({
           </div>
           <div className="flex items-center gap-2">
             <div className="mr-1 flex items-center rounded-full border border-gray-100/50 bg-white/60 px-1.5 py-1 shadow-sm backdrop-blur-md dark:border-gray-700/50 dark:bg-gray-800/60">
-              <div className="relative" ref={themeRef}>
-                <button
-                  onClick={() => setThemeOpen((open) => !open)}
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-all hover:bg-white hover:text-gray-800 hover:shadow-sm dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-                  aria-label="切换主题"
-                >
-                  {theme === 'light' && <Sun className="h-4 w-4" />}
-                  {theme === 'dark' && <Moon className="h-4 w-4" />}
-                  {theme === 'system' && <Monitor className="h-4 w-4" />}
-                </button>
-                {themeOpen && (
-                  <div className="absolute right-0 top-full z-50 mt-2 min-w-[150px] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
-                    <button
-                      onClick={() => {
-                        setTheme('light');
-                        setThemeOpen(false);
-                      }}
-                      className={cn(
-                        'flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-700',
-                        theme === 'light' &&
-                          'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400',
-                      )}
-                    >
-                      <Sun className="h-4 w-4" />
-                      浅色
-                    </button>
-                    <button
-                      onClick={() => {
-                        setTheme('dark');
-                        setThemeOpen(false);
-                      }}
-                      className={cn(
-                        'flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-700',
-                        theme === 'dark' &&
-                          'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400',
-                      )}
-                    >
-                      <Moon className="h-4 w-4" />
-                      深色
-                    </button>
-                    <button
-                      onClick={() => {
-                        setTheme('system');
-                        setThemeOpen(false);
-                      }}
-                      className={cn(
-                        'flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-700',
-                        theme === 'system' &&
-                          'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400',
-                      )}
-                    >
-                      <Monitor className="h-4 w-4" />
-                      跟随系统
-                    </button>
-                  </div>
-                )}
-              </div>
+              <ThemeSwitcher
+                className="flex h-8 w-8 items-center justify-center p-0"
+                iconClassName="h-4 w-4"
+                contentClassName="min-w-[150px]"
+                ariaLabel="切换主题"
+              />
             </div>
             <div className="relative" ref={exportRef}>
               <button

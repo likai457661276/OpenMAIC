@@ -14,9 +14,6 @@ import {
   Trash2,
   Search,
   Settings,
-  Sun,
-  Moon,
-  Monitor,
   ChevronUp,
   Upload,
   Atom,
@@ -33,7 +30,6 @@ import { cn } from '@/lib/utils';
 import { SettingsDialog } from '@/components/settings';
 import { GenerationToolbar } from '@/components/generation/generation-toolbar';
 import { AgentBar } from '@/components/agent/agent-bar';
-import { useTheme } from '@/lib/hooks/use-theme';
 import { nanoid } from 'nanoid';
 import { storePdfBlob } from '@/lib/utils/image-storage';
 import type { UserRequirements } from '@/lib/types/generation';
@@ -59,6 +55,7 @@ import { BrandLogo } from '@/components/brand-logo';
 import { appPath } from '@/lib/app-paths';
 import { FeatureGate } from '@/components/feature-gate';
 import { useTeacherMode } from '@/lib/teacher/teacher-mode-provider';
+import { ThemeSwitcher } from '@/components/theme-switcher';
 
 const log = createLogger('Home');
 
@@ -80,7 +77,6 @@ const initialFormState: FormState = {
 export function HomePage() {
   const { t } = useI18n();
   const { isTeacherMode } = useTeacherMode();
-  const { theme, setTheme } = useTheme();
   const router = useRouter();
   const [form, setForm] = useState<FormState>(initialFormState);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -139,7 +135,6 @@ export function HomePage() {
     setForm((prev) => (prev.requirement ? prev : { ...prev, requirement: cachedRequirement }));
   }, [cachedRequirement]);
 
-  const [themeOpen, setThemeOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [classrooms, setClassrooms] = useState<StageListItem[]>([]);
@@ -149,7 +144,6 @@ export function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchButtonRef = useRef<HTMLButtonElement>(null);
-  const toolbarRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const thumbnailsRef = useRef<Record<string, Slide>>({});
 
@@ -159,18 +153,6 @@ export function HomePage() {
     setThumbnails(slides);
     window.setTimeout(() => revokeThumbnailSlideMediaUrls(previous), 0);
   }, []);
-
-  // Close dropdowns when clicking outside
-  useEffect(() => {
-    if (!themeOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (toolbarRef.current && !toolbarRef.current.contains(e.target as Node)) {
-        setThemeOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [themeOpen]);
 
   const loadClassrooms = useCallback(async () => {
     try {
@@ -362,7 +344,7 @@ export function HomePage() {
       className={cn(
         'relative min-h-[100dvh] w-full flex flex-col items-center p-4 pt-16 md:p-8 md:pt-16 overflow-x-hidden',
         isTeacherMode
-          ? 'bg-[#06111f] text-slate-100'
+          ? 'bg-gradient-to-br from-cyan-50 via-white to-slate-100 text-slate-950 dark:from-[#06111f] dark:via-[#07111f] dark:to-[#111827] dark:text-slate-100'
           : 'bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900',
       )}
     >
@@ -375,78 +357,20 @@ export function HomePage() {
       />
       {/* ═══ Top-right pill (unchanged) ═══ */}
       <div
-        ref={toolbarRef}
         className={cn(
           'fixed top-4 right-4 z-50 flex items-center gap-1 backdrop-blur-md px-2 py-1.5 rounded-full border shadow-sm',
           isTeacherMode
-            ? 'bg-slate-950/55 border-cyan-200/10'
+            ? 'border-cyan-200/60 bg-white/70 shadow-cyan-900/10 dark:border-cyan-200/10 dark:bg-slate-950/55'
             : 'bg-white/60 dark:bg-gray-800/60 border-gray-100/50 dark:border-gray-700/50',
         )}
       >
         {/* Language Selector */}
-        <LanguageSwitcher onOpen={() => setThemeOpen(false)} />
+        <LanguageSwitcher />
 
         <div className="w-[1px] h-4 bg-gray-200 dark:bg-gray-700" />
 
         {/* Theme Selector */}
-        <div className="relative">
-          <button
-            onClick={() => {
-              setThemeOpen(!themeOpen);
-            }}
-            className="p-2 rounded-full text-gray-400 dark:text-gray-500 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200 hover:shadow-sm transition-all"
-          >
-            {theme === 'light' && <Sun className="w-4 h-4" />}
-            {theme === 'dark' && <Moon className="w-4 h-4" />}
-            {theme === 'system' && <Monitor className="w-4 h-4" />}
-          </button>
-          {themeOpen && (
-            <div className="absolute top-full mt-2 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden z-50 min-w-[140px]">
-              <button
-                onClick={() => {
-                  setTheme('light');
-                  setThemeOpen(false);
-                }}
-                className={cn(
-                  'w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2',
-                  theme === 'light' &&
-                    'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400',
-                )}
-              >
-                <Sun className="w-4 h-4" />
-                {t('settings.themeOptions.light')}
-              </button>
-              <button
-                onClick={() => {
-                  setTheme('dark');
-                  setThemeOpen(false);
-                }}
-                className={cn(
-                  'w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2',
-                  theme === 'dark' &&
-                    'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400',
-                )}
-              >
-                <Moon className="w-4 h-4" />
-                {t('settings.themeOptions.dark')}
-              </button>
-              <button
-                onClick={() => {
-                  setTheme('system');
-                  setThemeOpen(false);
-                }}
-                className={cn(
-                  'w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2',
-                  theme === 'system' &&
-                    'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400',
-                )}
-              >
-                <Monitor className="w-4 h-4" />
-                {t('settings.themeOptions.system')}
-              </button>
-            </div>
-          )}
-        </div>
+        <ThemeSwitcher />
 
         <div className="w-[1px] h-4 bg-gray-200 dark:bg-gray-700" />
 
@@ -486,15 +410,23 @@ export function HomePage() {
       {isTeacherMode ? (
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div
-            className="absolute inset-0 opacity-80"
+            className="absolute inset-0 opacity-90 dark:hidden"
+            style={{
+              backgroundImage:
+                'linear-gradient(115deg, rgba(14,165,233,0.14) 0%, transparent 28%, transparent 66%, rgba(250,204,21,0.16) 100%), linear-gradient(rgba(8,145,178,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(8,145,178,0.08) 1px, transparent 1px)',
+              backgroundSize: '100% 100%, 36px 36px, 36px 36px',
+            }}
+          />
+          <div
+            className="absolute inset-0 hidden opacity-80 dark:block"
             style={{
               backgroundImage:
                 'linear-gradient(115deg, rgba(14,165,233,0.22) 0%, transparent 24%, transparent 68%, rgba(250,204,21,0.12) 100%), linear-gradient(rgba(148,163,184,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.08) 1px, transparent 1px)',
               backgroundSize: '100% 100%, 36px 36px, 36px 36px',
             }}
           />
-          <div className="absolute left-0 top-0 h-1/2 w-full bg-gradient-to-b from-cyan-400/10 via-transparent to-transparent" />
-          <div className="absolute bottom-0 h-px w-full bg-gradient-to-r from-transparent via-cyan-200/30 to-transparent" />
+          <div className="absolute left-0 top-0 h-1/2 w-full bg-gradient-to-b from-cyan-200/35 via-transparent to-transparent dark:from-cyan-400/10" />
+          <div className="absolute bottom-0 h-px w-full bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent dark:via-cyan-200/30" />
         </div>
       ) : (
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -545,7 +477,7 @@ export function HomePage() {
             textClassName={cn(
               'text-[2.1rem] md:text-[3.4rem]',
               isTeacherMode &&
-                'bg-gradient-to-r from-cyan-200 via-slate-50 to-amber-200 bg-clip-text text-transparent',
+                'bg-gradient-to-r from-cyan-700 via-slate-950 to-amber-600 bg-clip-text text-transparent dark:from-cyan-200 dark:via-slate-50 dark:to-amber-200',
             )}
           />
         </motion.div>
@@ -557,7 +489,7 @@ export function HomePage() {
           transition={{ delay: 0.25 }}
           className={cn(
             'text-xs md:text-sm mb-8 text-center',
-            isTeacherMode ? 'text-cyan-50/75' : 'text-muted-foreground/60',
+            isTeacherMode ? 'text-slate-600 dark:text-cyan-50/75' : 'text-muted-foreground/60',
           )}
         >
           {isTeacherMode
@@ -576,7 +508,7 @@ export function HomePage() {
             className={cn(
               'w-full rounded-2xl border backdrop-blur-xl shadow-xl transition-shadow focus-within:shadow-2xl',
               isTeacherMode
-                ? 'border-cyan-200/15 bg-slate-950/62 shadow-cyan-950/25 focus-within:border-cyan-200/35 focus-within:shadow-cyan-500/[0.08]'
+                ? 'border-cyan-200/70 bg-white/82 shadow-cyan-900/10 focus-within:border-cyan-400/60 focus-within:shadow-cyan-500/[0.12] dark:border-cyan-200/15 dark:bg-slate-950/62 dark:shadow-cyan-950/25 dark:focus-within:border-cyan-200/35 dark:focus-within:shadow-cyan-500/[0.08]'
                 : 'border-border/60 bg-white/80 dark:bg-slate-900/80 shadow-black/[0.03] dark:shadow-black/20 focus-within:shadow-violet-500/[0.06]',
             )}
           >
@@ -604,7 +536,7 @@ export function HomePage() {
               className={cn(
                 'w-full resize-none border-0 bg-transparent px-4 pt-1 pb-2 text-[13px] leading-relaxed focus:outline-none min-h-[140px] max-h-[300px]',
                 isTeacherMode
-                  ? 'text-slate-100 placeholder:text-cyan-50/58'
+                  ? 'text-slate-800 placeholder:text-slate-500/75 dark:text-slate-100 dark:placeholder:text-cyan-50/58'
                   : 'placeholder:text-muted-foreground/40',
               )}
               value={form.requirement}
@@ -638,10 +570,10 @@ export function HomePage() {
                   'shrink-0 h-8 rounded-lg flex items-center justify-center gap-1.5 transition-all px-3',
                   canGenerate
                     ? isTeacherMode
-                      ? 'bg-cyan-50 text-slate-950 hover:bg-white shadow-[0_0_22px_rgba(103,232,249,0.18)] cursor-pointer'
+                      ? 'bg-cyan-600 text-white shadow-[0_12px_26px_rgba(8,145,178,0.22)] hover:bg-cyan-500 dark:bg-cyan-50 dark:text-slate-950 dark:hover:bg-white dark:shadow-[0_0_22px_rgba(103,232,249,0.18)] cursor-pointer'
                       : 'bg-primary text-primary-foreground hover:opacity-90 shadow-sm cursor-pointer'
                     : isTeacherMode
-                      ? 'bg-slate-100/16 text-cyan-50/68 cursor-not-allowed'
+                      ? 'bg-slate-200/80 text-slate-500 cursor-not-allowed dark:bg-slate-100/16 dark:text-cyan-50/68'
                       : 'bg-muted text-muted-foreground/40 cursor-not-allowed',
                 )}
               >
@@ -683,7 +615,7 @@ export function HomePage() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.45, duration: 0.25, ease: 'easeOut' }}
-            className="mt-4 inline-flex items-center gap-2 rounded-full border border-cyan-100/18 bg-cyan-100/10 px-4 py-2 text-sm font-medium text-cyan-50 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-cyan-100/16 hover:shadow-[0_14px_34px_rgba(34,211,238,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/40"
+            className="mt-4 inline-flex items-center gap-2 rounded-full border border-cyan-200/70 bg-white/60 px-4 py-2 text-sm font-medium text-cyan-800 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-cyan-50 hover:shadow-[0_14px_34px_rgba(8,145,178,0.14)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/35 dark:border-cyan-100/18 dark:bg-cyan-100/10 dark:text-cyan-50 dark:hover:bg-cyan-100/16 dark:hover:shadow-[0_14px_34px_rgba(34,211,238,0.12)] dark:focus-visible:ring-cyan-200/40"
           >
             <Atom className="size-4" />
             <span>进入互动课堂首页</span>
@@ -731,21 +663,23 @@ export function HomePage() {
               className={cn(
                 'flex-1 h-px transition-colors',
                 isTeacherMode
-                  ? 'bg-cyan-50/24 group-hover:bg-cyan-50/38'
+                  ? 'bg-cyan-700/18 group-hover:bg-cyan-700/28 dark:bg-cyan-50/24 dark:group-hover:bg-cyan-50/38'
                   : 'bg-border/40 group-hover:bg-border/70',
               )}
             />
             <div
               className={cn(
                 'shrink-0 flex items-center gap-3 text-[13px] select-none',
-                isTeacherMode ? 'text-cyan-50/72' : 'text-muted-foreground/60',
+                isTeacherMode ? 'text-slate-600 dark:text-cyan-50/72' : 'text-muted-foreground/60',
               )}
             >
               <button
                 onClick={() => persistRecentOpen(!recentOpen)}
                 className={cn(
                   'flex items-center gap-2 transition-colors cursor-pointer',
-                  isTeacherMode ? 'hover:text-white' : 'hover:text-foreground/70',
+                  isTeacherMode
+                    ? 'hover:text-cyan-700 dark:hover:text-white'
+                    : 'hover:text-foreground/70',
                 )}
               >
                 <Clock className="size-3.5" />
@@ -779,7 +713,7 @@ export function HomePage() {
                     className={cn(
                       'flex items-center justify-center size-6 rounded-full transition-colors cursor-pointer',
                       isTeacherMode
-                        ? 'text-cyan-50/58 hover:bg-cyan-100/10 hover:text-white'
+                        ? 'text-slate-500 hover:bg-cyan-100/70 hover:text-cyan-700 dark:text-cyan-50/58 dark:hover:bg-cyan-100/10 dark:hover:text-white'
                         : 'text-muted-foreground/50 hover:text-foreground/70 hover:bg-muted/50',
                     )}
                   >
@@ -799,9 +733,12 @@ export function HomePage() {
                         'h-7 text-[12px] rounded-full border-transparent shadow-none transition-colors',
                         isTeacherMode
                           ? [
-                              'bg-slate-900/70 text-cyan-50 ring-1 ring-cyan-100/18',
-                              'hover:bg-slate-900/85',
-                              'has-[[data-slot=input-group-control]:focus-visible]:bg-slate-900/85',
+                              'bg-white/70 text-slate-800 ring-1 ring-cyan-200/70',
+                              'hover:bg-white',
+                              'has-[[data-slot=input-group-control]:focus-visible]:bg-white',
+                              'dark:bg-slate-900/70 dark:text-cyan-50 dark:ring-cyan-100/18',
+                              'dark:hover:bg-slate-900/85',
+                              'dark:has-[[data-slot=input-group-control]:focus-visible]:bg-slate-900/85',
                             ]
                           : [
                               'bg-muted/40',
@@ -837,7 +774,7 @@ export function HomePage() {
                         className={cn(
                           'h-7 pl-3',
                           isTeacherMode
-                            ? 'text-cyan-50 placeholder:text-cyan-50/45'
+                            ? 'text-slate-800 placeholder:text-slate-500/60 dark:text-cyan-50 dark:placeholder:text-cyan-50/45'
                             : 'placeholder:text-muted-foreground/50',
                         )}
                       />
@@ -865,7 +802,7 @@ export function HomePage() {
                 className={cn(
                   'group/import grid grid-cols-[auto_0fr] hover:grid-cols-[auto_1fr] items-center gap-1 rounded-full px-1.5 py-0.5 text-[12px] transition-all duration-200 cursor-pointer',
                   isTeacherMode
-                    ? 'text-cyan-50/52 hover:bg-cyan-100/10 hover:text-white'
+                    ? 'text-slate-500 hover:bg-cyan-100/70 hover:text-cyan-700 dark:text-cyan-50/52 dark:hover:bg-cyan-100/10 dark:hover:text-white'
                     : 'text-muted-foreground/35 hover:text-muted-foreground/70 hover:bg-muted/50',
                 )}
               >
@@ -879,7 +816,7 @@ export function HomePage() {
               className={cn(
                 'flex-1 h-px transition-colors',
                 isTeacherMode
-                  ? 'bg-cyan-50/24 group-hover:bg-cyan-50/38'
+                  ? 'bg-cyan-700/18 group-hover:bg-cyan-700/28 dark:bg-cyan-50/24 dark:group-hover:bg-cyan-50/38'
                   : 'bg-border/40 group-hover:bg-border/70',
               )}
             />
@@ -899,7 +836,9 @@ export function HomePage() {
                   <div
                     className={cn(
                       'pt-8 pb-2 text-center text-[13px]',
-                      isTeacherMode ? 'text-cyan-50/65' : 'text-muted-foreground/60',
+                      isTeacherMode
+                        ? 'text-slate-500 dark:text-cyan-50/65'
+                        : 'text-muted-foreground/60',
                     )}
                   >
                     {t('classroom.searchEmpty')}
@@ -1046,7 +985,7 @@ function GreetingBar({ label, teacherMode = false }: { label?: string; teacherMo
           className={cn(
             'flex items-center gap-2.5 cursor-pointer transition-all duration-200 group rounded-full px-2.5 py-1.5 border active:scale-[0.97]',
             teacherMode
-              ? 'border-cyan-100/22 bg-slate-900/34 text-cyan-50/80 hover:border-cyan-100/40 hover:bg-cyan-100/10 hover:text-white'
+              ? 'border-cyan-200/70 bg-white/55 text-slate-700 hover:border-cyan-300 hover:bg-cyan-50/80 hover:text-cyan-800 dark:border-cyan-100/22 dark:bg-slate-900/34 dark:text-cyan-50/80 dark:hover:border-cyan-100/40 dark:hover:bg-cyan-100/10 dark:hover:text-white'
               : 'border-border/50 text-muted-foreground/70 hover:text-foreground hover:bg-muted/60',
           )}
           onClick={() => setOpen(true)}
@@ -1056,7 +995,7 @@ function GreetingBar({ label, teacherMode = false }: { label?: string; teacherMo
               className={cn(
                 'size-8 rounded-full overflow-hidden ring-[1.5px] transition-all duration-300',
                 teacherMode
-                  ? 'ring-cyan-100/30 group-hover:ring-cyan-200/70'
+                  ? 'ring-cyan-300/60 group-hover:ring-cyan-500/70 dark:ring-cyan-100/30 dark:group-hover:ring-cyan-200/70'
                   : 'ring-border/30 group-hover:ring-violet-400/60 dark:group-hover:ring-violet-400/40',
               )}
             >
@@ -1066,14 +1005,14 @@ function GreetingBar({ label, teacherMode = false }: { label?: string; teacherMo
               className={cn(
                 'absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full border flex items-center justify-center opacity-70 group-hover:opacity-100 transition-opacity',
                 teacherMode
-                  ? 'border-cyan-100/30 bg-slate-950 text-cyan-50'
+                  ? 'border-cyan-200 bg-white text-cyan-700 dark:border-cyan-100/30 dark:bg-slate-950 dark:text-cyan-50'
                   : 'bg-white dark:bg-slate-800 border-border/40',
               )}
             >
               <Pencil
                 className={cn(
                   'size-[7px]',
-                  teacherMode ? 'text-cyan-50/75' : 'text-muted-foreground/70',
+                  teacherMode ? 'text-cyan-700 dark:text-cyan-50/75' : 'text-muted-foreground/70',
                 )}
               />
             </div>
@@ -1086,7 +1025,7 @@ function GreetingBar({ label, teacherMode = false }: { label?: string; teacherMo
                     className={cn(
                       'text-[13px] font-semibold transition-colors',
                       teacherMode
-                        ? 'text-cyan-50 group-hover:text-white'
+                        ? 'text-slate-800 group-hover:text-cyan-800 dark:text-cyan-50 dark:group-hover:text-white'
                         : 'text-foreground/85 group-hover:text-foreground',
                     )}
                   >
@@ -1096,7 +1035,7 @@ function GreetingBar({ label, teacherMode = false }: { label?: string; teacherMo
                     className={cn(
                       'size-3 transition-colors shrink-0',
                       teacherMode
-                        ? 'text-cyan-50/48 group-hover:text-cyan-50/80'
+                        ? 'text-slate-500 group-hover:text-cyan-700 dark:text-cyan-50/48 dark:group-hover:text-cyan-50/80'
                         : 'text-muted-foreground/30 group-hover:text-muted-foreground/60',
                     )}
                   />
@@ -1339,7 +1278,7 @@ function ClassroomCard({
         className={cn(
           'relative w-full aspect-[16/9] rounded-2xl overflow-hidden transition-transform duration-200 group-hover:scale-[1.02]',
           teacherMode
-            ? 'bg-slate-900/75 ring-1 ring-cyan-100/12 shadow-[0_18px_42px_rgba(2,6,23,0.32)]'
+            ? 'bg-white/80 ring-1 ring-cyan-200/65 shadow-[0_18px_42px_rgba(8,145,178,0.12)] dark:bg-slate-900/75 dark:ring-cyan-100/12 dark:shadow-[0_18px_42px_rgba(2,6,23,0.32)]'
             : 'bg-slate-100 dark:bg-slate-800/80',
         )}
       >
@@ -1454,7 +1393,7 @@ function ClassroomCard({
           className={cn(
             'shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
             teacherMode
-              ? 'bg-cyan-50 text-violet-700 shadow-[0_0_16px_rgba(103,232,249,0.16)]'
+              ? 'bg-cyan-100 text-cyan-800 shadow-[0_0_16px_rgba(8,145,178,0.12)] dark:bg-cyan-50 dark:text-violet-700 dark:shadow-[0_0_16px_rgba(103,232,249,0.16)]'
               : 'bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400',
           )}
         >
@@ -1476,7 +1415,7 @@ function ClassroomCard({
               className={cn(
                 'w-full bg-transparent border-b text-[15px] font-medium outline-none',
                 teacherMode
-                  ? 'border-cyan-200/65 text-white placeholder:text-cyan-50/45'
+                  ? 'border-cyan-500/65 text-slate-900 placeholder:text-slate-500/60 dark:border-cyan-200/65 dark:text-white dark:placeholder:text-cyan-50/45'
                   : 'border-violet-400/60 text-foreground/90 placeholder:text-muted-foreground/40',
               )}
             />
@@ -1487,7 +1426,7 @@ function ClassroomCard({
               <p
                 className={cn(
                   'font-medium text-[15px] truncate min-w-0 cursor-text',
-                  teacherMode ? 'text-cyan-50' : 'text-foreground/90',
+                  teacherMode ? 'text-slate-800 dark:text-cyan-50' : 'text-foreground/90',
                 )}
                 onDoubleClick={startRename}
               >
