@@ -22,6 +22,7 @@ import { VIDEO_PROVIDERS } from '@/lib/media/video-providers';
 import { WEB_SEARCH_PROVIDERS } from '@/lib/web-search/constants';
 import type { BaiduSubSources, WebSearchProviderId } from '@/lib/web-search/types';
 import { createLogger } from '@/lib/logger';
+import { apiPath } from '@/lib/app-paths';
 import {
   validateProvider,
   resolveSelectedModel,
@@ -1190,7 +1191,9 @@ export const useSettingsStore = create<SettingsState>()(
         // Fetch server-configured providers and merge into local state
         fetchServerProviders: async () => {
           try {
-            const res = await fetch('/api/server-providers');
+            // 生产环境配置了 basePath（如 /bingo-agent-class），这里必须走 apiPath；
+            // 否则首页会请求到 /api/server-providers，导致服务端模型配置无法同步。
+            const res = await fetch(apiPath('/api/server-providers'));
             if (!res.ok) return;
             // Managed providers expose only their allowed model list (LLM/image)
             // and presence (the "managed" flag) — never a base URL.
@@ -1362,14 +1365,19 @@ export const useSettingsStore = create<SettingsState>()(
 
               // === Validate current selections against updated configs ===
               // Build fallback: server-configured first, then client-key-only
+              // 历史 localStorage 或 main 分支合并后可能留下 undefined 配置项；
+              // fallback 构造必须跳过这些空项，否则会中断整个服务端模型同步流程。
               const buildFallback = <T extends string>(
-                config: Record<string, { isServerConfigured?: boolean; apiKey?: string }>,
+                config: Record<
+                  string,
+                  { isServerConfigured?: boolean; apiKey?: string } | undefined
+                >,
               ): T[] => [
                 ...Object.entries(config)
-                  .filter(([, c]) => c.isServerConfigured)
+                  .filter(([, c]) => c?.isServerConfigured)
                   .map(([id]) => id as T),
                 ...Object.entries(config)
-                  .filter(([, c]) => !c.isServerConfigured && !!c.apiKey)
+                  .filter(([, c]) => c && !c.isServerConfigured && !!c.apiKey)
                   .map(([id]) => id as T),
               ];
 

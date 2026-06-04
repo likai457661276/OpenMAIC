@@ -216,6 +216,7 @@ function mockServerResponse(overrides: MockServerResponse = {}) {
 describe('settings rehydrate — built-in provider models', () => {
   beforeEach(() => {
     vi.resetModules();
+    vi.unstubAllEnvs();
     storage.clear();
     mockFetch.mockReset();
   });
@@ -334,6 +335,43 @@ describe('fetchServerProviders — provider availability sync', () => {
   }
 
   // ---- Server model list filtering ----
+
+  it('fetches server providers through the configured app base path', async () => {
+    // 正式部署挂在 /bingo-agent-class 下；服务端配置同步必须带 basePath。
+    vi.stubEnv('NEXT_PUBLIC_BASE_PATH', '/bingo-agent-class');
+    const store = await getStore();
+    mockServerResponse({
+      providers: {
+        qwen: { models: ['qwen3.7-plus'] },
+      },
+    });
+
+    await store.getState().fetchServerProviders();
+
+    expect(mockFetch).toHaveBeenCalledWith('/bingo-agent-class/api/server-providers');
+  });
+
+  it('skips undefined provider config entries while building fallback lists', async () => {
+    const store = await getStore();
+    // 模拟历史持久化数据或分支合并后混入的空 provider entry。
+    store.setState({
+      providersConfig: {
+        ...store.getState().providersConfig,
+        broken: undefined,
+      } as unknown as ReturnType<typeof store.getState>['providersConfig'],
+    });
+    mockServerResponse({
+      providers: {
+        openai: { models: ['gpt-4o'] },
+      },
+    });
+
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().providersConfig.openai.isServerConfigured).toBe(true);
+    expect(store.getState().providerId).toBe('openai');
+    expect(store.getState().modelId).toBe('gpt-4o');
+  });
 
   it('filters models to only those the server allows', async () => {
     const store = await getStore();
