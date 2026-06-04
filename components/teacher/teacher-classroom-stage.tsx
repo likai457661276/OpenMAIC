@@ -767,10 +767,7 @@ export function TeacherClassroomStage({
             )}
           >
             <div
-              className={cn(
-                'overflow-hidden rounded-lg bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700',
-                isFullscreen && 'rounded-md shadow-2xl',
-              )}
+              className={cn('overflow-visible', isFullscreen && 'overflow-hidden')}
               style={{
                 width: 'min(100cqw, calc(100cqh * 16 / 9))',
                 height: 'min(100cqh, calc(100cqw * 9 / 16))',
