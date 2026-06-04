@@ -365,7 +365,7 @@ describe('fetchServerProviders — provider availability sync', () => {
     const models = store.getState().providersConfig.openai.models;
     expect(models.map((m) => m.id)).toEqual(['gpt-5.5', 'gpt-4o']);
     expect(models[0].name).toBe('gpt-5.5');
-    expect(models[1].name).toBe('GPT-4o');
+    expect(models[1].name).toBe('gpt-4o');
   });
 
   it('keeps all models when server provides no model restriction', async () => {
@@ -485,6 +485,22 @@ describe('fetchServerProviders — provider availability sync', () => {
     await store.getState().fetchServerProviders();
 
     expect(store.getState().providersConfig.openai.serverModels).toEqual(['gpt-4o', 'gpt-4o-mini']);
+  });
+
+  it('uses the server model list as the visible provider catalog', async () => {
+    const store = await getStore();
+    mockServerResponse({
+      providers: {
+        openai: { models: ['ep-20260225155849-krdlt'] },
+      },
+    });
+
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().providersConfig.openai.models).toEqual([
+      { id: 'ep-20260225155849-krdlt', name: 'ep-20260225155849-krdlt' },
+    ]);
+    expect(store.getState().modelId).toBe('ep-20260225155849-krdlt');
   });
 
   it('clears serverModels when provider removed from server', async () => {

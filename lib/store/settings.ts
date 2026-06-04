@@ -1222,18 +1222,13 @@ export const useSettingsStore = create<SettingsState>()(
               for (const [pid, info] of Object.entries(data.providers)) {
                 const key = pid as ProviderId;
                 if (newProvidersConfig[key]) {
-                  const currentModels = newProvidersConfig[key].models;
-                  // When server specifies allowed models, filter the models list
-                  // while preserving custom IDs from env/YAML in server order.
-                  const currentModelMap = new Map(currentModels.map((m) => [m.id, m]));
-                  const filteredModels = info.models?.length
-                    ? info.models.map((id) => currentModelMap.get(id) ?? { id, name: id })
-                    : currentModels;
+                  const serverModels = info.models?.length ? info.models : undefined;
+                  const filteredModels = serverModels?.map((id) => ({ id, name: id }));
                   newProvidersConfig[key] = {
                     ...newProvidersConfig[key],
                     isServerConfigured: true,
-                    serverModels: info.models,
-                    models: filteredModels,
+                    serverModels,
+                    models: filteredModels ?? newProvidersConfig[key].models,
                   };
                 }
               }
