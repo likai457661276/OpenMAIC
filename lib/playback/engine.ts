@@ -499,6 +499,23 @@ export class PlaybackEngine {
         };
 
         const voicePlaybackEnabled = this.isFeatureEnabled('voicePlayback');
+        const playBrowserTTSOrScheduleReading = () => {
+          // No playable pre-generated audio — use browser-native TTS as a safety net.
+          // This covers existing classrooms generated before server TTS was
+          // configured, failed TTS generations after switching providers, and
+          // browser audio.play() rejections from autoplay policy.
+          const settings = useSettingsStore.getState();
+          if (
+            voicePlaybackEnabled &&
+            settings.ttsEnabled &&
+            typeof window !== 'undefined' &&
+            window.speechSynthesis
+          ) {
+            this.playBrowserTTS(speechAction);
+          } else {
+            scheduleReadingTimer();
+          }
+        };
 
         (voicePlaybackEnabled
           ? this.audioPlayer.play(speechAction.audioId || '', speechAction.audioUrl)
@@ -506,24 +523,12 @@ export class PlaybackEngine {
         )
           .then((audioStarted) => {
             if (!audioStarted) {
-              // No pre-generated audio — try browser-native TTS if selected
-              const settings = useSettingsStore.getState();
-              if (
-                voicePlaybackEnabled &&
-                settings.ttsEnabled &&
-                settings.ttsProviderId === 'browser-native-tts' &&
-                typeof window !== 'undefined' &&
-                window.speechSynthesis
-              ) {
-                this.playBrowserTTS(speechAction);
-              } else {
-                scheduleReadingTimer();
-              }
+              playBrowserTTSOrScheduleReading();
             }
           })
           .catch((err) => {
             log.error('TTS error:', err);
-            scheduleReadingTimer();
+            playBrowserTTSOrScheduleReading();
           });
         break;
       }
