@@ -160,6 +160,16 @@ function loadYamlFile(filename: string): YamlData {
 // Env-var helpers
 // ---------------------------------------------------------------------------
 
+function readEnvValue(name: string): string | undefined {
+  const direct = process.env[name];
+  if (direct !== undefined) return direct.trim() || undefined;
+
+  const matchingKey = Object.keys(process.env).find((key) => key.trim() === name);
+  if (!matchingKey) return undefined;
+
+  return process.env[matchingKey]?.trim() || undefined;
+}
+
 function loadEnvSection(
   envMap: Record<string, string>,
   yamlSection: Record<string, Partial<ServerProviderEntry>> | undefined,
@@ -190,9 +200,9 @@ function loadEnvSection(
 
   // Then, apply env vars (env takes priority over YAML)
   for (const [prefix, providerId] of Object.entries(envMap)) {
-    const envApiKey = process.env[`${prefix}_API_KEY`] || undefined;
-    const envBaseUrl = process.env[`${prefix}_BASE_URL`] || undefined;
-    const envModelsStr = process.env[`${prefix}_MODELS`];
+    const envApiKey = readEnvValue(`${prefix}_API_KEY`);
+    const envBaseUrl = readEnvValue(`${prefix}_BASE_URL`);
+    const envModelsStr = readEnvValue(`${prefix}_MODELS`);
     const envModels = envModelsStr
       ? envModelsStr
           .split(',')
@@ -320,8 +330,7 @@ function getConfig(): ServerConfig {
 }
 
 function getTrimmedEnv(name: string): string | undefined {
-  const value = process.env[name]?.trim();
-  return value ? value : undefined;
+  return readEnvValue(name);
 }
 
 function getDefaultModelForProvider(providerId: string): string | undefined {

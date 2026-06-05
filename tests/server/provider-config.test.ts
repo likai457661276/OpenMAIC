@@ -54,11 +54,16 @@ const ENV_PREFIXES_TO_CLEAR = [
 
 function clearProviderEnv() {
   for (const prefix of ENV_PREFIXES_TO_CLEAR) {
-    delete process.env[`${prefix}_API_KEY`];
-    delete process.env[`${prefix}_BASE_URL`];
-    delete process.env[`${prefix}_MODELS`];
+    for (const suffix of ['API_KEY', 'BASE_URL', 'MODELS']) {
+      const expected = `${prefix}_${suffix}`;
+      for (const key of Object.keys(process.env)) {
+        if (key.trim() === expected) delete process.env[key];
+      }
+    }
   }
   delete process.env.DEFAULT_MODEL;
+  delete process.env.DEFAULT_TTS_PROVIDER;
+  delete process.env.DEFAULT_TTS_VOICE;
   delete process.env.DEFAULT_IMAGE_PROVIDER;
   delete process.env.DEFAULT_IMAGE_MODEL;
   delete process.env.TAVILY_API_KEY;
@@ -301,6 +306,20 @@ providers:
       const providers = getServerProviders();
 
       expect(providers.openai.models).toEqual(['gpt-4o', 'gpt-4o-mini']);
+    });
+
+    it('tolerates accidental whitespace around env-file keys and values', async () => {
+      process.env['TTS_DOUBAO_API_KEY '] = ' sk-doubao-tts ';
+      process.env['TTS_DOUBAO_BASE_URL '] = ' https://openspeech.bytedance.com/api/v3/tts ';
+
+      const { getServerTTSProviders, resolveTTSApiKey, resolveTTSBaseUrl } =
+        await import('@/lib/server/provider-config');
+
+      expect(getServerTTSProviders()).toEqual({ 'doubao-tts': {} });
+      expect(resolveTTSApiKey('doubao-tts')).toBe('sk-doubao-tts');
+      expect(resolveTTSBaseUrl('doubao-tts')).toBe(
+        'https://openspeech.bytedance.com/api/v3/tts',
+      );
     });
   });
 

@@ -1,5 +1,8 @@
-import { describe, expect, test } from 'vitest';
-import { replaceMediaPlaceholders } from '@/lib/server/classroom-media-generation';
+import { afterEach, describe, expect, test, vi } from 'vitest';
+import {
+  replaceMediaPlaceholders,
+  resolveServerTTSSelection,
+} from '@/lib/server/classroom-media-generation';
 import type { Scene } from '@/lib/types/stage';
 
 function slideScene(
@@ -41,5 +44,49 @@ describe('classroom media placeholder replacement', () => {
     };
     const video = content.canvas.elements[0];
     expect(video.src).toBe('https://example.com/direct.mp4');
+  });
+});
+
+describe('server TTS selection for generated classrooms', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  test('uses DEFAULT_TTS_PROVIDER and DEFAULT_TTS_VOICE when configured', () => {
+    vi.stubEnv('DEFAULT_TTS_PROVIDER', 'doubao-tts');
+    vi.stubEnv('DEFAULT_TTS_VOICE', 'zh_male_taocheng_uranus_bigtts');
+
+    expect(
+      resolveServerTTSSelection({
+        'openai-tts': {},
+        'doubao-tts': {},
+      }),
+    ).toEqual({
+      providerId: 'doubao-tts',
+      voice: 'zh_male_taocheng_uranus_bigtts',
+    });
+  });
+
+  test('falls back to the first configured server TTS provider', () => {
+    vi.stubEnv('DEFAULT_TTS_PROVIDER', 'missing-tts');
+    vi.stubEnv('DEFAULT_TTS_VOICE', 'custom-voice');
+
+    expect(
+      resolveServerTTSSelection({
+        'doubao-tts': {},
+        'openai-tts': {},
+      }),
+    ).toEqual({
+      providerId: 'doubao-tts',
+      voice: 'zh_female_vv_uranus_bigtts',
+    });
+  });
+
+  test('does not select browser-native TTS for server generation', () => {
+    expect(
+      resolveServerTTSSelection({
+        'browser-native-tts': {},
+      }),
+    ).toBeNull();
   });
 });

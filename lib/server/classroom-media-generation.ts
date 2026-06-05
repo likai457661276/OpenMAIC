@@ -20,6 +20,7 @@ import {
   getServerImageProviders,
   getServerVideoProviders,
   getServerTTSProviders,
+  getServerDefaultSelections,
   resolveImageApiKey,
   resolveImageBaseUrl,
   resolveVideoApiKey,
@@ -61,6 +62,27 @@ async function downloadToBuffer(url: string): Promise<Buffer> {
 
 function mediaServingUrl(baseUrl: string, classroomId: string, subPath: string): string {
   return `${baseUrl}/api/classroom-media/${classroomId}/${subPath}`;
+}
+
+export function resolveServerTTSSelection(
+  configuredProviders: Record<string, Record<string, never>>,
+): { providerId: TTSProviderId; voice: string } | null {
+  const providerIds = Object.keys(configuredProviders).filter((id) => id !== 'browser-native-tts');
+  if (providerIds.length === 0) return null;
+
+  const defaults = getServerDefaultSelections();
+  const providerId = (
+    defaults.ttsProvider && providerIds.includes(defaults.ttsProvider)
+      ? defaults.ttsProvider
+      : providerIds[0]
+  ) as TTSProviderId;
+
+  const voice =
+    defaults.ttsProvider === providerId && defaults.ttsVoice
+      ? defaults.ttsVoice
+      : DEFAULT_TTS_VOICES[providerId as keyof typeof DEFAULT_TTS_VOICES] || 'default';
+
+  return { providerId, voice };
 }
 
 // ---------------------------------------------------------------------------
@@ -222,15 +244,13 @@ export async function generateTTSForClassroom(
   await ensureDir(audioDir);
 
   // Resolve TTS provider (exclude browser-native-tts)
-  const ttsProviderIds = Object.keys(getServerTTSProviders()).filter(
-    (id) => id !== 'browser-native-tts',
-  );
-  if (ttsProviderIds.length === 0) {
+  const ttsSelection = resolveServerTTSSelection(getServerTTSProviders());
+  if (!ttsSelection) {
     log.warn('No server TTS provider configured, skipping TTS generation');
     return;
   }
 
-  const providerId = ttsProviderIds[0] as TTSProviderId;
+  const { providerId, voice } = ttsSelection;
   const apiKey = resolveTTSApiKey(providerId);
   const ttsProvider = TTS_PROVIDERS[providerId as keyof typeof TTS_PROVIDERS];
   if (ttsProvider?.requiresApiKey && !apiKey) {
@@ -238,7 +258,6 @@ export async function generateTTSForClassroom(
     return;
   }
   const ttsBaseUrl = resolveTTSBaseUrl(providerId) || ttsProvider?.defaultBaseUrl;
-  const voice = DEFAULT_TTS_VOICES[providerId as keyof typeof DEFAULT_TTS_VOICES] || 'default';
   const format = ttsProvider?.supportedFormats?.[0] || 'mp3';
   if (providerId === VOXCPM_TTS_PROVIDER_ID && voice === VOXCPM_AUTO_VOICE_ID) {
     log.warn('VoxCPM Auto Voice requires agent context; skipping server-side TTS generation');
