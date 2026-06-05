@@ -762,16 +762,20 @@ export function TeacherClassroomStage({
           <section
             ref={playbackRef}
             className={cn(
-              'relative flex min-w-0 flex-1 items-center justify-center bg-gray-50 p-3 [container-type:size] dark:bg-gray-900 md:p-6',
+              'relative flex min-w-0 flex-1 items-center justify-center bg-gray-50 p-2 dark:bg-gray-900',
+              currentScene?.type === 'interactive'
+                ? 'bg-blue-50/30 dark:bg-blue-900/10'
+                : 'bg-gray-50/30 dark:bg-gray-900/30',
               isFullscreen && 'h-screen w-screen bg-slate-950 p-4 md:p-8',
             )}
           >
             <div
-              className={cn('overflow-visible', isFullscreen && 'overflow-hidden')}
-              style={{
-                width: 'min(100cqw, calc(100cqh * 16 / 9))',
-                height: 'min(100cqh, calc(100cqw * 9 / 16))',
-              }}
+              className={cn(
+                'relative aspect-[16/9] h-full max-h-full max-w-full overflow-hidden rounded-lg bg-white shadow-2xl transition-all duration-700 dark:bg-gray-800',
+                currentScene?.type === 'interactive'
+                  ? 'shadow-blue-200/50 ring-1 ring-blue-900/5 dark:shadow-blue-900/50 dark:ring-blue-500/10'
+                  : 'shadow-gray-200/50 ring-1 ring-gray-950/5 dark:shadow-gray-800/50 dark:ring-white/5',
+              )}
             >
               {isPendingScene ? (
                 <PendingPage
@@ -791,6 +795,11 @@ export function TeacherClassroomStage({
               ) : (
                 <div className="flex h-full items-center justify-center text-sm text-gray-400 dark:text-gray-500">
                   暂无课件内容
+                </div>
+              )}
+              {(currentScene || isPendingScene) && totalSceneCount > 0 && (
+                <div className="pointer-events-none absolute right-4 top-4 select-none text-4xl font-black tabular-nums text-gray-200 opacity-50 mix-blend-multiply dark:text-gray-700 dark:mix-blend-screen">
+                  {(currentSceneIndex + 1).toString().padStart(2, '0')}
                 </div>
               )}
             </div>
