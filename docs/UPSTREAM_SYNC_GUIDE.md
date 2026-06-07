@@ -58,6 +58,25 @@
 - 如果官方更新修改了生成、导出、播放或 Prompt 等核心目录，先补适配层测试，再改业务层。
 - `.env.local`、`server-providers.yml` 不进入提交和冲突示例。
 
+## 媒体 Provider 配置保留规则
+
+当前教师扩展部署默认使用千问图片生成。合并官方更新时，必须保留以下行为，避免被官方默认 Provider 或本地免密 Provider 回退覆盖：
+
+| 文件 | 必须保留的当前分支行为 |
+|------|------------------------|
+| `.env.local` | 本地默认图片配置为 `DEFAULT_IMAGE_PROVIDER=qwen-image`、`DEFAULT_IMAGE_MODEL=qwen-image-2.0-2026-03-03`；`IMAGE_QWEN_IMAGE_BASE_URL` 指向 DashScope multimodal generation 完整 HTTPS 地址；`IMAGE_QWEN_IMAGE_MODELS` 只包含已开通的 `qwen-image-2.0-pro-2026-03-03` 和 `qwen-image-2.0-2026-03-03`。该文件仍不得提交。 |
+| `lib/server/provider-config.ts` | 保留 Qwen Image 复用通用 `QWEN_API_KEY` 的 fallback；没有单独配置 `IMAGE_QWEN_IMAGE_API_KEY` 时，图片生成仍应可通过服务端托管的 Qwen 凭证工作。 |
+| `lib/media/adapters/qwen-image-adapter.ts` | 默认图片模型保留为 `qwen-image-2.0-2026-03-03`；适配器必须兼容完整 generation endpoint，不能重复拼接 `/api/v1/services/aigc/multimodal-generation/generation`。 |
+| `lib/store/settings.ts` | 服务端下发的 image provider 默认项和模型白名单必须参与前端选择恢复；`DEFAULT_IMAGE_PROVIDER` / `DEFAULT_IMAGE_MODEL` 应优先于“第一个可用图片 Provider”。 |
+| `components/generation/media-popover.tsx` | 图片下拉只展示已显式配置可用的 Provider；未配置本地 `Lemonade` 时，不显示 `Qwen Image GGUF`、`Stable Diffusion (sd-cpp)`；媒体弹窗底部“高级设置”入口保持隐藏。 |
+
+冲突处理后至少运行：
+
+```bash
+pnpm exec vitest run tests/media/qwen-image-adapter.test.ts tests/media/image-providers.test.ts tests/server/provider-config.test.ts tests/store/settings-server-sync.test.ts tests/store/settings-validation.test.ts
+pnpm lint
+```
+
 ## 兼容检查脚本
 
 `scripts/check-upstream-compat.sh` 是只读脚本，会优先使用当前分支的 upstream tracking 分支作为本地基线；没有 tracking 分支时回退到 `main`。脚本会报告：

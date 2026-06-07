@@ -136,6 +136,8 @@ export interface SettingsState {
       baseUrl: string;
       enabled: boolean;
       isServerConfigured?: boolean;
+      serverModels?: string[];
+      models?: Array<{ id: string; name: string }>;
       customModels?: Array<{ id: string; name: string }>;
     }
   >;
@@ -180,6 +182,7 @@ export interface SettingsState {
   autoConfigApplied: boolean;
   serverDefaultModelApplied?: string;
   serverDefaultTtsApplied?: string;
+  serverDefaultImageApplied?: string;
 
   // Playback controls
   ttsMuted: boolean;
@@ -1007,13 +1010,16 @@ export const useSettingsStore = create<SettingsState>()(
 
         // Image Generation actions
         setImageProvider: (providerId) =>
-          set((state) => ({
-            imageProviderId: providerId,
-            imageModelId: resolveSelectedModel(
-              state.imageModelId,
-              IMAGE_PROVIDERS[providerId]?.models ?? [],
-            ),
-          })),
+          set((state) => {
+            const providerConfig = state.imageProvidersConfig[providerId];
+            return {
+              imageProviderId: providerId,
+              imageModelId: resolveSelectedModel(state.imageModelId, [
+                ...(providerConfig?.models ?? IMAGE_PROVIDERS[providerId]?.models ?? []),
+                ...(providerConfig?.customModels ?? []),
+              ]),
+            };
+          }),
         setImageModelId: (modelId) => set({ imageModelId: modelId }),
 
         setImageProviderConfig: (providerId, config) =>
@@ -1032,7 +1038,7 @@ export const useSettingsStore = create<SettingsState>()(
             // leave imageModelId pointing at a model that no longer exists.
             if (state.imageProviderId === providerId) {
               const models = [
-                ...(IMAGE_PROVIDERS[providerId]?.models ?? []),
+                ...(mergedProvider.models ?? IMAGE_PROVIDERS[providerId]?.models ?? []),
                 ...(mergedProvider.customModels ?? []),
               ];
               const imageModelId = resolveSelectedModel(state.imageModelId, models);
@@ -1316,15 +1322,21 @@ export const useSettingsStore = create<SettingsState>()(
                   newImageConfig[key] = {
                     ...newImageConfig[key],
                     isServerConfigured: false,
+                    serverModels: undefined,
+                    models: undefined,
                   };
                 }
               }
-              for (const pid of Object.keys(data.image)) {
+              for (const [pid, info] of Object.entries(data.image)) {
                 const key = pid as ImageProviderId;
                 if (newImageConfig[key]) {
+                  const serverModels = info.models?.length ? info.models : undefined;
+                  const filteredModels = serverModels?.map((id) => ({ id, name: id }));
                   newImageConfig[key] = {
                     ...newImageConfig[key],
                     isServerConfigured: true,
+                    serverModels,
+                    models: filteredModels,
                   };
                 }
               }
@@ -1462,7 +1474,9 @@ export const useSettingsStore = create<SettingsState>()(
                 ? resolveSelectedModel(state.modelId, llmModels)
                 : '';
               const imageModels =
-                IMAGE_PROVIDERS[validImageProvider as ImageProviderId]?.models ?? [];
+                newImageConfig[validImageProvider as ImageProviderId]?.models ??
+                IMAGE_PROVIDERS[validImageProvider as ImageProviderId]?.models ??
+                [];
               const validImageModel = validImageProvider
                 ? resolveSelectedModel(state.imageModelId, imageModels)
                 : '';
@@ -1525,6 +1539,29 @@ export const useSettingsStore = create<SettingsState>()(
                 state.serverDefaultModelApplied !== serverDefaultModel &&
                 !!defaultLLMConfig?.isServerConfigured &&
                 defaultLLMConfig.models.some((m) => m.id === parsedServerDefaultModel?.modelId);
+              const serverDefaultImageProvider = data.defaults?.imageProvider?.trim() as
+                | ImageProviderId
+                | undefined;
+              const serverDefaultImageModel = data.defaults?.imageModel?.trim();
+              const serverDefaultImageKey = serverDefaultImageProvider
+                ? `${serverDefaultImageProvider}:${serverDefaultImageModel || ''}`
+                : undefined;
+              const defaultImageConfig = serverDefaultImageProvider
+                ? newImageConfig[serverDefaultImageProvider]
+                : undefined;
+              const defaultImageModels = serverDefaultImageProvider
+                ? (defaultImageConfig?.models ??
+                  IMAGE_PROVIDERS[serverDefaultImageProvider]?.models ??
+                  [])
+                : [];
+              const hasUsableServerDefaultImage =
+                !!serverDefaultImageProvider &&
+                !!defaultImageConfig?.isServerConfigured &&
+                (!serverDefaultImageModel ||
+                  defaultImageModels.some((m) => m.id === serverDefaultImageModel));
+              const shouldApplyServerDefaultImage =
+                hasUsableServerDefaultImage &&
+                state.serverDefaultImageApplied !== serverDefaultImageKey;
 
               // Auto-disable image/video generation when no provider is usable
               const shouldDisableImage = !validImageProvider && state.imageGenerationEnabled;
@@ -1575,11 +1612,14 @@ export const useSettingsStore = create<SettingsState>()(
                 // Image: first server provider
                 const serverImageIds = Object.keys(data.image) as ImageProviderId[];
                 if (
+                  !shouldApplyServerDefaultImage &&
                   serverImageIds.length > 0 &&
                   !newImageConfig[state.imageProviderId]?.isServerConfigured
                 ) {
                   autoImageProvider = serverImageIds[0];
-                  const models = IMAGE_PROVIDERS[autoImageProvider]?.models;
+                  const models =
+                    newImageConfig[autoImageProvider]?.models ??
+                    IMAGE_PROVIDERS[autoImageProvider]?.models;
                   if (models?.length) autoImageModel = models[0].id;
                 }
                 if (serverImageIds.length > 0 && !state.imageGenerationEnabled) {
@@ -1653,6 +1693,13 @@ export const useSettingsStore = create<SettingsState>()(
                 }),
                 ...(validImageModel !== state.imageModelId && {
                   imageModelId: validImageModel,
+                }),
+                ...(shouldApplyServerDefaultImage && {
+                  imageProviderId: serverDefaultImageProvider,
+                  imageModelId:
+                    serverDefaultImageModel ||
+                    resolveSelectedModel(state.imageModelId, defaultImageModels),
+                  serverDefaultImageApplied: serverDefaultImageKey,
                 }),
                 ...(validVideoProvider !== state.videoProviderId && {
                   videoProviderId: validVideoProvider as VideoProviderId,

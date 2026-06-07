@@ -207,7 +207,7 @@ interface MockServerResponse {
   tts?: Record<string, { baseUrl?: string }>;
   asr?: Record<string, { baseUrl?: string }>;
   pdf?: Record<string, { baseUrl?: string }>;
-  image?: Record<string, { baseUrl?: string }>;
+  image?: Record<string, { models?: string[]; baseUrl?: string }>;
   video?: Record<string, { baseUrl?: string }>;
   webSearch?: Record<string, { baseUrl?: string }>;
   defaults?: {
@@ -1128,6 +1128,31 @@ describe('fetchServerProviders — Image stale selection', () => {
     expect(store.getState().imageGenerationEnabled).toBe(true);
     expect(store.getState().imageProviderId).toBe('seedream');
     expect(store.getState().imageModelId).toBe('doubao-seedream-5-0-260128');
+  });
+
+  it('applies server image defaults and restricts models from config', async () => {
+    const store = await getStore();
+
+    mockServerResponse({
+      image: {
+        seedream: {},
+        'qwen-image': {
+          models: ['qwen-image-2.0-pro-2026-03-03', 'qwen-image-2.0-2026-03-03'],
+        },
+      },
+      defaults: {
+        imageProvider: 'qwen-image',
+        imageModel: 'qwen-image-2.0-2026-03-03',
+      },
+    });
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().imageProviderId).toBe('qwen-image');
+    expect(store.getState().imageModelId).toBe('qwen-image-2.0-2026-03-03');
+    expect(store.getState().imageProvidersConfig['qwen-image'].models).toEqual([
+      { id: 'qwen-image-2.0-pro-2026-03-03', name: 'qwen-image-2.0-pro-2026-03-03' },
+      { id: 'qwen-image-2.0-2026-03-03', name: 'qwen-image-2.0-2026-03-03' },
+    ]);
   });
 
   it('does not force-enable when provider is already set but generation was disabled', async () => {

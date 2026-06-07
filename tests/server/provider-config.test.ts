@@ -252,6 +252,30 @@ providers:
       });
     });
 
+    it('uses Qwen LLM key for Qwen Image when no dedicated image key is set', async () => {
+      vi.stubEnv('QWEN_API_KEY', 'sk-qwen');
+      vi.stubEnv(
+        'IMAGE_QWEN_IMAGE_BASE_URL',
+        'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+      );
+      vi.stubEnv(
+        'IMAGE_QWEN_IMAGE_MODELS',
+        'qwen-image-2.0-pro-2026-03-03,qwen-image-2.0-2026-03-03',
+      );
+      const { getServerImageProviders, resolveImageApiKey, resolveImageBaseUrl } =
+        await import('@/lib/server/provider-config');
+
+      expect(getServerImageProviders()).toEqual({
+        'qwen-image': {
+          models: ['qwen-image-2.0-pro-2026-03-03', 'qwen-image-2.0-2026-03-03'],
+        },
+      });
+      expect(resolveImageApiKey('qwen-image')).toBe('sk-qwen');
+      expect(resolveImageBaseUrl('qwen-image')).toBe(
+        'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+      );
+    });
+
     it('maps OpenRouter env prefix to provider ID', async () => {
       vi.stubEnv('OPENROUTER_API_KEY', 'sk-openrouter');
       vi.stubEnv('OPENROUTER_MODELS', 'deepseek/deepseek-v4-pro,deepseek/deepseek-v4-flash');
@@ -317,9 +341,7 @@ providers:
 
       expect(getServerTTSProviders()).toEqual({ 'doubao-tts': {} });
       expect(resolveTTSApiKey('doubao-tts')).toBe('sk-doubao-tts');
-      expect(resolveTTSBaseUrl('doubao-tts')).toBe(
-        'https://openspeech.bytedance.com/api/v3/tts',
-      );
+      expect(resolveTTSBaseUrl('doubao-tts')).toBe('https://openspeech.bytedance.com/api/v3/tts');
     });
   });
 

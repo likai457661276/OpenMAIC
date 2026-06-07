@@ -241,6 +241,8 @@ function loadEnvSection(
 
 const DEFAULT_FILENAME = 'server-providers.yml';
 const OPENAI_IMAGE_PROVIDER_ID = 'openai-image';
+const QWEN_PROVIDER_ID = 'qwen';
+const QWEN_IMAGE_PROVIDER_ID = 'qwen-image';
 
 /** Cache keyed by YAML filename (empty string = default file). */
 const _configs: Map<string, ServerConfig> = new Map();
@@ -265,6 +267,30 @@ function applyOpenAIImageFallback(
   return imageConfig;
 }
 
+function applyQwenImageFallback(
+  imageConfig: Record<string, ServerProviderEntry>,
+  llmConfig: Record<string, ServerProviderEntry>,
+  yamlImageSection: Record<string, Partial<ServerProviderEntry>> | undefined,
+): Record<string, ServerProviderEntry> {
+  if (imageConfig[QWEN_IMAGE_PROVIDER_ID]) return imageConfig;
+
+  const qwenLlm = llmConfig[QWEN_PROVIDER_ID];
+  if (!qwenLlm?.apiKey) return imageConfig;
+
+  const yamlQwenImage = yamlImageSection?.[QWEN_IMAGE_PROVIDER_ID];
+  const envModels = readEnvValue('IMAGE_QWEN_IMAGE_MODELS')
+    ?.split(',')
+    .map((m) => m.trim())
+    .filter(Boolean);
+  imageConfig[QWEN_IMAGE_PROVIDER_ID] = {
+    apiKey: qwenLlm.apiKey,
+    baseUrl: yamlQwenImage?.baseUrl || readEnvValue('IMAGE_QWEN_IMAGE_BASE_URL'),
+    models: envModels?.length ? envModels : yamlQwenImage?.models,
+    proxy: yamlQwenImage?.proxy,
+  };
+  return imageConfig;
+}
+
 function buildConfig(yamlData: YamlData): ServerConfig {
   const providers = loadEnvSection(LLM_ENV_MAP, yamlData.providers, {
     keylessProviders: new Set(['ollama', 'lemonade']),
@@ -275,6 +301,7 @@ function buildConfig(yamlData: YamlData): ServerConfig {
     }),
     yamlData.image,
   );
+  applyQwenImageFallback(image, providers, yamlData.image);
 
   const siliconflowLlm = providers.siliconflow;
   if (siliconflowLlm) {

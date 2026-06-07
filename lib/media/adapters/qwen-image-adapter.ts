@@ -5,8 +5,8 @@
  * Endpoint: https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation
  *
  * Supported models:
- * - qwen-image-max     (highest quality)
- * - z-image-turbo      (fast, good quality)
+ * - qwen-image-2.0-pro-2026-03-03
+ * - qwen-image-2.0-2026-03-03
  *
  * API docs: https://help.aliyun.com/zh/model-studio/developer-reference/text-to-image
  */
@@ -17,8 +17,14 @@ import type {
   ImageGenerationResult,
 } from '../types';
 
-const DEFAULT_MODEL = 'qwen-image-max';
+const DEFAULT_MODEL = 'qwen-image-2.0-2026-03-03';
 const DEFAULT_BASE_URL = 'https://dashscope.aliyuncs.com';
+const GENERATION_PATH = '/api/v1/services/aigc/multimodal-generation/generation';
+
+function resolveGenerationUrl(baseUrl: string): string {
+  const normalized = baseUrl.replace(/\/+$/, '');
+  return normalized.endsWith(GENERATION_PATH) ? normalized : `${normalized}${GENERATION_PATH}`;
+}
 
 /**
  * Map our width x height to DashScope size format "WxH".
@@ -39,21 +45,18 @@ export async function testQwenImageConnectivity(
 ): Promise<{ success: boolean; message: string }> {
   const baseUrl = config.baseUrl || DEFAULT_BASE_URL;
   try {
-    const response = await fetch(
-      `${baseUrl}/api/v1/services/aigc/multimodal-generation/generation`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${config.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: config.model || DEFAULT_MODEL,
-          input: { messages: [{ role: 'user', content: [{ text: '' }] }] },
-          parameters: { size: '1*1' },
-        }),
+    const response = await fetch(resolveGenerationUrl(baseUrl), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.apiKey}`,
       },
-    );
+      body: JSON.stringify({
+        model: config.model || DEFAULT_MODEL,
+        input: { messages: [{ role: 'user', content: [{ text: '' }] }] },
+        parameters: { size: '1*1' },
+      }),
+    });
     if (response.status === 401 || response.status === 403) {
       const text = await response.text();
       return {
@@ -73,7 +76,7 @@ export async function generateWithQwenImage(
 ): Promise<ImageGenerationResult> {
   const baseUrl = config.baseUrl || DEFAULT_BASE_URL;
 
-  const response = await fetch(`${baseUrl}/api/v1/services/aigc/multimodal-generation/generation`, {
+  const response = await fetch(resolveGenerationUrl(baseUrl), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

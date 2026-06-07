@@ -2,14 +2,7 @@
 
 import { useState, useCallback, useMemo, Fragment } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import {
-  Image as ImageIcon,
-  Video,
-  Volume2,
-  Mic,
-  SlidersHorizontal,
-  ChevronRight,
-} from 'lucide-react';
+import { Image as ImageIcon, Video, Volume2, Mic, SlidersHorizontal } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
@@ -25,6 +18,7 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
+import { isProviderUsable } from '@/lib/store/settings-validation';
 import { IMAGE_PROVIDERS } from '@/lib/media/image-providers';
 import { VIDEO_PROVIDERS } from '@/lib/media/video-providers';
 import { CUSTOM_ASR_DEFAULT_LANGUAGES } from '@/lib/audio/constants';
@@ -64,7 +58,7 @@ const TABS: Array<{ id: TabId; icon: LucideIcon; label: string }> = [
   { id: 'asr', icon: Mic, label: 'ASR' },
 ];
 
-export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
+export function MediaPopover({ onSettingsOpen: _onSettingsOpen }: MediaPopoverProps) {
   const { t } = useI18n();
   const { isTeacherMode } = useTeacherMode();
   const [open, setOpen] = useState(false);
@@ -114,10 +108,13 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
 
   const cfgOk = useCallback(
     (
-      configs: Record<string, { apiKey?: string; isServerConfigured?: boolean }>,
+      configs: Record<
+        string,
+        { apiKey?: string; baseUrl?: string; enabled?: boolean; isServerConfigured?: boolean }
+      >,
       id: string,
       needsKey: boolean,
-    ) => !needsKey || !!configs[id]?.apiKey || !!configs[id]?.isServerConfigured,
+    ) => isProviderUsable({ ...configs[id], requiresApiKey: needsKey }),
     [],
   );
 
@@ -131,7 +128,10 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
           groupName: p.name,
           groupIcon: IMAGE_PROVIDER_ICONS[p.id],
           available: true,
-          items: [...p.models, ...(imageProvidersConfig[p.id]?.customModels || [])].map((m) => ({
+          items: [
+            ...(imageProvidersConfig[p.id]?.models ?? p.models),
+            ...(imageProvidersConfig[p.id]?.customModels || []),
+          ].map((m) => ({
             id: m.id,
             name: m.name,
           })),
@@ -325,20 +325,6 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
               />
             </TabPanel>
           )}
-        </div>
-
-        {/* ── Footer ── */}
-        <div className="border-t border-border/40">
-          <button
-            onClick={() => {
-              setOpen(false);
-              onSettingsOpen(activeTab);
-            }}
-            className="w-full flex items-center justify-between px-3.5 py-2.5 text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
-          >
-            <span>{t('toolbar.advancedSettings')}</span>
-            <ChevronRight className="size-3" />
-          </button>
         </div>
       </PopoverContent>
     </Popover>
