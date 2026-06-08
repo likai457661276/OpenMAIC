@@ -11,6 +11,8 @@ export type ProviderCfgLike = {
   requiresApiKey?: boolean;
   baseUrl?: string;
   enabled?: boolean;
+  /** Operator force-disabled (server precedence, TTS — #665). Never usable. */
+  serverDisabled?: boolean;
 };
 
 /**
@@ -23,6 +25,9 @@ export type ProviderCfgLike = {
  */
 export function isProviderUsable(cfg: ProviderCfgLike | undefined): boolean {
   if (!cfg) return false;
+  // Operator force-disable wins over any local credential path so the current
+  // selection is re-pointed away from a server-disabled provider (#665).
+  if (cfg.serverDisabled) return false;
   if (cfg.isServerConfigured) return true;
   // Keyless providers (e.g. Ollama) need an explicit user-provided baseUrl
   // but browser-native audio providers are usable when enabled.

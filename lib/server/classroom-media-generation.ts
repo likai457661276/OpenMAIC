@@ -65,9 +65,11 @@ function mediaServingUrl(baseUrl: string, classroomId: string, subPath: string):
 }
 
 export function resolveServerTTSSelection(
-  configuredProviders: Record<string, Record<string, never>>,
+  configuredProviders: Record<string, { disabled?: boolean }>,
 ): { providerId: TTSProviderId; voice: string } | null {
-  const providerIds = Object.keys(configuredProviders).filter((id) => id !== 'browser-native-tts');
+  const providerIds = Object.entries(configuredProviders)
+    .filter(([id, info]) => id !== 'browser-native-tts' && !info.disabled)
+    .map(([id]) => id);
   if (providerIds.length === 0) return null;
 
   const defaults = getServerDefaultSelections();
@@ -243,7 +245,8 @@ export async function generateTTSForClassroom(
   const audioDir = path.join(CLASSROOMS_DIR, classroomId, 'audio');
   await ensureDir(audioDir);
 
-  // Resolve TTS provider (exclude browser-native-tts)
+  // Resolve TTS provider (exclude browser-native-tts and operator force-disabled
+  // providers — server precedence, #665).
   const ttsSelection = resolveServerTTSSelection(getServerTTSProviders());
   if (!ttsSelection) {
     log.warn('No server TTS provider configured, skipping TTS generation');

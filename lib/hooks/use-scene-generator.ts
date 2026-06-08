@@ -11,6 +11,7 @@ import type { AgentInfo } from '@/lib/generation/generation-pipeline';
 import type { Scene } from '@/lib/types/stage';
 import type { SpeechAction } from '@/lib/types/action';
 import { splitLongSpeechActions } from '@/lib/audio/tts-utils';
+import { isTTSProviderEnabled } from '@/lib/audio/provider-enablement';
 import { getVoxCPMProviderOptions } from '@/lib/audio/voxcpm-voices';
 import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
 import { createLogger } from '@/lib/logger';
@@ -139,6 +140,14 @@ export async function generateAndStoreTTS(
 ): Promise<void> {
   const settings = useSettingsStore.getState();
   if (settings.ttsProviderId === 'browser-native-tts') return;
+  // Don't server-generate against a disabled/unconfigured provider (#665).
+  if (
+    !isTTSProviderEnabled(
+      settings.ttsProviderId,
+      settings.ttsProvidersConfig?.[settings.ttsProviderId],
+    )
+  )
+    return;
 
   const ttsProviderConfig = settings.ttsProvidersConfig?.[settings.ttsProviderId];
   const providerOptions =
@@ -401,7 +410,11 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
             if (
               voiceNarrationEnabled &&
               settings.ttsEnabled &&
-              settings.ttsProviderId !== 'browser-native-tts'
+              settings.ttsProviderId !== 'browser-native-tts' &&
+              isTTSProviderEnabled(
+                settings.ttsProviderId,
+                settings.ttsProvidersConfig?.[settings.ttsProviderId],
+              )
             ) {
               const ttsResult = await generateTTSForScene(
                 scene,
@@ -572,7 +585,11 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
         if (
           voiceNarrationEnabled &&
           settings.ttsEnabled &&
-          settings.ttsProviderId !== 'browser-native-tts'
+          settings.ttsProviderId !== 'browser-native-tts' &&
+          isTTSProviderEnabled(
+            settings.ttsProviderId,
+            settings.ttsProvidersConfig?.[settings.ttsProviderId],
+          )
         ) {
           const ttsResult = await generateTTSForScene(
             actionsResult.scene,

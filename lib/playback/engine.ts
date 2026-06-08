@@ -37,6 +37,7 @@ import type { AudioPlayer } from '@/lib/utils/audio-player';
 import { ActionEngine } from '@/lib/action/engine';
 import { useCanvasStore } from '@/lib/store/canvas';
 import { useSettingsStore } from '@/lib/store/settings';
+import { isTTSProviderEnabled } from '@/lib/audio/provider-enablement';
 import { createLogger } from '@/lib/logger';
 import { getPublicFeatureFlag, type FeatureFlagKey } from '@/lib/feature-flags';
 
@@ -500,14 +501,17 @@ export class PlaybackEngine {
 
         const voicePlaybackEnabled = this.isFeatureEnabled('voicePlayback');
         const playBrowserTTSOrScheduleReading = () => {
-          // No playable pre-generated audio — use browser-native TTS as a safety net.
-          // This covers existing classrooms generated before server TTS was
-          // configured, failed TTS generations after switching providers, and
-          // browser audio.play() rejections from autoplay policy.
+          // No playable pre-generated audio — try browser-native TTS only when it is
+          // the selected provider AND actually enabled (opt-in, #665).
           const settings = useSettingsStore.getState();
           if (
             voicePlaybackEnabled &&
             settings.ttsEnabled &&
+            settings.ttsProviderId === 'browser-native-tts' &&
+            isTTSProviderEnabled(
+              'browser-native-tts',
+              settings.ttsProvidersConfig?.['browser-native-tts'],
+            ) &&
             typeof window !== 'undefined' &&
             window.speechSynthesis
           ) {
