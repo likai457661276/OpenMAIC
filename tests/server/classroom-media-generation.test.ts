@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
   replaceMediaPlaceholders,
+  resolveServerImageSelection,
   resolveServerTTSSelection,
 } from '@/lib/server/classroom-media-generation';
 import type { Scene } from '@/lib/types/stage';
@@ -88,5 +89,44 @@ describe('server TTS selection for generated classrooms', () => {
         'browser-native-tts': {},
       }),
     ).toBeNull();
+  });
+});
+
+describe('server image selection for generated classrooms', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  test('uses DEFAULT_IMAGE_PROVIDER and DEFAULT_IMAGE_MODEL when configured', () => {
+    vi.stubEnv('DEFAULT_IMAGE_PROVIDER', 'qwen-image');
+    vi.stubEnv('DEFAULT_IMAGE_MODEL', 'qwen-image-2.0-2026-03-03');
+
+    expect(
+      resolveServerImageSelection({
+        seedream: {},
+        'qwen-image': {
+          models: ['qwen-image-2.0-pro-2026-03-03', 'qwen-image-2.0-2026-03-03'],
+        },
+      }),
+    ).toEqual({
+      providerId: 'qwen-image',
+      model: 'qwen-image-2.0-2026-03-03',
+    });
+  });
+
+  test('falls back to the first allowed server image model when default model is unavailable', () => {
+    vi.stubEnv('DEFAULT_IMAGE_PROVIDER', 'qwen-image');
+    vi.stubEnv('DEFAULT_IMAGE_MODEL', 'qwen-image-max');
+
+    expect(
+      resolveServerImageSelection({
+        'qwen-image': {
+          models: ['qwen-image-2.0-pro-2026-03-03', 'qwen-image-2.0-2026-03-03'],
+        },
+      }),
+    ).toEqual({
+      providerId: 'qwen-image',
+      model: 'qwen-image-2.0-pro-2026-03-03',
+    });
   });
 });

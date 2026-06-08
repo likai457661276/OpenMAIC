@@ -87,6 +87,32 @@ export function resolveServerTTSSelection(
   return { providerId, voice };
 }
 
+export function resolveServerImageSelection(
+  configuredProviders: Record<string, { models?: string[] }>,
+): { providerId: ImageProviderId; model?: string } | null {
+  const providerIds = Object.keys(configuredProviders);
+  if (providerIds.length === 0) return null;
+
+  const defaults = getServerDefaultSelections();
+  const providerId = (
+    defaults.imageProvider && providerIds.includes(defaults.imageProvider)
+      ? defaults.imageProvider
+      : providerIds[0]
+  ) as ImageProviderId;
+
+  const configuredModels = configuredProviders[providerId]?.models;
+  const builtInModels = IMAGE_PROVIDERS[providerId]?.models.map((m) => m.id) ?? [];
+  const models = configuredModels?.length ? configuredModels : builtInModels;
+  const model =
+    defaults.imageProvider === providerId &&
+    defaults.imageModel &&
+    models.includes(defaults.imageModel)
+      ? defaults.imageModel
+      : models[0];
+
+  return { providerId, model };
+}
+
 // ---------------------------------------------------------------------------
 // Image / Video generation
 // ---------------------------------------------------------------------------
@@ -104,27 +130,26 @@ export async function generateMediaForClassroom(
   if (requests.length === 0) return {};
 
   // Resolve providers
-  const imageProviderIds = Object.keys(getServerImageProviders());
+  const imageSelection = resolveServerImageSelection(getServerImageProviders());
   const videoProviderIds = Object.keys(getServerVideoProviders());
 
   const mediaMap: Record<string, string> = {};
 
   // Separate image and video requests, generate each type sequentially
   // but run the two types in parallel (providers often have limited concurrency).
-  const imageRequests = requests.filter((r) => r.type === 'image' && imageProviderIds.length > 0);
+  const imageRequests = requests.filter((r) => r.type === 'image' && !!imageSelection);
   const videoRequests = requests.filter((r) => r.type === 'video' && videoProviderIds.length > 0);
 
   const generateImages = async () => {
     for (const req of imageRequests) {
       try {
-        const providerId = imageProviderIds[0] as ImageProviderId;
+        const { providerId, model } = imageSelection!;
         const apiKey = resolveImageApiKey(providerId);
         const providerConfig = IMAGE_PROVIDERS[providerId];
         if (providerConfig?.requiresApiKey && !apiKey) {
           log.warn(`No API key for image provider "${providerId}", skipping ${req.elementId}`);
           continue;
         }
-        const model = providerConfig?.models?.[0]?.id;
 
         const result = await generateImage(
           { providerId, apiKey, baseUrl: resolveImageBaseUrl(providerId), model },

@@ -68,12 +68,13 @@
 | `lib/server/provider-config.ts` | 保留 Qwen Image 复用通用 `QWEN_API_KEY` 的 fallback；没有单独配置 `IMAGE_QWEN_IMAGE_API_KEY` 时，图片生成仍应可通过服务端托管的 Qwen 凭证工作。 |
 | `lib/media/adapters/qwen-image-adapter.ts` | 默认图片模型保留为 `qwen-image-2.0-2026-03-03`；适配器必须兼容完整 generation endpoint，不能重复拼接 `/api/v1/services/aigc/multimodal-generation/generation`。 |
 | `lib/store/settings.ts` | 服务端下发的 image provider 默认项和模型白名单必须参与前端选择恢复；`DEFAULT_IMAGE_PROVIDER` / `DEFAULT_IMAGE_MODEL` 应优先于“第一个可用图片 Provider”。 |
+| `lib/server/classroom-media-generation.ts` | 正式课件生成的服务端媒体流程必须使用 `DEFAULT_IMAGE_PROVIDER` / `DEFAULT_IMAGE_MODEL` 和服务端模型白名单选择图片 provider/model，不能退回“第一个服务端 Provider + 内置第一个模型”。 |
 | `components/generation/media-popover.tsx` | 图片下拉只展示已显式配置可用的 Provider；未配置本地 `Lemonade` 时，不显示 `Qwen Image GGUF`、`Stable Diffusion (sd-cpp)`；媒体弹窗底部“高级设置”入口保持隐藏。 |
 
 冲突处理后至少运行：
 
 ```bash
-pnpm exec vitest run tests/media/qwen-image-adapter.test.ts tests/media/image-providers.test.ts tests/server/provider-config.test.ts tests/store/settings-server-sync.test.ts tests/store/settings-validation.test.ts
+pnpm exec vitest run tests/media/qwen-image-adapter.test.ts tests/media/image-providers.test.ts tests/server/provider-config.test.ts tests/server/classroom-media-generation.test.ts tests/store/settings-server-sync.test.ts tests/store/settings-validation.test.ts
 pnpm lint
 ```
 
