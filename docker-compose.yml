@@ -1,6 +1,9 @@
 services:
   openmaic:
-    build: .
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_MAIC_EDITOR_ENABLED: ${NEXT_PUBLIC_MAIC_EDITOR_ENABLED:-1}
     mem_limit: 1g
     memswap_limit: 1g
     ports:
