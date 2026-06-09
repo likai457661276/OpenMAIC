@@ -197,6 +197,15 @@
       "imageUrlPlaceholder": "https://…",
       "imageInsert": "挿入"
     },
+    "interactive": {
+      "title": "インタラクティブページ編集",
+      "description": "このインタラクティブ教材ページのタイトル、URL、埋め込み HTML を編集し、右側でプレビューします。",
+      "pageTitle": "ページタイトル",
+      "url": "ページ URL",
+      "html": "埋め込み HTML",
+      "emptyPreview": "HTML または URL を入力するとプレビューできます",
+      "noScene": "現在のインタラクティブページは利用できません"
+    },
     "nav": {
       "addSlide": "スライドを追加",
       "duplicate": "複製",

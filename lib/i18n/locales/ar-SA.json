@@ -197,6 +197,15 @@
       "imageUrlPlaceholder": "https://…",
       "imageInsert": "إدراج"
     },
+    "interactive": {
+      "title": "محرر الصفحة التفاعلية",
+      "description": "حرّر عنوان صفحة المادة التفاعلية أو رابطها أو HTML المضمّن مع معاينة مباشرة على اليمين.",
+      "pageTitle": "عنوان الصفحة",
+      "url": "رابط الصفحة",
+      "html": "HTML مضمن",
+      "emptyPreview": "أضف HTML أو رابطاً للمعاينة",
+      "noScene": "الصفحة التفاعلية الحالية غير متاحة"
+    },
     "nav": {
       "addSlide": "إضافة شريحة",
       "duplicate": "تكرار",

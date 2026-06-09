@@ -35,6 +35,13 @@ const KEYS = [
   'edit.insert.imageOr',
   'edit.insert.imageUrlPlaceholder',
   'edit.insert.imageInsert',
+  'edit.interactive.title',
+  'edit.interactive.description',
+  'edit.interactive.pageTitle',
+  'edit.interactive.url',
+  'edit.interactive.html',
+  'edit.interactive.emptyPreview',
+  'edit.interactive.noScene',
 ];
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- locale JSON traversal
 const get = (o: any, k: string) => k.split('.').reduce((a, p) => a?.[p], o);

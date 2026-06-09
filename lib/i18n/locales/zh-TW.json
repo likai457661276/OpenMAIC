@@ -197,6 +197,15 @@
       "imageUrlPlaceholder": "https://…",
       "imageInsert": "插入"
     },
+    "interactive": {
+      "title": "互動頁編輯",
+      "description": "編輯目前互動課件頁的標題、URL 或內嵌 HTML，右側會即時預覽。",
+      "pageTitle": "頁面標題",
+      "url": "頁面 URL",
+      "html": "內嵌 HTML",
+      "emptyPreview": "填入 HTML 或 URL 後預覽",
+      "noScene": "目前互動頁不可用"
+    },
     "nav": {
       "addSlide": "新增投影片",
       "duplicate": "複製",

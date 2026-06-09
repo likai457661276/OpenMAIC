@@ -24,15 +24,28 @@ import {
   WandSparkles,
 } from 'lucide-react';
 import { nanoid } from 'nanoid';
+import { Switch } from '@/components/ui/switch';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { SceneProvider } from '@/lib/contexts/scene-context';
 import { useStageStore } from '@/lib/store';
 import { useSettingsStore } from '@/lib/store/settings';
 import { PENDING_SCENE_ID } from '@/lib/store/stage';
 import { useMediaGenerationStore } from '@/lib/store/media-generation';
+import { isMaicEditorEnabled } from '@/lib/config/feature-flags';
+import { isCurrentSceneEditable } from '@/lib/edit/stage-mode';
+import { preloadEditor } from '@/lib/edit/preload-editor';
 import { useExportPPTX } from '@/lib/export/use-export-pptx';
 import { useExportClassroom } from '@/lib/export/use-export-classroom';
 import { cn } from '@/lib/utils';
 import { SceneRenderer } from '@/components/stage/scene-renderer';
+import { HeaderControls } from '@/components/stage/header-controls';
+import { EditShell } from '@/components/edit/EditShell';
+import { SlideNavRail } from '@/components/edit/SlideNavRail';
 import { LectureNotesView } from '@/components/chat/lecture-notes-view';
 import { ThumbnailSlide } from '@/components/slide-renderer/components/ThumbnailSlide';
 import { ThumbnailInteractive } from '@/components/slide-renderer/components/ThumbnailInteractive';
@@ -42,6 +55,7 @@ import type { DiscussionAction, SpeechAction } from '@/lib/types/action';
 import type { InteractiveContent, Scene, SlideContent } from '@/lib/types/stage';
 import type { LectureNoteEntry } from '@/lib/types/chat';
 import { useCanvasStore } from '@/lib/store/canvas';
+import { useI18n } from '@/lib/hooks/use-i18n';
 
 function buildTeacherLectureNotes(scenes: Scene[]): LectureNoteEntry[] {
   return scenes
@@ -315,7 +329,10 @@ export function TeacherClassroomStage({
   readonly onRetryOutline?: (outlineId: string) => Promise<void>;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const stage = useStageStore((state) => state.stage);
+  const mode = useStageStore((state) => state.mode);
+  const setMode = useStageStore((state) => state.setMode);
   const scenes = useStageStore((state) => state.scenes);
   const currentSceneId = useStageStore((state) => state.currentSceneId);
   const setCurrentSceneId = useStageStore((state) => state.setCurrentSceneId);
@@ -328,11 +345,9 @@ export function TeacherClassroomStage({
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(true);
-  const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [retryingOutlineId, setRetryingOutlineId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const playbackRef = useRef<HTMLElement>(null);
-  const exportRef = useRef<HTMLDivElement>(null);
 
   const pendingOutline = generatingOutlines[0] ?? null;
   const isPendingScene = currentSceneId === PENDING_SCENE_ID;
@@ -368,6 +383,13 @@ export function TeacherClassroomStage({
   const canGoNext = currentSceneIndex < totalSceneCount - 1;
   const fullscreenLabel = isFullscreen ? '退出全屏播放' : '全屏播放';
   const canConvertInteractive = !!stage?.id && scenes.length > 0 && generatingOutlines.length === 0;
+  const canEdit = isCurrentSceneEditable({
+    currentSceneId,
+    sceneCount: scenes.length,
+    generatingOutlineCount: generatingOutlines.length,
+    hasCurrentScene: !!currentScene,
+  });
+  const editorEnabled = isMaicEditorEnabled();
 
   const goToScene = useCallback(
     (index: number) => {
@@ -394,6 +416,17 @@ export function TeacherClassroomStage({
     },
     [onRetryOutline, setCurrentSceneId],
   );
+
+  const handleToggleEditMode = useCallback(async () => {
+    if (!editorEnabled) return;
+    if (mode === 'edit') {
+      setMode('playback');
+      return;
+    }
+    if (!canEdit) return;
+    await preloadEditor();
+    setMode('edit');
+  }, [canEdit, editorEnabled, mode, setMode]);
 
   const convertToInteractiveClassroom = useCallback(() => {
     if (!stage?.id || scenes.length === 0) return;
@@ -485,17 +518,28 @@ export function TeacherClassroomStage({
   }, [currentSceneIndex, goToScene, isFullscreen]);
 
   useEffect(() => {
-    if (!exportMenuOpen) return;
+    if (mode === 'edit' && !canEdit) setMode('playback');
+  }, [canEdit, mode, setMode]);
 
-    const handleClickOutside = (event: MouseEvent) => {
-      if (exportRef.current && !exportRef.current.contains(event.target as Node)) {
-        setExportMenuOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [exportMenuOpen]);
+  if (mode === 'edit' && currentScene && editorEnabled) {
+    return (
+      <div className="relative flex h-screen overflow-hidden bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
+        <EditShell
+          scene={currentScene}
+          leftRail={<SlideNavRail />}
+          commandTrailing={
+            <HeaderControls
+              mode="edit"
+              canEdit={canEdit}
+              onToggleEditMode={handleToggleEditMode}
+              variant="compact"
+            />
+          }
+        />
+        <InteractiveIframeHost />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100">
@@ -626,73 +670,66 @@ export function TeacherClassroomStage({
                 ariaLabel="切换主题"
               />
             </div>
-            <div className="relative" ref={exportRef}>
-              <button
-                onClick={() => {
-                  if (!canExport || isExporting) return;
-                  setExportMenuOpen((open) => !open);
-                }}
-                disabled={!canExport || isExporting}
-                className={cn(
-                  'flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white transition-colors dark:border-gray-700 dark:bg-gray-800',
-                  canExport && !isExporting
-                    ? 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'
-                    : 'cursor-not-allowed text-gray-300 opacity-50 dark:text-gray-600',
-                )}
-                aria-label={isExporting ? '正在导出' : '导出课件'}
-                title={canExport ? (isExporting ? '正在导出' : '导出课件') : '课件生成完成后可导出'}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  disabled={!canExport || isExporting}
+                  className={cn(
+                    'flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white transition-colors dark:border-gray-700 dark:bg-gray-800',
+                    canExport && !isExporting
+                      ? 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'
+                      : 'cursor-not-allowed text-gray-300 opacity-50 dark:text-gray-600',
+                  )}
+                  aria-label={isExporting ? '正在导出' : '导出课件'}
+                  title={
+                    canExport ? (isExporting ? '正在导出' : '导出课件') : '课件生成完成后可导出'
+                  }
+                >
+                  {isExporting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                sideOffset={8}
+                className="z-[1000] min-w-[210px] overflow-hidden rounded-lg border-gray-200 bg-white p-0 shadow-lg dark:border-gray-700 dark:bg-gray-800"
               >
-                {isExporting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-              </button>
-              {exportMenuOpen && (
-                <div className="absolute right-0 top-full z-50 mt-2 min-w-[210px] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
-                  <button
-                    onClick={() => {
-                      setExportMenuOpen(false);
-                      exportPPTX();
-                    }}
-                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-                  >
-                    <FileDown className="h-4 w-4 shrink-0 text-gray-400" />
-                    <span>PPTX</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setExportMenuOpen(false);
-                      exportResourcePack();
-                    }}
-                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-                  >
-                    <Package className="h-4 w-4 shrink-0 text-gray-400" />
-                    <div>
-                      <div>资源包</div>
-                      <div className="text-[11px] text-gray-400 dark:text-gray-500">
-                        PPTX 和互动页面
-                      </div>
+                <DropdownMenuItem
+                  onSelect={exportPPTX}
+                  className="cursor-pointer rounded-none px-4 py-2.5 text-gray-700 focus:bg-gray-100 dark:text-gray-200 dark:focus:bg-gray-700"
+                >
+                  <FileDown className="h-4 w-4 shrink-0 text-gray-400" />
+                  <span>PPTX</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={exportResourcePack}
+                  className="cursor-pointer rounded-none px-4 py-2.5 text-gray-700 focus:bg-gray-100 dark:text-gray-200 dark:focus:bg-gray-700"
+                >
+                  <Package className="h-4 w-4 shrink-0 text-gray-400" />
+                  <div>
+                    <div>资源包</div>
+                    <div className="text-[11px] text-gray-400 dark:text-gray-500">
+                      PPTX 和互动页面
                     </div>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setExportMenuOpen(false);
-                      exportClassroomZip();
-                    }}
-                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-                  >
-                    <Archive className="h-4 w-4 shrink-0 text-gray-400" />
-                    <div>
-                      <div>课堂备份 ZIP</div>
-                      <div className="text-[11px] text-gray-400 dark:text-gray-500">
-                        课堂数据和媒体文件
-                      </div>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={exportClassroomZip}
+                  className="cursor-pointer rounded-none px-4 py-2.5 text-gray-700 focus:bg-gray-100 dark:text-gray-200 dark:focus:bg-gray-700"
+                >
+                  <Archive className="h-4 w-4 shrink-0 text-gray-400" />
+                  <div>
+                    <div>课堂备份 ZIP</div>
+                    <div className="text-[11px] text-gray-400 dark:text-gray-500">
+                      课堂数据和媒体文件
                     </div>
-                  </button>
-                </div>
-              )}
-            </div>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <button
               onClick={convertToInteractiveClassroom}
               disabled={!canConvertInteractive}
@@ -710,6 +747,29 @@ export function TeacherClassroomStage({
               <WandSparkles className="h-4 w-4" />
               <span>转互动课堂</span>
             </button>
+            {editorEnabled && (
+              <label
+                className={cn(
+                  'hidden h-9 shrink-0 items-center gap-2.5 rounded-full border bg-white/60 px-3 shadow-sm backdrop-blur-md transition-colors duration-200 dark:bg-gray-800/60 sm:inline-flex',
+                  'border-gray-100/50 dark:border-gray-700/50',
+                  !canEdit
+                    ? 'cursor-not-allowed opacity-60'
+                    : 'cursor-pointer hover:border-violet-400/60 dark:hover:border-violet-500/50',
+                )}
+                title={canEdit ? t('stage.editCourse') : '课件页面生成完成后可编辑'}
+              >
+                <span className="select-none text-[11px] font-bold uppercase tracking-[0.14em] tabular-nums text-gray-500 transition-colors duration-200 dark:text-gray-400">
+                  {t('edit.proMode')}
+                </span>
+                <Switch
+                  checked={false}
+                  onCheckedChange={handleToggleEditMode}
+                  disabled={!canEdit}
+                  aria-label={t('stage.editCourse')}
+                  className="data-[state=checked]:bg-violet-600 dark:data-[state=checked]:bg-violet-500"
+                />
+              </label>
+            )}
             <button
               onClick={toggleFullscreen}
               className={cn(

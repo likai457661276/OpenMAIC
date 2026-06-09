@@ -197,6 +197,15 @@
       "imageUrlPlaceholder": "https://…",
       "imageInsert": "Insert"
     },
+    "interactive": {
+      "title": "Interactive page editor",
+      "description": "Edit this interactive courseware page title, URL, or embedded HTML with a live preview.",
+      "pageTitle": "Page title",
+      "url": "Page URL",
+      "html": "Embedded HTML",
+      "emptyPreview": "Add HTML or a URL to preview",
+      "noScene": "Current interactive page is unavailable"
+    },
     "nav": {
       "addSlide": "Add slide",
       "duplicate": "Duplicate",

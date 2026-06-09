@@ -197,6 +197,15 @@
       "imageUrlPlaceholder": "https://…",
       "imageInsert": "插入"
     },
+    "interactive": {
+      "title": "互动页编辑",
+      "description": "编辑当前互动课件页的标题、URL 或内嵌 HTML，右侧会即时预览。",
+      "pageTitle": "页面标题",
+      "url": "页面 URL",
+      "html": "内嵌 HTML",
+      "emptyPreview": "填写 HTML 或 URL 后预览",
+      "noScene": "当前互动页不可用"
+    },
     "nav": {
       "addSlide": "新增幻灯片",
       "duplicate": "复制",
