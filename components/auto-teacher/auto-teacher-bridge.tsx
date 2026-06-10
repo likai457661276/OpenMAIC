@@ -87,7 +87,7 @@ export function AutoTeacherBridge() {
         const parseResponse = await fetch(apiPath('/api/auto-teacher/parse-pdf-url'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ file_url: payload.fileUrl }),
+          body: JSON.stringify({ file_url: payload.fileUrl, upload_url: payload.uploadUrl }),
         });
         const parseResult = await parseResponse.json().catch(() => null);
         if (!parseResponse.ok || !parseResult?.success || !parseResult.data) {

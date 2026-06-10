@@ -16,6 +16,20 @@ describe('auto-teacher protocol', () => {
     ]);
   });
 
+  it('adds the Guizhou teaching test origin in test environment', () => {
+    const originalAppEnv = process.env.APP_ENV;
+    process.env.APP_ENV = 'test';
+    try {
+      expect(parseAllowedOrigins(undefined)).toContain('http://guizhou.teaching.test.bin-go.me');
+    } finally {
+      if (originalAppEnv === undefined) {
+        delete process.env.APP_ENV;
+      } else {
+        process.env.APP_ENV = originalAppEnv;
+      }
+    }
+  });
+
   it('allows unconfigured origins outside production only', () => {
     expect(
       isOriginAllowed({

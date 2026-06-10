@@ -1,4 +1,5 @@
 import { MAX_PDF_CONTENT_CHARS } from '@/lib/constants/generation';
+import { getAutoTeacherAllowedOrigins, parseOriginList } from './origins';
 
 export const AUTO_TEACHER_MESSAGE_TYPE = 'AUTO_TEACHER_GENERATE';
 export const AUTO_TEACHER_STATUS_TYPE = 'AUTO_TEACHER_STATUS';
@@ -45,11 +46,10 @@ function parseAutoTeacherModelString(model: AutoTeacherModel): {
 }
 
 export function parseAllowedOrigins(value: string | undefined): string[] {
-  return (value || '')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+  return getAutoTeacherAllowedOrigins({ configuredOrigins: value });
 }
+
+export { getAutoTeacherAllowedOrigins, parseOriginList };
 
 export function isOriginAllowed(params: {
   origin: string;

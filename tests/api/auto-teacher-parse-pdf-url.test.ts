@@ -37,6 +37,7 @@ describe('POST /api/auto-teacher/parse-pdf-url', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
     mocks.validateUrlForSSRF.mockReset();
     mocks.validateUrlForSSRF.mockResolvedValue(null);
     mocks.parsePDF.mockReset();
@@ -86,6 +87,86 @@ describe('POST /api/auto-teacher/parse-pdf-url', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     const res = await postParsePdfUrl({ file_url: 'https://internal.example.com/course.pdf' });
+    const json = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(json).toMatchObject({ success: false, errorCode: 'INVALID_URL' });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(mocks.parsePDF).not.toHaveBeenCalled();
+  });
+
+  it('allows a local PDF URL when it matches trusted auto-teacher upload origin', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS', 'http://localhost');
+    mocks.validateUrlForSSRF.mockResolvedValue('blocked');
+    const pdfBytes = new Uint8Array([1, 2, 3]);
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(pdfBytes, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Length': String(pdfBytes.byteLength),
+        },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await postParsePdfUrl({
+      file_url: 'http://localhost/view/course.pdf',
+      upload_url: 'http://localhost/api/upload',
+    });
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json).toMatchObject({ success: true });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost/view/course.pdf',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(mocks.parsePDF).toHaveBeenCalledWith({ providerId: 'unpdf' }, Buffer.from(pdfBytes));
+  });
+
+  it('allows a local PDF URL when its origin is whitelisted for test auto-teacher', async () => {
+    vi.stubEnv('APP_ENV', 'test');
+    mocks.validateUrlForSSRF.mockResolvedValue('blocked');
+    const pdfBytes = new Uint8Array([1, 2, 3]);
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(pdfBytes, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Length': String(pdfBytes.byteLength),
+        },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await postParsePdfUrl({
+      file_url: 'http://guizhou.teaching.test.bin-go.me/view/course.pdf',
+      upload_url: 'http://guizhou.teaching.test.bin-go.me/api/upload',
+    });
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json).toMatchObject({ success: true });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://guizhou.teaching.test.bin-go.me/view/course.pdf',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(mocks.parsePDF).toHaveBeenCalledWith({ providerId: 'unpdf' }, Buffer.from(pdfBytes));
+  });
+
+  it('keeps blocking local PDF URLs when upload origin is not trusted', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS', 'https://parent.example.com');
+    mocks.validateUrlForSSRF.mockResolvedValue('blocked');
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await postParsePdfUrl({
+      file_url: 'http://localhost/view/course.pdf',
+      upload_url: 'https://parent.example.com/api/upload',
+    });
     const json = await res.json();
 
     expect(res.status).toBe(403);

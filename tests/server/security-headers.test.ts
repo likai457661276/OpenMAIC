@@ -129,6 +129,23 @@ describe('Security response headers', () => {
     });
   });
 
+  describe('auto-teacher test environment frame ancestors', () => {
+    it('allows the Guizhou teaching test domain as iframe parent', async () => {
+      vi.stubEnv('APP_ENV', 'test');
+      vi.stubEnv('NODE_ENV', 'production');
+
+      const config = await loadConfig();
+      const headerGroups = await config.headers!();
+      const allRouteGroup = headerGroups.find((g) => g.source === '/(.*)')!;
+
+      expect(allRouteGroup.headers).toContainEqual({
+        key: 'Content-Security-Policy',
+        value: "frame-ancestors 'self' http://guizhou.teaching.test.bin-go.me",
+      });
+      expect(allRouteGroup.headers.find((h) => h.key === 'X-Frame-Options')).toBeUndefined();
+    });
+  });
+
   describe('development iframe embedding', () => {
     it('allows localhost and 127.0.0.1 on any port in development', async () => {
       vi.stubEnv('NODE_ENV', 'development');

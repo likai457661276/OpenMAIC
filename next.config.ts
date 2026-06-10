@@ -1,4 +1,8 @@
 import type { NextConfig } from 'next';
+import {
+  AUTO_TEACHER_TEST_ALLOWED_ORIGINS,
+  isAutoTeacherTestEnvironment,
+} from './lib/auto-teacher/origins';
 
 const BASE_PATH = '/bingo-agent-class';
 const DEV_FRAME_ANCESTORS = [
@@ -30,8 +34,13 @@ function getFrameAncestors(): string {
 
   if (configuredAncestors.length > 0) {
     configuredAncestors.forEach((ancestor) => ancestors.add(ancestor));
+    if (isAutoTeacherTestEnvironment()) {
+      AUTO_TEACHER_TEST_ALLOWED_ORIGINS.forEach((ancestor) => ancestors.add(ancestor));
+    }
   } else if (process.env.NODE_ENV === 'development') {
     DEV_FRAME_ANCESTORS.forEach((ancestor) => ancestors.add(ancestor));
+  } else if (isAutoTeacherTestEnvironment()) {
+    AUTO_TEACHER_TEST_ALLOWED_ORIGINS.forEach((ancestor) => ancestors.add(ancestor));
   }
 
   return Array.from(ancestors).join(' ');
@@ -41,6 +50,7 @@ function hasFrameAncestorOverrides(): boolean {
   return (
     parseFrameAncestorSources(process.env.ALLOWED_FRAME_ANCESTORS).length > 0 ||
     parseFrameAncestorSources(process.env.NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS).length > 0 ||
+    isAutoTeacherTestEnvironment() ||
     process.env.NODE_ENV === 'development'
   );
 }
