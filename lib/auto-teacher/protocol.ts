@@ -5,6 +5,8 @@ export const AUTO_TEACHER_STATUS_TYPE = 'AUTO_TEACHER_STATUS';
 export const AUTO_TEACHER_READY_TYPE = 'AUTO_TEACHER_READY';
 export const AUTO_TEACHER_BRIDGE_READY_TYPE = 'AUTO_TEACHER_BRIDGE_READY';
 export const AUTO_TEACHER_ERROR_TYPE = 'AUTO_TEACHER_ERROR';
+export const AUTO_TEACHER_SAVE_SUCCESS_TYPE = 'AUTO_TEACHER_SAVE_SUCCESS';
+export const AUTO_TEACHER_SAVE_ERROR_TYPE = 'AUTO_TEACHER_SAVE_ERROR';
 
 export const AUTO_TEACHER_DEFAULT_MODEL = 'qwen:deepseek-v4-flash';
 export const AUTO_TEACHER_ALLOWED_MODELS = ['qwen:qwen3.7-plus', 'qwen:deepseek-v4-flash'] as const;
@@ -16,11 +18,15 @@ export type AutoTeacherStage = 'received' | 'parsing_pdf' | 'preparing_session' 
 export interface AutoTeacherGenerateMessage {
   type: typeof AUTO_TEACHER_MESSAGE_TYPE;
   file_url: string;
+  token: string;
+  upload_url: string;
   model?: string;
 }
 
 export interface AutoTeacherPayload {
   fileUrl: string;
+  token: string;
+  uploadUrl: string;
   model: AutoTeacherModel;
   providerId: 'qwen';
   modelId: 'qwen3.7-plus' | 'deepseek-v4-flash';
@@ -110,9 +116,30 @@ export function parseAutoTeacherMessage(data: unknown): AutoTeacherPayload {
     throw new Error('Only HTTP(S) file_url is allowed');
   }
 
+  if (typeof payload.token !== 'string' || !payload.token.trim()) {
+    throw new Error('Missing required field: token');
+  }
+
+  if (typeof payload.upload_url !== 'string' || !payload.upload_url.trim()) {
+    throw new Error('Missing required field: upload_url');
+  }
+
+  let uploadUrl: URL;
+  try {
+    uploadUrl = new URL(payload.upload_url.trim());
+  } catch {
+    throw new Error('Invalid upload_url');
+  }
+
+  if (uploadUrl.protocol !== 'https:' && uploadUrl.protocol !== 'http:') {
+    throw new Error('Only HTTP(S) upload_url is allowed');
+  }
+
   const { model, providerId, modelId, warning } = normalizeAutoTeacherModel(payload.model);
   return {
     fileUrl: url.toString(),
+    token: payload.token.trim(),
+    uploadUrl: uploadUrl.toString(),
     model,
     providerId,
     modelId,

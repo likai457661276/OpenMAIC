@@ -123,6 +123,12 @@ export function AutoTeacherBridge() {
           currentStep: 'generating',
           previewPhase: 'preparing',
           teacherMode: true,
+          autoTeacherBridge: {
+            enabled: true,
+            token: payload.token,
+            uploadUrl: payload.uploadUrl,
+            sourceOrigin: event.origin,
+          },
           originalRequirement: requirement,
         };
 

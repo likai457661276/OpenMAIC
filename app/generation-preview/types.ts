@@ -39,6 +39,12 @@ export interface GenerationSessionState {
     stage: Stage;
     scenes: Scene[];
   };
+  autoTeacherBridge?: {
+    enabled: true;
+    token: string;
+    uploadUrl: string;
+    sourceOrigin: string;
+  };
   originalRequirement?: string;
 }
 

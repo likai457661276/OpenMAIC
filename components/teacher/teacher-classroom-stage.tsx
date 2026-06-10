@@ -21,6 +21,7 @@ import {
   PanelRightClose,
   PanelRightOpen,
   RefreshCw,
+  Save,
   WandSparkles,
 } from 'lucide-react';
 import { nanoid } from 'nanoid';
@@ -40,7 +41,11 @@ import { isMaicEditorEnabled } from '@/lib/config/feature-flags';
 import { isCurrentSceneEditable } from '@/lib/edit/stage-mode';
 import { preloadEditor } from '@/lib/edit/preload-editor';
 import { useExportPPTX } from '@/lib/export/use-export-pptx';
-import { useExportClassroom } from '@/lib/export/use-export-classroom';
+import { buildClassroomZipBlob, useExportClassroom } from '@/lib/export/use-export-classroom';
+import {
+  AUTO_TEACHER_SAVE_ERROR_TYPE,
+  AUTO_TEACHER_SAVE_SUCCESS_TYPE,
+} from '@/lib/auto-teacher/protocol';
 import { cn } from '@/lib/utils';
 import { SceneRenderer } from '@/components/stage/scene-renderer';
 import { HeaderControls } from '@/components/stage/header-controls';
@@ -56,6 +61,43 @@ import type { InteractiveContent, Scene, SlideContent } from '@/lib/types/stage'
 import type { LectureNoteEntry } from '@/lib/types/chat';
 import { useCanvasStore } from '@/lib/store/canvas';
 import { useI18n } from '@/lib/hooks/use-i18n';
+import { getOpenMaicVersionPayload } from '@/lib/version';
+
+type AutoTeacherBridgeContext = {
+  enabled: true;
+  token: string;
+  uploadUrl: string;
+  sourceOrigin: string;
+};
+
+function readAutoTeacherBridgeContext(): AutoTeacherBridgeContext | null {
+  if (typeof window === 'undefined') return null;
+  const raw = sessionStorage.getItem('generationParams');
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { autoTeacherBridge?: Partial<AutoTeacherBridgeContext> };
+    const bridge = parsed.autoTeacherBridge;
+    if (
+      bridge?.enabled === true &&
+      typeof bridge.token === 'string' &&
+      bridge.token.trim() &&
+      typeof bridge.uploadUrl === 'string' &&
+      bridge.uploadUrl.trim() &&
+      typeof bridge.sourceOrigin === 'string' &&
+      bridge.sourceOrigin.trim()
+    ) {
+      return {
+        enabled: true,
+        token: bridge.token,
+        uploadUrl: bridge.uploadUrl,
+        sourceOrigin: bridge.sourceOrigin,
+      };
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
 
 function buildTeacherLectureNotes(scenes: Scene[]): LectureNoteEntry[] {
   return scenes
@@ -347,6 +389,11 @@ export function TeacherClassroomStage({
   const [previewOpen, setPreviewOpen] = useState(true);
   const [retryingOutlineId, setRetryingOutlineId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [autoTeacherBridge, setAutoTeacherBridge] = useState<AutoTeacherBridgeContext | null>(null);
+  const [isSavingAutoTeacher, setIsSavingAutoTeacher] = useState(false);
+  const [autoTeacherSaveStatus, setAutoTeacherSaveStatus] = useState<'idle' | 'success' | 'error'>(
+    'idle',
+  );
   const playbackRef = useRef<HTMLElement>(null);
 
   const pendingOutline = generatingOutlines[0] ?? null;
@@ -427,6 +474,71 @@ export function TeacherClassroomStage({
     await preloadEditor();
     setMode('edit');
   }, [canEdit, editorEnabled, mode, setMode]);
+
+  const postAutoTeacherSaveMessage = useCallback(
+    (message: Record<string, unknown>) => {
+      if (!autoTeacherBridge || typeof window === 'undefined') return;
+      window.parent?.postMessage(
+        message,
+        autoTeacherBridge.sourceOrigin === 'null' ? '*' : autoTeacherBridge.sourceOrigin,
+      );
+    },
+    [autoTeacherBridge],
+  );
+
+  const saveAutoTeacherClassroom = useCallback(async () => {
+    if (!autoTeacherBridge || !canExport || isSavingAutoTeacher) return;
+    setIsSavingAutoTeacher(true);
+    setAutoTeacherSaveStatus('idle');
+    try {
+      const zipResult = await buildClassroomZipBlob();
+      if (!zipResult) {
+        throw new Error('暂无可保存的课件内容');
+      }
+
+      const formData = new FormData();
+      formData.append(
+        'file',
+        new File([zipResult.blob], zipResult.fileName, {
+          type: 'application/zip',
+        }),
+      );
+
+      const response = await fetch(autoTeacherBridge.uploadUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: autoTeacherBridge.token,
+        },
+        body: formData,
+      });
+      const responseData = await response.json().catch(() => null);
+      if (!response.ok || responseData?.code !== 0 || !responseData?.data?.id) {
+        throw new Error(responseData?.message || '保存失败');
+      }
+
+      const savedFile = {
+        id: responseData.data.id,
+        name: responseData.data.name || zipResult.fileName,
+        url: responseData.data.url || '',
+      };
+      setAutoTeacherSaveStatus('success');
+      postAutoTeacherSaveMessage({
+        type: AUTO_TEACHER_SAVE_SUCCESS_TYPE,
+        ...savedFile,
+        ...getOpenMaicVersionPayload(),
+        raw: responseData,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '保存失败';
+      setAutoTeacherSaveStatus('error');
+      postAutoTeacherSaveMessage({
+        type: AUTO_TEACHER_SAVE_ERROR_TYPE,
+        error: message,
+      });
+    } finally {
+      setIsSavingAutoTeacher(false);
+    }
+  }, [autoTeacherBridge, canExport, isSavingAutoTeacher, postAutoTeacherSaveMessage]);
 
   const convertToInteractiveClassroom = useCallback(() => {
     if (!stage?.id || scenes.length === 0) return;
@@ -520,6 +632,10 @@ export function TeacherClassroomStage({
   useEffect(() => {
     if (mode === 'edit' && !canEdit) setMode('playback');
   }, [canEdit, mode, setMode]);
+
+  useEffect(() => {
+    setAutoTeacherBridge(readAutoTeacherBridgeContext());
+  }, []);
 
   if (mode === 'edit' && currentScene && editorEnabled) {
     return (
@@ -895,6 +1011,42 @@ export function TeacherClassroomStage({
                     <Minimize2 className="h-5 w-5" />
                   </button>
                 </div>
+              </div>
+            )}
+            {autoTeacherBridge && !isFullscreen && (
+              <div className="absolute bottom-5 right-5 z-20">
+                <button
+                  type="button"
+                  onClick={saveAutoTeacherClassroom}
+                  disabled={!canExport || isSavingAutoTeacher}
+                  className={cn(
+                    'flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-semibold shadow-lg backdrop-blur-md transition-colors',
+                    canExport && !isSavingAutoTeacher
+                      ? autoTeacherSaveStatus === 'success'
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/70 dark:bg-emerald-950/60 dark:text-emerald-300'
+                        : autoTeacherSaveStatus === 'error'
+                          ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-900/70 dark:bg-red-950/60 dark:text-red-300'
+                          : 'border-gray-200 bg-white/90 text-gray-700 hover:bg-white hover:text-gray-950 dark:border-gray-700 dark:bg-gray-900/90 dark:text-gray-200 dark:hover:bg-gray-800'
+                      : 'cursor-not-allowed border-gray-200 bg-white/70 text-gray-300 opacity-70 dark:border-gray-700 dark:bg-gray-900/70 dark:text-gray-600',
+                  )}
+                  title={canExport ? '保存到父项目' : '课件生成完成后可保存'}
+                  aria-label="保存到父项目"
+                >
+                  {isSavingAutoTeacher ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  <span>
+                    {isSavingAutoTeacher
+                      ? '保存中'
+                      : autoTeacherSaveStatus === 'success'
+                        ? '已保存'
+                        : autoTeacherSaveStatus === 'error'
+                          ? '重新保存'
+                          : '保存'}
+                  </span>
+                </button>
               </div>
             )}
           </section>

@@ -1398,6 +1398,7 @@ function GenerationPreviewContent() {
           agents,
           userProfile,
           languageDirective,
+          autoTeacherBridge: currentSession.autoTeacherBridge,
         }),
       );
 

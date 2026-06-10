@@ -55,10 +55,14 @@ describe('auto-teacher protocol', () => {
       parseAutoTeacherMessage({
         type: AUTO_TEACHER_MESSAGE_TYPE,
         file_url: 'https://cdn.example.com/course.pdf',
+        token: 'token-123',
+        upload_url: 'https://parent.example.com/api/upload',
         model: 'qwen:deepseek-v4-flash',
       }),
     ).toEqual({
       fileUrl: 'https://cdn.example.com/course.pdf',
+      token: 'token-123',
+      uploadUrl: 'https://parent.example.com/api/upload',
       model: 'qwen:deepseek-v4-flash',
       modelId: 'deepseek-v4-flash',
       providerId: 'qwen',
@@ -74,8 +78,37 @@ describe('auto-teacher protocol', () => {
       parseAutoTeacherMessage({
         type: AUTO_TEACHER_MESSAGE_TYPE,
         file_url: 'file:///tmp/course.pdf',
+        token: 'token-123',
+        upload_url: 'https://parent.example.com/api/upload',
       }),
     ).toThrow('Only HTTP(S) file_url is allowed');
+  });
+
+  it('requires token and upload_url for parent upload handoff', () => {
+    expect(() =>
+      parseAutoTeacherMessage({
+        type: AUTO_TEACHER_MESSAGE_TYPE,
+        file_url: 'https://cdn.example.com/course.pdf',
+        upload_url: 'https://parent.example.com/api/upload',
+      }),
+    ).toThrow('Missing required field: token');
+
+    expect(() =>
+      parseAutoTeacherMessage({
+        type: AUTO_TEACHER_MESSAGE_TYPE,
+        file_url: 'https://cdn.example.com/course.pdf',
+        token: 'token-123',
+      }),
+    ).toThrow('Missing required field: upload_url');
+
+    expect(() =>
+      parseAutoTeacherMessage({
+        type: AUTO_TEACHER_MESSAGE_TYPE,
+        file_url: 'https://cdn.example.com/course.pdf',
+        token: 'token-123',
+        upload_url: 'file:///tmp/upload',
+      }),
+    ).toThrow('Only HTTP(S) upload_url is allowed');
   });
 
   it('falls back to default model for unsupported model', () => {
