@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AUTO_TEACHER_MESSAGE_TYPE,
   buildAutoTeacherRequirement,
+  getAutoTeacherAllowedPdfOrigins,
   isOriginAllowed,
   normalizeAutoTeacherModel,
   parseAllowedOrigins,
@@ -17,17 +18,29 @@ describe('auto-teacher protocol', () => {
   });
 
   it('adds the Guizhou teaching test origin in test environment', () => {
-    const originalAppEnv = process.env.APP_ENV;
-    process.env.APP_ENV = 'test';
-    try {
-      expect(parseAllowedOrigins(undefined)).toContain('http://guizhou.teaching.test.bin-go.me');
-    } finally {
-      if (originalAppEnv === undefined) {
-        delete process.env.APP_ENV;
-      } else {
-        process.env.APP_ENV = originalAppEnv;
-      }
-    }
+    expect(
+      getAutoTeacherAllowedPdfOrigins({
+        env: { APP_ENV: 'test' },
+      }),
+    ).toContain('http://guizhou.teaching.test.bin-go.me');
+  });
+
+  it('adds the Guizhou teaching test PDF origin during local development', () => {
+    expect(
+      getAutoTeacherAllowedPdfOrigins({
+        env: { NODE_ENV: 'development' },
+      }),
+    ).toContain('http://guizhou.teaching.test.bin-go.me');
+  });
+
+  it('supports explicit PDF origins that differ from the parent project origin', () => {
+    expect(
+      getAutoTeacherAllowedPdfOrigins({
+        configuredPdfOrigins: 'http://pdf.example.com',
+        configuredParentOrigins: 'http://parent.example.com',
+        env: { NODE_ENV: 'production' },
+      }),
+    ).toEqual(['http://pdf.example.com', 'http://parent.example.com']);
   });
 
   it('allows unconfigured origins outside production only', () => {

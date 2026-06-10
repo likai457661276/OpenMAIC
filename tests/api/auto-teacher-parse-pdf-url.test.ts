@@ -156,6 +156,67 @@ describe('POST /api/auto-teacher/parse-pdf-url', () => {
     expect(mocks.parsePDF).toHaveBeenCalledWith({ providerId: 'unpdf' }, Buffer.from(pdfBytes));
   });
 
+  it('allows the Guizhou test PDF URL with a different localhost upload origin in development', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    mocks.validateUrlForSSRF.mockResolvedValue('blocked');
+    const pdfBytes = new Uint8Array([1, 2, 3]);
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(pdfBytes, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Length': String(pdfBytes.byteLength),
+        },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await postParsePdfUrl({
+      file_url: 'http://guizhou.teaching.test.bin-go.me/view/pdf-output/course.pdf',
+      upload_url: 'http://localhost/api/upload',
+    });
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json).toMatchObject({ success: true });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://guizhou.teaching.test.bin-go.me/view/pdf-output/course.pdf',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(mocks.parsePDF).toHaveBeenCalledWith({ providerId: 'unpdf' }, Buffer.from(pdfBytes));
+  });
+
+  it('allows explicit PDF origins that differ from the upload origin in production', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('AUTO_TEACHER_ALLOWED_PDF_ORIGINS', 'http://pdf.example.com');
+    mocks.validateUrlForSSRF.mockResolvedValue('blocked');
+    const pdfBytes = new Uint8Array([1, 2, 3]);
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(pdfBytes, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Length': String(pdfBytes.byteLength),
+        },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await postParsePdfUrl({
+      file_url: 'http://pdf.example.com/view/course.pdf',
+      upload_url: 'https://parent.example.com/api/upload',
+    });
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json).toMatchObject({ success: true });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://pdf.example.com/view/course.pdf',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(mocks.parsePDF).toHaveBeenCalledWith({ providerId: 'unpdf' }, Buffer.from(pdfBytes));
+  });
+
   it('keeps blocking local PDF URLs when upload origin is not trusted', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS', 'https://parent.example.com');

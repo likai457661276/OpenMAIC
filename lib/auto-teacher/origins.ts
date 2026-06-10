@@ -2,10 +2,16 @@ export const AUTO_TEACHER_TEST_ALLOWED_ORIGINS = [
   'http://guizhou.teaching.test.bin-go.me',
 ] as const;
 
-export function isAutoTeacherTestEnvironment(env: NodeJS.ProcessEnv = process.env): boolean {
+type AutoTeacherOriginEnv = Partial<NodeJS.ProcessEnv>;
+
+export function isAutoTeacherTestEnvironment(env: AutoTeacherOriginEnv = process.env): boolean {
   const envName =
     env.APP_ENV || env.NEXT_PUBLIC_APP_ENV || env.FEATURE_FLAG_ENV || env.VERCEL_ENV || '';
   return /^(test|testing|staging)$/i.test(envName.trim());
+}
+
+export function shouldUseDefaultTestPdfOrigins(env: AutoTeacherOriginEnv = process.env): boolean {
+  return env.NODE_ENV !== 'production' || isAutoTeacherTestEnvironment(env);
 }
 
 export function parseOriginList(value: string | undefined): string[] {
@@ -17,11 +23,31 @@ export function parseOriginList(value: string | undefined): string[] {
 
 export function getAutoTeacherAllowedOrigins(params?: {
   configuredOrigins?: string;
-  env?: NodeJS.ProcessEnv;
+  env?: AutoTeacherOriginEnv;
 }): string[] {
   const origins = new Set(parseOriginList(params?.configuredOrigins));
   if (isAutoTeacherTestEnvironment(params?.env)) {
     AUTO_TEACHER_TEST_ALLOWED_ORIGINS.forEach((origin) => origins.add(origin));
   }
+  return Array.from(origins);
+}
+
+export function getAutoTeacherAllowedPdfOrigins(params?: {
+  configuredPdfOrigins?: string;
+  configuredParentOrigins?: string;
+  env?: AutoTeacherOriginEnv;
+}): string[] {
+  const origins = new Set([
+    ...parseOriginList(params?.configuredPdfOrigins),
+    ...getAutoTeacherAllowedOrigins({
+      configuredOrigins: params?.configuredParentOrigins,
+      env: params?.env,
+    }),
+  ]);
+
+  if (shouldUseDefaultTestPdfOrigins(params?.env)) {
+    AUTO_TEACHER_TEST_ALLOWED_ORIGINS.forEach((origin) => origins.add(origin));
+  }
+
   return Array.from(origins);
 }

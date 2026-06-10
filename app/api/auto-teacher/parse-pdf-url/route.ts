@@ -5,7 +5,7 @@ import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
 import { createLogger } from '@/lib/logger';
 import {
   AUTO_TEACHER_MAX_PDF_SIZE_BYTES,
-  getAutoTeacherAllowedOrigins,
+  getAutoTeacherAllowedPdfOrigins,
   isOriginAllowed,
 } from '@/lib/auto-teacher/protocol';
 import type { ParsedPdfContent } from '@/lib/types/pdf';
@@ -26,8 +26,9 @@ function isPdfContentType(contentType: string | null): boolean {
 
 function getTrustedAutoTeacherOrigins(uploadUrl: string | undefined): Set<string> {
   const trustedOrigins = new Set(
-    getAutoTeacherAllowedOrigins({
-      configuredOrigins: process.env.NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS,
+    getAutoTeacherAllowedPdfOrigins({
+      configuredPdfOrigins: process.env.AUTO_TEACHER_ALLOWED_PDF_ORIGINS,
+      configuredParentOrigins: process.env.NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS,
     }),
   );
 
