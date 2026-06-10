@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { TeacherClassroomStage } from '@/components/teacher/teacher-classroom-stage';
 import { ThemeProvider } from '@/lib/hooks/use-theme';
 import { MediaStageProvider } from '@/lib/contexts/media-stage-context';
@@ -18,7 +18,9 @@ const log = createLogger('TeacherClassroom');
 
 export default function TeacherClassroomPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const classroomId = params?.id as string;
+  const hideBackButton = searchParams.get('autoImport') === '1';
   const { loadFromStorage } = useStageStore();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -141,7 +143,10 @@ export default function TeacherClassroomPage() {
             </div>
           </div>
         ) : (
-          <TeacherClassroomStage onRetryOutline={retrySingleOutline} />
+          <TeacherClassroomStage
+            onRetryOutline={retrySingleOutline}
+            hideBackButton={hideBackButton}
+          />
         )}
       </MediaStageProvider>
     </ThemeProvider>

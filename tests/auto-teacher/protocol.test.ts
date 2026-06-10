@@ -7,6 +7,7 @@ import {
   isOriginAllowed,
   normalizeAutoTeacherModel,
   parseAllowedOrigins,
+  parseAutoImportTeacherMessage,
   parseAutoTeacherMessage,
 } from '@/lib/auto-teacher/protocol';
 
@@ -110,6 +111,66 @@ describe('auto-teacher protocol', () => {
     ).toMatchObject({
       coursewareName: '生活中的周期现象',
     });
+  });
+
+  it('accepts auto-import ZIP URL aliases and teachType', () => {
+    expect(
+      parseAutoImportTeacherMessage({
+        type: AUTO_TEACHER_MESSAGE_TYPE,
+        zip_url: 'https://cdn.example.com/course.maic.zip',
+        teachType: 'teacher',
+      }),
+    ).toEqual({
+      zipUrl: 'https://cdn.example.com/course.maic.zip',
+      teachType: 'teacher',
+    });
+
+    expect(
+      parseAutoImportTeacherMessage({
+        type: AUTO_TEACHER_MESSAGE_TYPE,
+        zipUrl: 'https://cdn.example.com/classroom.zip',
+        teachType: 'classroom',
+      }),
+    ).toEqual({
+      zipUrl: 'https://cdn.example.com/classroom.zip',
+      teachType: 'classroom',
+    });
+
+    expect(
+      parseAutoImportTeacherMessage({
+        type: AUTO_TEACHER_MESSAGE_TYPE,
+        zipurl: 'https://cdn.example.com/legacy.zip',
+        teachType: 'teacher',
+      }),
+    ).toEqual({
+      zipUrl: 'https://cdn.example.com/legacy.zip',
+      teachType: 'teacher',
+    });
+  });
+
+  it('rejects invalid auto-import payloads', () => {
+    expect(() =>
+      parseAutoImportTeacherMessage({
+        type: AUTO_TEACHER_MESSAGE_TYPE,
+        teachType: 'teacher',
+      }),
+    ).toThrow('Missing required field: zip_url');
+
+    expect(() =>
+      parseAutoImportTeacherMessage({
+        type: AUTO_TEACHER_MESSAGE_TYPE,
+        zip_url: 'file:///tmp/course.zip',
+        teachType: 'teacher',
+      }),
+    ).toThrow('Only HTTP(S) zip_url is allowed');
+
+    expect(() =>
+      parseAutoImportTeacherMessage({
+        type: AUTO_TEACHER_MESSAGE_TYPE,
+        zip_url: 'https://cdn.example.com/course.zip',
+        teachType: 'unknown',
+      }),
+    ).toThrow('Invalid teachType');
   });
 
   it('rejects missing file_url and non-http urls', () => {

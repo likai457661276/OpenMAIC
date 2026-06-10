@@ -368,8 +368,10 @@ function PendingPage({
 
 export function TeacherClassroomStage({
   onRetryOutline,
+  hideBackButton = false,
 }: {
   readonly onRetryOutline?: (outlineId: string) => Promise<void>;
+  readonly hideBackButton?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -670,13 +672,15 @@ export function TeacherClassroomStage({
             : 'w-0 overflow-hidden border-r-0 p-0',
         )}
       >
-        <button
-          onClick={() => router.push('/teacher')}
-          className="mb-4 flex h-9 items-center gap-2 rounded-md px-2 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          返回教师备课
-        </button>
+        {!hideBackButton && (
+          <button
+            onClick={() => router.push('/teacher')}
+            className="mb-4 flex h-9 items-center gap-2 rounded-md px-2 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            返回教师备课
+          </button>
+        )}
         <div className="mb-3 px-1">
           <p className="text-xs font-semibold text-gray-400 dark:text-gray-500">教案课件</p>
           <h1 className="mt-1 line-clamp-2 text-sm font-semibold text-gray-800 dark:text-gray-200">

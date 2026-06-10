@@ -32,8 +32,10 @@ import { preloadEditor } from '@/lib/edit/preload-editor';
  */
 export function Stage({
   onRetryOutline,
+  hideBackButton = false,
 }: {
   onRetryOutline?: (outlineId: string) => Promise<void>;
+  hideBackButton?: boolean;
 }) {
   const { mode, setMode, scenes, currentSceneId, generatingOutlines, stage } = useStageStore();
   const currentScene = useStageStore((s) => s.getCurrentScene());
@@ -150,6 +152,7 @@ export function Stage({
               onRetryOutline={onRetryOutline}
               canEnterProMode={isEditable}
               onEnterProMode={toggleHandler}
+              hideBackButton={hideBackButton}
             />
           </motion.div>
         )}

@@ -20,6 +20,15 @@ export const AUTO_TEACHER_MAX_PDF_SIZE_BYTES = 50 * 1024 * 1024;
 export type AutoTeacherModel = (typeof AUTO_TEACHER_ALLOWED_MODELS)[number];
 export type AutoTeacherStage = 'received' | 'parsing_pdf' | 'preparing_session' | 'redirecting';
 export type AutoTeacherTeachType = 'teacher' | 'classroom';
+export type AutoImportTeacherStage =
+  | 'idle'
+  | 'received'
+  | 'downloading_zip'
+  | 'parsing'
+  | 'validating'
+  | 'writingMedia'
+  | 'writingCourse'
+  | 'redirecting';
 
 export interface AutoTeacherGenerateMessage {
   type: typeof AUTO_TEACHER_MESSAGE_TYPE;
@@ -39,6 +48,11 @@ export interface AutoTeacherPayload {
   providerId: 'qwen';
   modelId: 'qwen3.7-plus' | 'deepseek-v4-flash';
   warning?: string;
+}
+
+export interface AutoImportTeacherPayload {
+  zipUrl: string;
+  teachType: AutoTeacherTeachType;
 }
 
 export function inferAutoTeacherTeachType(pathname: string): AutoTeacherTeachType {
@@ -160,6 +174,48 @@ export function parseAutoTeacherMessage(data: unknown): AutoTeacherPayload {
     providerId,
     modelId,
     warning,
+  };
+}
+
+export function parseAutoImportTeacherMessage(data: unknown): AutoImportTeacherPayload {
+  if (!data || typeof data !== 'object') {
+    throw new Error('Invalid message payload');
+  }
+
+  const payload = data as {
+    type?: unknown;
+    zip_url?: unknown;
+    zipUrl?: unknown;
+    zipurl?: unknown;
+    teachType?: unknown;
+  };
+  if (payload.type !== AUTO_TEACHER_MESSAGE_TYPE) {
+    throw new Error('Unsupported message type');
+  }
+
+  const zipUrlValue = payload.zip_url ?? payload.zipUrl ?? payload.zipurl;
+  if (typeof zipUrlValue !== 'string' || !zipUrlValue.trim()) {
+    throw new Error('Missing required field: zip_url');
+  }
+
+  let zipUrl: URL;
+  try {
+    zipUrl = new URL(zipUrlValue.trim());
+  } catch {
+    throw new Error('Invalid zip_url');
+  }
+
+  if (zipUrl.protocol !== 'https:' && zipUrl.protocol !== 'http:') {
+    throw new Error('Only HTTP(S) zip_url is allowed');
+  }
+
+  if (payload.teachType !== 'teacher' && payload.teachType !== 'classroom') {
+    throw new Error('Invalid teachType');
+  }
+
+  return {
+    zipUrl: zipUrl.toString(),
+    teachType: payload.teachType,
   };
 }
 
