@@ -1,0 +1,132 @@
+import { MAX_PDF_CONTENT_CHARS } from '@/lib/constants/generation';
+
+export const AUTO_TEACHER_MESSAGE_TYPE = 'AUTO_TEACHER_GENERATE';
+export const AUTO_TEACHER_STATUS_TYPE = 'AUTO_TEACHER_STATUS';
+export const AUTO_TEACHER_READY_TYPE = 'AUTO_TEACHER_READY';
+export const AUTO_TEACHER_BRIDGE_READY_TYPE = 'AUTO_TEACHER_BRIDGE_READY';
+export const AUTO_TEACHER_ERROR_TYPE = 'AUTO_TEACHER_ERROR';
+
+export const AUTO_TEACHER_DEFAULT_MODEL = 'qwen:deepseek-v4-flash';
+export const AUTO_TEACHER_ALLOWED_MODELS = ['qwen:qwen3.7-plus', 'qwen:deepseek-v4-flash'] as const;
+export const AUTO_TEACHER_MAX_PDF_SIZE_BYTES = 50 * 1024 * 1024;
+
+export type AutoTeacherModel = (typeof AUTO_TEACHER_ALLOWED_MODELS)[number];
+export type AutoTeacherStage = 'received' | 'parsing_pdf' | 'preparing_session' | 'redirecting';
+
+export interface AutoTeacherGenerateMessage {
+  type: typeof AUTO_TEACHER_MESSAGE_TYPE;
+  file_url: string;
+  model?: string;
+}
+
+export interface AutoTeacherPayload {
+  fileUrl: string;
+  model: AutoTeacherModel;
+  providerId: 'qwen';
+  modelId: 'qwen3.7-plus' | 'deepseek-v4-flash';
+  warning?: string;
+}
+
+function parseAutoTeacherModelString(model: AutoTeacherModel): {
+  providerId: 'qwen';
+  modelId: 'qwen3.7-plus' | 'deepseek-v4-flash';
+} {
+  const [providerId, modelId] = model.split(':');
+  return {
+    providerId: providerId as 'qwen',
+    modelId: modelId as 'qwen3.7-plus' | 'deepseek-v4-flash',
+  };
+}
+
+export function parseAllowedOrigins(value: string | undefined): string[] {
+  return (value || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
+export function isOriginAllowed(params: {
+  origin: string;
+  allowedOrigins: string[];
+  nodeEnv?: string;
+}): boolean {
+  const { origin, allowedOrigins, nodeEnv = process.env.NODE_ENV } = params;
+  if (allowedOrigins.length === 0) {
+    return nodeEnv !== 'production';
+  }
+  return allowedOrigins.includes(origin);
+}
+
+export function normalizeAutoTeacherModel(model: unknown): {
+  model: AutoTeacherModel;
+  providerId: 'qwen';
+  modelId: 'qwen3.7-plus' | 'deepseek-v4-flash';
+  warning?: string;
+} {
+  if (typeof model === 'string') {
+    const normalized = model.trim();
+    if ((AUTO_TEACHER_ALLOWED_MODELS as readonly string[]).includes(normalized)) {
+      return {
+        model: normalized as AutoTeacherModel,
+        ...parseAutoTeacherModelString(normalized as AutoTeacherModel),
+      };
+    }
+    if (normalized) {
+      return {
+        model: AUTO_TEACHER_DEFAULT_MODEL,
+        ...parseAutoTeacherModelString(AUTO_TEACHER_DEFAULT_MODEL),
+        warning: `Unsupported model "${normalized}", falling back to ${AUTO_TEACHER_DEFAULT_MODEL}`,
+      };
+    }
+  }
+  return {
+    model: AUTO_TEACHER_DEFAULT_MODEL,
+    ...parseAutoTeacherModelString(AUTO_TEACHER_DEFAULT_MODEL),
+  };
+}
+
+export function parseAutoTeacherMessage(data: unknown): AutoTeacherPayload {
+  if (!data || typeof data !== 'object') {
+    throw new Error('Invalid message payload');
+  }
+
+  const payload = data as Partial<AutoTeacherGenerateMessage>;
+  if (payload.type !== AUTO_TEACHER_MESSAGE_TYPE) {
+    throw new Error('Unsupported message type');
+  }
+
+  if (typeof payload.file_url !== 'string' || !payload.file_url.trim()) {
+    throw new Error('Missing required field: file_url');
+  }
+
+  let url: URL;
+  try {
+    url = new URL(payload.file_url.trim());
+  } catch {
+    throw new Error('Invalid file_url');
+  }
+
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    throw new Error('Only HTTP(S) file_url is allowed');
+  }
+
+  const { model, providerId, modelId, warning } = normalizeAutoTeacherModel(payload.model);
+  return {
+    fileUrl: url.toString(),
+    model,
+    providerId,
+    modelId,
+    warning,
+  };
+}
+
+export function buildAutoTeacherRequirement(pdfText: string): string {
+  const textLength = Math.min(pdfText.length, MAX_PDF_CONTENT_CHARS);
+  return [
+    '请根据外部系统传入的 PDF 内容，生成教师可直接使用的教案与互动课件流程。',
+    '这是自动教案入口：不要要求用户补充输入，不要依赖图片生成、视频生成或 TTS 语音合成。',
+    '输出应面向教师备课，覆盖教学目标、重点难点、课堂流程、活动设计、练习/测验建议与可演示的课堂内容。',
+    '如果 PDF 中包含章节结构、例题、实验、案例或评价要求，请优先转化为结构化教学环节。',
+    `PDF 文本已解析并传入后续生成链路，当前可用文本长度约 ${textLength} 字符。`,
+  ].join('\n');
+}

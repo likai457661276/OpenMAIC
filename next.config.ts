@@ -1,11 +1,48 @@
 import type { NextConfig } from 'next';
 
 const BASE_PATH = '/bingo-agent-class';
+const DEV_FRAME_ANCESTORS = [
+  'http://localhost',
+  'http://localhost:*',
+  'http://127.0.0.1',
+  'http://127.0.0.1:*',
+];
 
 function publicFeatureFlag(name: string, defaultValue: boolean): string {
   const value = process.env[name] ?? process.env[`NEXT_PUBLIC_${name}`];
   if (!value?.trim()) return String(defaultValue);
   return value;
+}
+
+function parseFrameAncestorSources(value: string | undefined): string[] {
+  return (value || '')
+    .split(/[\s,]+/)
+    .map((source) => source.trim())
+    .filter(Boolean);
+}
+
+function getFrameAncestors(): string {
+  const ancestors = new Set(["'self'"]);
+  const configuredAncestors = [
+    ...parseFrameAncestorSources(process.env.ALLOWED_FRAME_ANCESTORS),
+    ...parseFrameAncestorSources(process.env.NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS),
+  ];
+
+  if (configuredAncestors.length > 0) {
+    configuredAncestors.forEach((ancestor) => ancestors.add(ancestor));
+  } else if (process.env.NODE_ENV === 'development') {
+    DEV_FRAME_ANCESTORS.forEach((ancestor) => ancestors.add(ancestor));
+  }
+
+  return Array.from(ancestors).join(' ');
+}
+
+function hasFrameAncestorOverrides(): boolean {
+  return (
+    parseFrameAncestorSources(process.env.ALLOWED_FRAME_ANCESTORS).length > 0 ||
+    parseFrameAncestorSources(process.env.NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS).length > 0 ||
+    process.env.NODE_ENV === 'development'
+  );
 }
 
 const nextConfig: NextConfig = {
@@ -37,8 +74,8 @@ const nextConfig: NextConfig = {
     proxyClientMaxBodySize: '200mb',
   },
   async headers() {
-    const extraAncestors = process.env.ALLOWED_FRAME_ANCESTORS?.trim();
-    const frameAncestors = extraAncestors ? `'self' ${extraAncestors}` : "'self'";
+    const frameAncestors = getFrameAncestors();
+    const hasCustomAncestors = hasFrameAncestorOverrides();
 
     return [
       {
@@ -46,7 +83,7 @@ const nextConfig: NextConfig = {
         headers: [
           // X-Frame-Options only supports SAMEORIGIN (no allow-list),
           // so we omit it when custom ancestors are configured.
-          ...(!extraAncestors ? [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }] : []),
+          ...(!hasCustomAncestors ? [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }] : []),
           {
             key: 'Content-Security-Policy',
             value: `frame-ancestors ${frameAncestors}`,
