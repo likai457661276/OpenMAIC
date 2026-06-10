@@ -3,6 +3,7 @@ import {
   AUTO_TEACHER_MESSAGE_TYPE,
   buildAutoTeacherRequirement,
   getAutoTeacherAllowedPdfOrigins,
+  inferAutoTeacherPdfTitle,
   isOriginAllowed,
   normalizeAutoTeacherModel,
   parseAllowedOrigins,
@@ -153,5 +154,29 @@ describe('auto-teacher protocol', () => {
     expect(prompt).toContain('教师可直接使用的教案');
     expect(prompt).toContain('不要要求用户补充输入');
     expect(prompt).toContain('不要依赖图片生成、视频生成或 TTS 语音合成');
+  });
+
+  it('infers a display title from PDF content headings', () => {
+    expect(
+      inferAutoTeacherPdfTitle(`
+        # 章节引入：周期现象与三角函数
+
+        - 观看周期现象视频：车轮、钟摆、潮汐
+      `),
+    ).toBe('章节引入：周期现象与三角函数');
+  });
+
+  it('prefers labeled PDF titles and keeps numeric title prefixes', () => {
+    expect(
+      inferAutoTeacherPdfTitle(`
+        目录
+        课题：3D 建模中的空间坐标
+        第一节 坐标系
+      `),
+    ).toBe('3D 建模中的空间坐标');
+  });
+
+  it('falls back when PDF text has no usable title', () => {
+    expect(inferAutoTeacherPdfTitle('PDF\n目录\n第 1 页')).toBe('PDF 课件');
   });
 });

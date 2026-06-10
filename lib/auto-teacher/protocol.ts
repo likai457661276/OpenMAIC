@@ -161,3 +161,47 @@ export function buildAutoTeacherRequirement(pdfText: string): string {
     `PDF 文本已解析并传入后续生成链路，当前可用文本长度约 ${textLength} 字符。`,
   ].join('\n');
 }
+
+function cleanPdfTitleCandidate(value: string): string {
+  return value
+    .replace(/!\[[^\]]*]\([^)]+\)/g, '')
+    .replace(/\[[^\]]*]\([^)]+\)/g, '')
+    .replace(/^#{1,6}\s*/, '')
+    .replace(/^[\s>*-]*(?:\d{1,3}\s*[.、．:：-]\s+|\d{1,3}\s+)/, '')
+    .replace(/^(标题|题目|课题|主题|章节|章标题|课程标题|单元标题)\s*[:：]\s*/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[。；;，,、\s]+$/, '');
+}
+
+function isUsablePdfTitleCandidate(value: string): boolean {
+  if (value.length < 4 || value.length > 80) return false;
+  if (/^(pdf|document|untitled|目录|contents?|第?\s*\d+\s*页)$/i.test(value)) return false;
+  if (/^(img|image|figure|table|图|表)\s*[_\d-]*$/i.test(value)) return false;
+  return /[\p{L}\p{N}]/u.test(value);
+}
+
+export function inferAutoTeacherPdfTitle(pdfText: string): string {
+  const lines = pdfText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 80);
+
+  const labeledTitle = lines
+    .map((line) => line.match(/^(标题|题目|课题|主题|章节|章标题|课程标题|单元标题)\s*[:：]\s*(.+)$/))
+    .find((match): match is RegExpMatchArray => {
+      const candidate = cleanPdfTitleCandidate(match?.[2] || '');
+      return isUsablePdfTitleCandidate(candidate);
+    });
+  if (labeledTitle) return cleanPdfTitleCandidate(labeledTitle[2]);
+
+  const headingTitle = lines
+    .filter((line) => /^#{1,3}\s+\S/.test(line))
+    .map(cleanPdfTitleCandidate)
+    .find(isUsablePdfTitleCandidate);
+  if (headingTitle) return headingTitle;
+
+  const firstContentTitle = lines.map(cleanPdfTitleCandidate).find(isUsablePdfTitleCandidate);
+  return firstContentTitle || 'PDF 课件';
+}

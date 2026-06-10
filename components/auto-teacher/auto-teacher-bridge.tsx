@@ -11,6 +11,7 @@ import {
   AUTO_TEACHER_READY_TYPE,
   AUTO_TEACHER_STATUS_TYPE,
   buildAutoTeacherRequirement,
+  inferAutoTeacherPdfTitle,
   isOriginAllowed,
   parseAllowedOrigins,
   parseAutoTeacherMessage,
@@ -108,6 +109,7 @@ export function AutoTeacherBridge() {
         });
 
         const requirement = buildAutoTeacherRequirement(pdfText);
+        const pdfTitle = inferAutoTeacherPdfTitle(pdfText);
         const sessionState: GenerationSessionState = {
           sessionId: nanoid(),
           requirements: {
@@ -129,7 +131,7 @@ export function AutoTeacherBridge() {
             uploadUrl: payload.uploadUrl,
             sourceOrigin: event.origin,
           },
-          originalRequirement: requirement,
+          originalRequirement: pdfTitle,
         };
 
         sessionStorage.setItem('generationSession', JSON.stringify(sessionState));

@@ -1,3 +1,5 @@
+import { apiPath } from '@/lib/app-paths';
+
 /**
  * A fetch implementation that routes asset requests through the same-origin
  * /api/proxy-media endpoint, bypassing cross-origin CORS restrictions that block
@@ -8,7 +10,7 @@ export function createProxiedFetch(): typeof fetch {
   return (async (input: RequestInfo | URL) => {
     const url =
       typeof input === 'string' ? input : input instanceof URL ? input.href : String(input);
-    return fetch('/api/proxy-media', {
+    return fetch(apiPath('/api/proxy-media'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url }),
