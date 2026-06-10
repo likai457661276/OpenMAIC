@@ -23,6 +23,7 @@ export type AutoTeacherStage = 'received' | 'parsing_pdf' | 'preparing_session' 
 export interface AutoTeacherGenerateMessage {
   type: typeof AUTO_TEACHER_MESSAGE_TYPE;
   file_url: string;
+  courseware_name?: string;
   token: string;
   upload_url: string;
   model?: string;
@@ -32,6 +33,7 @@ export interface AutoTeacherPayload {
   fileUrl: string;
   token: string;
   uploadUrl: string;
+  coursewareName?: string;
   model: AutoTeacherModel;
   providerId: 'qwen';
   modelId: 'qwen3.7-plus' | 'deepseek-v4-flash';
@@ -139,11 +141,16 @@ export function parseAutoTeacherMessage(data: unknown): AutoTeacherPayload {
     throw new Error('Only HTTP(S) upload_url is allowed');
   }
 
+  const coursewareName =
+    typeof payload.courseware_name === 'string'
+      ? cleanPdfTitleCandidate(payload.courseware_name)
+      : '';
   const { model, providerId, modelId, warning } = normalizeAutoTeacherModel(payload.model);
   return {
     fileUrl: url.toString(),
     token: payload.token.trim(),
     uploadUrl: uploadUrl.toString(),
+    ...(coursewareName ? { coursewareName } : {}),
     model,
     providerId,
     modelId,

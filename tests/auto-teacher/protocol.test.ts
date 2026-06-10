@@ -98,6 +98,20 @@ describe('auto-teacher protocol', () => {
     });
   });
 
+  it('accepts courseware_name from the parent postMessage payload', () => {
+    expect(
+      parseAutoTeacherMessage({
+        type: AUTO_TEACHER_MESSAGE_TYPE,
+        file_url: 'https://cdn.example.com/course.pdf',
+        courseware_name: '  生活中的周期现象  ',
+        token: 'token-123',
+        upload_url: 'https://parent.example.com/api/upload',
+      }),
+    ).toMatchObject({
+      coursewareName: '生活中的周期现象',
+    });
+  });
+
   it('rejects missing file_url and non-http urls', () => {
     expect(() => parseAutoTeacherMessage({ type: AUTO_TEACHER_MESSAGE_TYPE })).toThrow(
       'Missing required field: file_url',

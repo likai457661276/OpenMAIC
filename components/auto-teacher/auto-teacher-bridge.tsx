@@ -110,6 +110,7 @@ export function AutoTeacherBridge() {
 
         const requirement = buildAutoTeacherRequirement(pdfText);
         const pdfTitle = inferAutoTeacherPdfTitle(pdfText);
+        const displayTitle = payload.coursewareName || pdfTitle;
         const sessionState: GenerationSessionState = {
           sessionId: nanoid(),
           requirements: {
@@ -131,7 +132,7 @@ export function AutoTeacherBridge() {
             uploadUrl: payload.uploadUrl,
             sourceOrigin: event.origin,
           },
-          originalRequirement: pdfTitle,
+          originalRequirement: displayTitle,
         };
 
         sessionStorage.setItem('generationSession', JSON.stringify(sessionState));
