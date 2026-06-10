@@ -19,6 +19,7 @@ export const AUTO_TEACHER_MAX_PDF_SIZE_BYTES = 50 * 1024 * 1024;
 
 export type AutoTeacherModel = (typeof AUTO_TEACHER_ALLOWED_MODELS)[number];
 export type AutoTeacherStage = 'received' | 'parsing_pdf' | 'preparing_session' | 'redirecting';
+export type AutoTeacherTeachType = 'teacher' | 'classroom';
 
 export interface AutoTeacherGenerateMessage {
   type: typeof AUTO_TEACHER_MESSAGE_TYPE;
@@ -38,6 +39,10 @@ export interface AutoTeacherPayload {
   providerId: 'qwen';
   modelId: 'qwen3.7-plus' | 'deepseek-v4-flash';
   warning?: string;
+}
+
+export function inferAutoTeacherTeachType(pathname: string): AutoTeacherTeachType {
+  return pathname.includes('/classroom/teacher/') ? 'teacher' : 'classroom';
 }
 
 function parseAutoTeacherModelString(model: AutoTeacherModel): {

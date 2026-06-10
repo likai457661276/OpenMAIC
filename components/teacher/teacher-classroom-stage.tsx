@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   AlertCircle,
@@ -45,6 +45,7 @@ import { buildClassroomZipBlob, useExportClassroom } from '@/lib/export/use-expo
 import {
   AUTO_TEACHER_SAVE_ERROR_TYPE,
   AUTO_TEACHER_SAVE_SUCCESS_TYPE,
+  inferAutoTeacherTeachType,
 } from '@/lib/auto-teacher/protocol';
 import { cn } from '@/lib/utils';
 import { SceneRenderer } from '@/components/stage/scene-renderer';
@@ -371,6 +372,7 @@ export function TeacherClassroomStage({
   readonly onRetryOutline?: (outlineId: string) => Promise<void>;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { t } = useI18n();
   const stage = useStageStore((state) => state.stage);
   const mode = useStageStore((state) => state.mode);
@@ -525,6 +527,7 @@ export function TeacherClassroomStage({
       postAutoTeacherSaveMessage({
         type: AUTO_TEACHER_SAVE_SUCCESS_TYPE,
         ...savedFile,
+        teachType: inferAutoTeacherTeachType(pathname),
         ...getOpenMaicVersionPayload(),
         raw: responseData,
       });
@@ -538,7 +541,7 @@ export function TeacherClassroomStage({
     } finally {
       setIsSavingAutoTeacher(false);
     }
-  }, [autoTeacherBridge, canExport, isSavingAutoTeacher, postAutoTeacherSaveMessage]);
+  }, [autoTeacherBridge, canExport, isSavingAutoTeacher, pathname, postAutoTeacherSaveMessage]);
 
   const convertToInteractiveClassroom = useCallback(() => {
     if (!stage?.id || scenes.length === 0) return;
