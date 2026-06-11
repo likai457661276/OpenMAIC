@@ -89,6 +89,14 @@ export function isOriginAllowed(params: {
   return allowedOrigins.includes(origin);
 }
 
+export function isAutoTeacherGenerateMessage(data: unknown): boolean {
+  return Boolean(
+    data &&
+    typeof data === 'object' &&
+    (data as { type?: unknown }).type === AUTO_TEACHER_MESSAGE_TYPE,
+  );
+}
+
 export function normalizeAutoTeacherModel(model: unknown): {
   model: AutoTeacherModel;
   providerId: 'qwen';

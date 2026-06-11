@@ -4,6 +4,7 @@ import {
   buildAutoTeacherRequirement,
   getAutoTeacherAllowedPdfOrigins,
   inferAutoTeacherPdfTitle,
+  isAutoTeacherGenerateMessage,
   isOriginAllowed,
   normalizeAutoTeacherModel,
   parseAllowedOrigins,
@@ -77,6 +78,13 @@ describe('auto-teacher protocol', () => {
         nodeEnv: 'production',
       }),
     ).toBe(false);
+  });
+
+  it('identifies auto teacher generate messages before parsing', () => {
+    expect(isAutoTeacherGenerateMessage({ type: AUTO_TEACHER_MESSAGE_TYPE })).toBe(true);
+    expect(isAutoTeacherGenerateMessage({ type: 'AUTO_TEACHER_READY' })).toBe(false);
+    expect(isAutoTeacherGenerateMessage({})).toBe(false);
+    expect(isAutoTeacherGenerateMessage('AUTO_TEACHER_GENERATE')).toBe(false);
   });
 
   it('accepts valid postMessage payload and normalizes model', () => {

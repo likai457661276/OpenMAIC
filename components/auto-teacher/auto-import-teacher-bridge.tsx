@@ -13,6 +13,7 @@ import {
   AUTO_TEACHER_ERROR_TYPE,
   AUTO_TEACHER_READY_TYPE,
   AUTO_TEACHER_STATUS_TYPE,
+  isAutoTeacherGenerateMessage,
   isOriginAllowed,
   parseAllowedOrigins,
   parseAutoImportTeacherMessage,
@@ -159,6 +160,8 @@ export function AutoImportTeacherBridge() {
     );
 
     const handleMessage = async (event: MessageEvent) => {
+      if (!isAutoTeacherGenerateMessage(event.data)) return;
+
       try {
         const payload = parseAutoImportTeacherMessage(event.data);
 

@@ -12,6 +12,7 @@ import {
   AUTO_TEACHER_STATUS_TYPE,
   buildAutoTeacherRequirement,
   inferAutoTeacherPdfTitle,
+  isAutoTeacherGenerateMessage,
   isOriginAllowed,
   parseAllowedOrigins,
   parseAutoTeacherMessage,
@@ -49,6 +50,8 @@ export function AutoTeacherBridge() {
     };
 
     const handleMessage = async (event: MessageEvent) => {
+      if (!isAutoTeacherGenerateMessage(event.data)) return;
+
       let warning: string | undefined;
       try {
         const payload = parseAutoTeacherMessage(event.data);
