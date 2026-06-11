@@ -119,10 +119,12 @@ describe('auto-teacher protocol', () => {
         type: AUTO_TEACHER_MESSAGE_TYPE,
         zip_url: 'https://cdn.example.com/course.maic.zip',
         teachType: 'teacher',
+        fileName: '  贵州课堂.zip  ',
       }),
     ).toEqual({
       zipUrl: 'https://cdn.example.com/course.maic.zip',
       teachType: 'teacher',
+      fileName: '贵州课堂.zip',
     });
 
     expect(

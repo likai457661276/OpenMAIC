@@ -32,7 +32,16 @@ function replyToParent(event: MessageEvent, message: ParentReply) {
   (target as Window).postMessage(message, event.origin === 'null' ? '*' : event.origin);
 }
 
-function getFileNameFromUrl(zipUrl: string): string {
+function normalizeZipFileName(fileName: string): string {
+  const normalized = fileName.trim().replace(/[\\/]/g, '-');
+  if (!normalized) return '';
+  return normalized.toLowerCase().endsWith('.zip') ? normalized : `${normalized}.maic.zip`;
+}
+
+function getImportFileName(fileName: string | undefined, zipUrl: string): string {
+  const payloadFileName = normalizeZipFileName(fileName || '');
+  if (payloadFileName) return payloadFileName;
+
   try {
     const url = new URL(zipUrl);
     const name = url.pathname.split('/').filter(Boolean).pop();
@@ -190,7 +199,7 @@ export function AutoImportTeacherBridge() {
         }
 
         const blob = await response.blob();
-        const file = new File([blob], getFileNameFromUrl(payload.zipUrl), {
+        const file = new File([blob], getImportFileName(payload.fileName, payload.zipUrl), {
           type: blob.type || 'application/zip',
         });
         dispatchFileInputChange(input, file);

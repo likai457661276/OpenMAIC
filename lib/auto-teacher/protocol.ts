@@ -53,6 +53,7 @@ export interface AutoTeacherPayload {
 export interface AutoImportTeacherPayload {
   zipUrl: string;
   teachType: AutoTeacherTeachType;
+  fileName?: string;
 }
 
 export function inferAutoTeacherTeachType(pathname: string): AutoTeacherTeachType {
@@ -188,6 +189,7 @@ export function parseAutoImportTeacherMessage(data: unknown): AutoImportTeacherP
     zipUrl?: unknown;
     zipurl?: unknown;
     teachType?: unknown;
+    fileName?: unknown;
   };
   if (payload.type !== AUTO_TEACHER_MESSAGE_TYPE) {
     throw new Error('Unsupported message type');
@@ -216,6 +218,9 @@ export function parseAutoImportTeacherMessage(data: unknown): AutoImportTeacherP
   return {
     zipUrl: zipUrl.toString(),
     teachType: payload.teachType,
+    ...(typeof payload.fileName === 'string' && payload.fileName.trim()
+      ? { fileName: payload.fileName.trim() }
+      : {}),
   };
 }
 
@@ -257,7 +262,9 @@ export function inferAutoTeacherPdfTitle(pdfText: string): string {
     .slice(0, 80);
 
   const labeledTitle = lines
-    .map((line) => line.match(/^(标题|题目|课题|主题|章节|章标题|课程标题|单元标题)\s*[:：]\s*(.+)$/))
+    .map((line) =>
+      line.match(/^(标题|题目|课题|主题|章节|章标题|课程标题|单元标题)\s*[:：]\s*(.+)$/),
+    )
     .find((match): match is RegExpMatchArray => {
       const candidate = cleanPdfTitleCandidate(match?.[2] || '');
       return isUsablePdfTitleCandidate(candidate);
