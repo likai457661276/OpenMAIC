@@ -193,7 +193,11 @@ export function AutoImportTeacherBridge() {
 
         setBridgeStatus('received');
         setBridgeStatus('downloading_zip');
-        const response = await fetch(apiPath(payload.zipUrl));
+        const response = await fetch(apiPath('/api/auto-teacher/download-zip'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ zip_url: payload.zipUrl }),
+        });
         if (!response.ok) {
           throw new Error(`ZIP download failed: ${response.status}`);
         }
