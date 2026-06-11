@@ -163,8 +163,6 @@ export function AutoImportTeacherBridge() {
       if (!isAutoTeacherGenerateMessage(event.data)) return;
 
       try {
-        const payload = parseAutoImportTeacherMessage(event.data);
-
         if (
           !isOriginAllowed({
             origin: event.origin,
@@ -183,6 +181,7 @@ export function AutoImportTeacherBridge() {
           return;
         }
 
+        const payload = parseAutoImportTeacherMessage(event.data);
         const input = fileInputRef.current;
         if (!input) {
           throw new Error('Import input is not ready');

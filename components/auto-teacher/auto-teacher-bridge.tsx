@@ -54,9 +54,6 @@ export function AutoTeacherBridge() {
 
       let warning: string | undefined;
       try {
-        const payload = parseAutoTeacherMessage(event.data);
-        warning = payload.warning;
-
         if (
           !isOriginAllowed({
             origin: event.origin,
@@ -74,6 +71,9 @@ export function AutoTeacherBridge() {
           });
           return;
         }
+
+        const payload = parseAutoTeacherMessage(event.data);
+        warning = payload.warning;
 
         processingRef.current = true;
         setBridgeStatus('received');
