@@ -126,14 +126,15 @@ export function AutoImportTeacherBridge() {
       });
 
       setBridgeStatus('redirecting');
-      const nextPath =
+      const routePath =
         teachType === 'teacher'
-          ? appPath(`/classroom/teacher/${importedStage.id}?autoImport=1`)
-          : appPath(`/classroom/${importedStage.id}?autoImport=1`);
+          ? `/classroom/teacher/${importedStage.id}?autoImport=1`
+          : `/classroom/${importedStage.id}?autoImport=1`;
+      const nextPath = appPath(routePath);
       if (event) {
         replyToParent(event, { type: AUTO_TEACHER_READY_TYPE, nextPath });
       }
-      router.replace(nextPath);
+      router.replace(routePath);
     } catch (successError) {
       const message = successError instanceof Error ? successError.message : 'Import failed';
       setError(message);
