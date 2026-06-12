@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next';
 import {
+  AUTO_TEACHER_PRODUCTION_ALLOWED_ORIGINS,
   AUTO_TEACHER_TEST_ALLOWED_ORIGINS,
   isAutoTeacherTestEnvironment,
 } from './lib/auto-teacher/origins';
@@ -27,6 +28,7 @@ function parseFrameAncestorSources(value: string | undefined): string[] {
 
 function getFrameAncestors(): string {
   const ancestors = new Set(["'self'"]);
+  AUTO_TEACHER_PRODUCTION_ALLOWED_ORIGINS.forEach((ancestor) => ancestors.add(ancestor));
   const configuredAncestors = [
     ...parseFrameAncestorSources(process.env.ALLOWED_FRAME_ANCESTORS),
     ...parseFrameAncestorSources(process.env.NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS),
@@ -48,6 +50,7 @@ function getFrameAncestors(): string {
 
 function hasFrameAncestorOverrides(): boolean {
   return (
+    AUTO_TEACHER_PRODUCTION_ALLOWED_ORIGINS.length > 0 ||
     parseFrameAncestorSources(process.env.ALLOWED_FRAME_ANCESTORS).length > 0 ||
     parseFrameAncestorSources(process.env.NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS).length > 0 ||
     isAutoTeacherTestEnvironment() ||

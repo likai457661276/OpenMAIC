@@ -15,7 +15,6 @@ import {
   AUTO_TEACHER_STATUS_TYPE,
   isAutoTeacherGenerateMessage,
   isOriginAllowed,
-  parseAllowedOrigins,
   parseAutoImportTeacherMessage,
   type AutoImportTeacherStage,
   type AutoTeacherTeachType,
@@ -26,6 +25,10 @@ type ParentReply =
   | { type: typeof AUTO_TEACHER_BRIDGE_READY_TYPE }
   | { type: typeof AUTO_TEACHER_READY_TYPE; nextPath: string }
   | { type: typeof AUTO_TEACHER_ERROR_TYPE; error: string };
+
+type AutoImportTeacherBridgeProps = {
+  allowedOrigins: string[];
+};
 
 function replyToParent(event: MessageEvent, message: ParentReply) {
   const target = event.source;
@@ -89,7 +92,7 @@ function resetLocalStatus(
   setStatus('idle');
 }
 
-export function AutoImportTeacherBridge() {
+export function AutoImportTeacherBridge({ allowedOrigins }: AutoImportTeacherBridgeProps) {
   const router = useRouter();
   const processingRef = useRef(false);
   const statusRef = useRef<AutoImportTeacherStage>('idle');
@@ -155,10 +158,6 @@ export function AutoImportTeacherBridge() {
   }, [phase, setBridgeStatus]);
 
   useEffect(() => {
-    const allowedOrigins = parseAllowedOrigins(
-      process.env.NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS,
-    );
-
     const handleMessage = async (event: MessageEvent) => {
       if (!isAutoTeacherGenerateMessage(event.data)) return;
 
@@ -226,7 +225,7 @@ export function AutoImportTeacherBridge() {
     window.addEventListener('message', handleMessage);
     window.parent?.postMessage({ type: AUTO_TEACHER_BRIDGE_READY_TYPE }, '*');
     return () => window.removeEventListener('message', handleMessage);
-  }, [fileInputRef, setBridgeStatus]);
+  }, [allowedOrigins, fileInputRef, setBridgeStatus]);
 
   const label = useMemo(() => stageLabel(status), [status]);
 

@@ -2,6 +2,11 @@ export const AUTO_TEACHER_TEST_ALLOWED_ORIGINS = [
   'http://guizhou.teaching.test.bin-go.me',
 ] as const;
 
+export const AUTO_TEACHER_PRODUCTION_ALLOWED_ORIGINS = [
+  'https://bingo-teaching.app.bin-go.cc',
+  'http://bingo-teaching.app.bin-go.cc',
+] as const;
+
 type AutoTeacherOriginEnv = Partial<NodeJS.ProcessEnv>;
 
 export function isAutoTeacherTestEnvironment(env: AutoTeacherOriginEnv = process.env): boolean {
@@ -16,7 +21,7 @@ export function shouldUseDefaultTestPdfOrigins(env: AutoTeacherOriginEnv = proce
 
 export function parseOriginList(value: string | undefined): string[] {
   return (value || '')
-    .split(',')
+    .split(/[\s,]+/)
     .map((origin) => origin.trim())
     .filter(Boolean);
 }
@@ -26,6 +31,7 @@ export function getAutoTeacherAllowedOrigins(params?: {
   env?: AutoTeacherOriginEnv;
 }): string[] {
   const origins = new Set(parseOriginList(params?.configuredOrigins));
+  AUTO_TEACHER_PRODUCTION_ALLOWED_ORIGINS.forEach((origin) => origins.add(origin));
   if (isAutoTeacherTestEnvironment(params?.env)) {
     AUTO_TEACHER_TEST_ALLOWED_ORIGINS.forEach((origin) => origins.add(origin));
   }

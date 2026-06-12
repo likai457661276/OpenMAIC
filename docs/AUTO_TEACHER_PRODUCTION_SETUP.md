@@ -11,6 +11,31 @@
 
 如果两个系统不是完全同源，包含协议、域名、端口任意一项不同，都需要配置 iframe 与 postMessage 白名单。
 
+当前内置支持的正式父窗口 origin：
+
+```text
+https://bingo-teaching.app.bin-go.cc
+http://bingo-teaching.app.bin-go.cc
+```
+
+注意：OpenMAIC 页面地址可以带 basePath，例如：
+
+```text
+https://bingo-teaching.app.bin-go.cc/bingo-agent-class/auto-teacher
+```
+
+但白名单配置只写 origin：
+
+```text
+https://bingo-teaching.app.bin-go.cc
+```
+
+不要写成：
+
+```text
+https://bingo-teaching.app.bin-go.cc/bingo-agent-class
+```
+
 同源示例：
 
 ```text
@@ -50,6 +75,12 @@ NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS=https://qsh.example.com:8443
 
 ```env
 NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS=https://qsh.example.com,https://qsh-admin.example.com:8443
+```
+
+也支持空格分隔，Docker Compose 中建议仍使用逗号，避免 YAML/平台变量处理差异：
+
+```env
+NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS=https://qsh.example.com,https://school.example.com,https://admin.example.com:8443
 ```
 
 注意：这里配置的是 origin，只包含协议、域名、端口，不要带路径。
@@ -101,7 +132,9 @@ VITE_AI_OPENMAIC_URL=https://openmaic.example.com/bingo-agent-class
 
 ## 5. 重启与构建
 
-OpenMAIC 的 header 配置来自 Next.js `headers()`，修改环境变量后需要重新启动或重新部署 OpenMAIC 服务。
+OpenMAIC 的自动教案白名单同时用于服务端响应头和客户端 `postMessage` 校验。
+
+Docker 生产部署中，客户端不能依赖构建期固化的 `NEXT_PUBLIC_*` 值。当前实现会在请求 `/auto-teacher`、`/auto-import-teacher` 时由服务端读取运行时环境变量并注入页面，因此修改白名单后至少需要重启容器；如果镜像中还包含旧代码，则需要重新构建并发布。
 
 Docker 部署示例：
 
@@ -109,7 +142,13 @@ Docker 部署示例：
 docker compose up --build -d
 ```
 
-如果使用平台部署，请在平台环境变量中配置后重新构建并发布。
+如果只改环境变量且镜像代码已经是新版本，可以重启容器：
+
+```bash
+docker compose up -d
+```
+
+如果使用平台部署，请在平台环境变量中配置后重新发布。为避免平台缓存旧镜像，推荐确认发布后的响应头和页面构建版本。
 
 父窗口项目的 `VITE_` 环境变量会在构建时注入，正式环境修改后也需要重新构建父项目。
 
@@ -137,6 +176,12 @@ curl -I https://openmaic.example.com/bingo-agent-class/auto-teacher
 
 ```text
 Content-Security-Policy: frame-ancestors 'self' https://qsh.example.com
+```
+
+当前正式域名至少应看到：
+
+```text
+Content-Security-Policy: frame-ancestors 'self' https://bingo-teaching.app.bin-go.cc
 ```
 
 如果父窗口带端口，响应头也要带相同端口：
@@ -219,4 +264,3 @@ Failed to execute 'postMessage' on 'DOMWindow': The target origin provided does 
 2. PDF 响应类型是 `application/pdf`、`application/x-pdf` 或 `application/octet-stream`
 3. PDF 文件大小不超过 50MB
 4. 如需访问内网 PDF，必须由运维明确配置允许内网访问策略
-

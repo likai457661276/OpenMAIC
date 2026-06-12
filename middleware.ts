@@ -1,4 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  AUTO_TEACHER_PRODUCTION_ALLOWED_ORIGINS,
+  AUTO_TEACHER_TEST_ALLOWED_ORIGINS,
+  isAutoTeacherTestEnvironment,
+  parseOriginList,
+} from './lib/auto-teacher/origins';
 
 /** Convert string to Uint8Array */
 function encode(str: string): Uint8Array {
@@ -41,35 +47,58 @@ async function verifyToken(token: string, accessCode: string): Promise<boolean> 
   return mismatch === 0;
 }
 
+function getRuntimeFrameAncestors(): string {
+  const ancestors = new Set([
+    "'self'",
+    ...AUTO_TEACHER_PRODUCTION_ALLOWED_ORIGINS,
+    ...parseOriginList(process.env.ALLOWED_FRAME_ANCESTORS),
+    ...parseOriginList(process.env.NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS),
+  ]);
+
+  if (isAutoTeacherTestEnvironment()) {
+    AUTO_TEACHER_TEST_ALLOWED_ORIGINS.forEach((origin) => ancestors.add(origin));
+  }
+
+  return Array.from(ancestors).join(' ');
+}
+
+function withRuntimeFrameHeaders(response: NextResponse): NextResponse {
+  response.headers.set('Content-Security-Policy', `frame-ancestors ${getRuntimeFrameAncestors()}`);
+  response.headers.delete('X-Frame-Options');
+  return response;
+}
+
 export async function middleware(request: NextRequest) {
   const accessCode = process.env.ACCESS_CODE;
   if (!accessCode) {
-    return NextResponse.next();
+    return withRuntimeFrameHeaders(NextResponse.next());
   }
 
   const { pathname } = request.nextUrl;
 
   // Whitelist: access-code endpoints, health check
   if (pathname.startsWith('/api/access-code/') || pathname === '/api/health') {
-    return NextResponse.next();
+    return withRuntimeFrameHeaders(NextResponse.next());
   }
 
   // Check cookie — validate HMAC signature, not just existence
   const cookie = request.cookies.get('openmaic_access');
   if (cookie?.value && (await verifyToken(cookie.value, accessCode))) {
-    return NextResponse.next();
+    return withRuntimeFrameHeaders(NextResponse.next());
   }
 
   // API requests without valid cookie → 401
   if (pathname.startsWith('/api/')) {
-    return NextResponse.json(
-      { success: false, errorCode: 'INVALID_REQUEST', error: 'Access code required' },
-      { status: 401 },
+    return withRuntimeFrameHeaders(
+      NextResponse.json(
+        { success: false, errorCode: 'INVALID_REQUEST', error: 'Access code required' },
+        { status: 401 },
+      ),
     );
   }
 
   // Page requests → let through, frontend shows modal
-  return NextResponse.next();
+  return withRuntimeFrameHeaders(NextResponse.next());
 }
 
 export const config = {

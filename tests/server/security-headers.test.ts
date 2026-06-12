@@ -21,19 +21,16 @@ describe('Security response headers', () => {
       expect(typeof config.headers).toBe('function');
     });
 
-    it('includes X-Frame-Options SAMEORIGIN on all routes', async () => {
+    it('omits X-Frame-Options because the production teaching domain is iframe-allowed by default', async () => {
       const config = await loadConfig();
       const headerGroups = await config.headers!();
       const allRouteGroup = headerGroups.find((g) => g.source === '/(.*)')!;
 
       expect(allRouteGroup).toBeDefined();
-      expect(allRouteGroup.headers).toContainEqual({
-        key: 'X-Frame-Options',
-        value: 'SAMEORIGIN',
-      });
+      expect(allRouteGroup.headers.find((h) => h.key === 'X-Frame-Options')).toBeUndefined();
     });
 
-    it("includes Content-Security-Policy frame-ancestors 'self'", async () => {
+    it("includes Content-Security-Policy frame-ancestors with 'self' and the production teaching domain", async () => {
       const config = await loadConfig();
       const headerGroups = await config.headers!();
       const allRouteGroup = headerGroups.find((g) => g.source === '/(.*)')!;
@@ -41,7 +38,8 @@ describe('Security response headers', () => {
       expect(allRouteGroup).toBeDefined();
       expect(allRouteGroup.headers).toContainEqual({
         key: 'Content-Security-Policy',
-        value: "frame-ancestors 'self'",
+        value:
+          "frame-ancestors 'self' https://bingo-teaching.app.bin-go.cc http://bingo-teaching.app.bin-go.cc",
       });
     });
   });
@@ -55,7 +53,8 @@ describe('Security response headers', () => {
 
       expect(allRouteGroup.headers).toContainEqual({
         key: 'Content-Security-Policy',
-        value: "frame-ancestors 'self' https://partner.example.com",
+        value:
+          "frame-ancestors 'self' https://bingo-teaching.app.bin-go.cc http://bingo-teaching.app.bin-go.cc https://partner.example.com",
       });
     });
 
@@ -77,7 +76,8 @@ describe('Security response headers', () => {
 
       expect(allRouteGroup.headers).toContainEqual({
         key: 'Content-Security-Policy',
-        value: "frame-ancestors 'self' https://a.example.com https://b.example.com",
+        value:
+          "frame-ancestors 'self' https://bingo-teaching.app.bin-go.cc http://bingo-teaching.app.bin-go.cc https://a.example.com https://b.example.com",
       });
     });
   });
@@ -95,7 +95,7 @@ describe('Security response headers', () => {
       expect(allRouteGroup.headers).toContainEqual({
         key: 'Content-Security-Policy',
         value:
-          "frame-ancestors 'self' https://parent.example.com:8443 http://school.example.com:8080",
+          "frame-ancestors 'self' https://bingo-teaching.app.bin-go.cc http://bingo-teaching.app.bin-go.cc https://parent.example.com:8443 http://school.example.com:8080",
       });
     });
 
@@ -124,7 +124,7 @@ describe('Security response headers', () => {
       expect(allRouteGroup.headers).toContainEqual({
         key: 'Content-Security-Policy',
         value:
-          "frame-ancestors 'self' https://parent.example.com https://other.example.com https://school.example.com:8080",
+          "frame-ancestors 'self' https://bingo-teaching.app.bin-go.cc http://bingo-teaching.app.bin-go.cc https://parent.example.com https://other.example.com https://school.example.com:8080",
       });
     });
   });
@@ -140,7 +140,8 @@ describe('Security response headers', () => {
 
       expect(allRouteGroup.headers).toContainEqual({
         key: 'Content-Security-Policy',
-        value: "frame-ancestors 'self' http://guizhou.teaching.test.bin-go.me",
+        value:
+          "frame-ancestors 'self' https://bingo-teaching.app.bin-go.cc http://bingo-teaching.app.bin-go.cc http://guizhou.teaching.test.bin-go.me",
       });
       expect(allRouteGroup.headers.find((h) => h.key === 'X-Frame-Options')).toBeUndefined();
     });
@@ -156,7 +157,7 @@ describe('Security response headers', () => {
       expect(allRouteGroup.headers).toContainEqual({
         key: 'Content-Security-Policy',
         value:
-          "frame-ancestors 'self' http://localhost http://localhost:* http://127.0.0.1 http://127.0.0.1:*",
+          "frame-ancestors 'self' https://bingo-teaching.app.bin-go.cc http://bingo-teaching.app.bin-go.cc http://localhost http://localhost:* http://127.0.0.1 http://127.0.0.1:*",
       });
     });
 

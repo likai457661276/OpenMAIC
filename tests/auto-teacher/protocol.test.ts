@@ -14,10 +14,15 @@ import {
 
 describe('auto-teacher protocol', () => {
   it('parses allowed origins from comma-separated env value', () => {
-    expect(parseAllowedOrigins('https://a.example, https://b.example ,,')).toEqual([
-      'https://a.example',
-      'https://b.example',
-    ]);
+    expect(parseAllowedOrigins('https://a.example, https://b.example ,,')).toEqual(
+      expect.arrayContaining(['https://a.example', 'https://b.example']),
+    );
+  });
+
+  it('includes the production teaching origin by default', () => {
+    expect(parseAllowedOrigins(undefined)).toEqual(
+      expect.arrayContaining(['https://bingo-teaching.app.bin-go.cc']),
+    );
   });
 
   it('adds the Guizhou teaching test origin in test environment', () => {
@@ -43,7 +48,7 @@ describe('auto-teacher protocol', () => {
         configuredParentOrigins: 'http://parent.example.com',
         env: { NODE_ENV: 'production' },
       }),
-    ).toEqual(['http://pdf.example.com', 'http://parent.example.com']);
+    ).toEqual(expect.arrayContaining(['http://pdf.example.com', 'http://parent.example.com']));
   });
 
   it('allows unconfigured origins outside production only', () => {
