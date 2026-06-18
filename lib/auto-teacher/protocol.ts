@@ -37,6 +37,7 @@ export interface AutoTeacherGenerateMessage {
   token: string;
   upload_url: string;
   model?: string;
+  prompt?: string;
 }
 
 export interface AutoTeacherPayload {
@@ -44,6 +45,7 @@ export interface AutoTeacherPayload {
   token: string;
   uploadUrl: string;
   coursewareName?: string;
+  prompt?: string;
   model: AutoTeacherModel;
   providerId: 'qwen';
   modelId: 'qwen3.7-plus' | 'deepseek-v4-flash';
@@ -173,12 +175,14 @@ export function parseAutoTeacherMessage(data: unknown): AutoTeacherPayload {
     typeof payload.courseware_name === 'string'
       ? cleanPdfTitleCandidate(payload.courseware_name)
       : '';
+  const prompt = typeof payload.prompt === 'string' ? payload.prompt.trim() : '';
   const { model, providerId, modelId, warning } = normalizeAutoTeacherModel(payload.model);
   return {
     fileUrl: url.toString(),
     token: payload.token.trim(),
     uploadUrl: uploadUrl.toString(),
     ...(coursewareName ? { coursewareName } : {}),
+    ...(prompt ? { prompt } : {}),
     model,
     providerId,
     modelId,
@@ -232,13 +236,16 @@ export function parseAutoImportTeacherMessage(data: unknown): AutoImportTeacherP
   };
 }
 
-export function buildAutoTeacherRequirement(pdfText: string): string {
+export function buildAutoTeacherRequirement(pdfText: string, customPrompt?: string): string {
   const textLength = Math.min(pdfText.length, MAX_PDF_CONTENT_CHARS);
-  return [
+  const defaultPrompt = [
     '请根据外部系统传入的 PDF 内容，生成教师可直接使用的教案与互动课件流程。',
     '这是自动教案入口：不要要求用户补充输入，不要依赖图片生成、视频生成或 TTS 语音合成。',
     '输出应面向教师备课，覆盖教学目标、重点难点、课堂流程、活动设计、练习/测验建议与可演示的课堂内容。',
     '如果 PDF 中包含章节结构、例题、实验、案例或评价要求，请优先转化为结构化教学环节。',
+  ].join('\n');
+  return [
+    customPrompt?.trim() || defaultPrompt,
     `PDF 文本已解析并传入后续生成链路，当前可用文本长度约 ${textLength} 字符。`,
   ].join('\n');
 }

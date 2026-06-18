@@ -110,7 +110,7 @@ export function AutoTeacherBridge({ allowedOrigins }: AutoTeacherBridgeProps) {
           warning,
         });
 
-        const requirement = buildAutoTeacherRequirement(pdfText);
+        const requirement = buildAutoTeacherRequirement(pdfText, payload.prompt);
         const pdfTitle = inferAutoTeacherPdfTitle(pdfText);
         const displayTitle = payload.coursewareName || pdfTitle;
         const sessionState: GenerationSessionState = {

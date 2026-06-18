@@ -2,6 +2,8 @@ export const AUTO_TEACHER_TEST_ALLOWED_ORIGINS = [
   'http://guizhou.teaching.test.bin-go.me',
 ] as const;
 
+export const AUTO_TEACHER_DEVELOPMENT_FRAME_ANCESTORS = ['*'] as const;
+
 export const AUTO_TEACHER_PRODUCTION_ALLOWED_ORIGINS = [
   'https://bingo-teaching.app.bin-go.cc',
   'http://bingo-teaching.app.bin-go.cc',
@@ -31,8 +33,11 @@ export function getAutoTeacherAllowedOrigins(params?: {
   env?: AutoTeacherOriginEnv;
 }): string[] {
   const origins = new Set(parseOriginList(params?.configuredOrigins));
-  AUTO_TEACHER_PRODUCTION_ALLOWED_ORIGINS.forEach((origin) => origins.add(origin));
-  if (isAutoTeacherTestEnvironment(params?.env)) {
+  const env = params?.env ?? process.env;
+  if (env.NODE_ENV === 'production') {
+    AUTO_TEACHER_PRODUCTION_ALLOWED_ORIGINS.forEach((origin) => origins.add(origin));
+  }
+  if (isAutoTeacherTestEnvironment(env)) {
     AUTO_TEACHER_TEST_ALLOWED_ORIGINS.forEach((origin) => origins.add(origin));
   }
   return Array.from(origins);

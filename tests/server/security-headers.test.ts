@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { NextConfig } from 'next';
+import { NextRequest } from 'next/server';
+import { middleware } from '@/middleware';
 
 async function loadConfig(): Promise<NextConfig> {
   vi.resetModules();
@@ -22,6 +24,7 @@ describe('Security response headers', () => {
     });
 
     it('omits X-Frame-Options because the production teaching domain is iframe-allowed by default', async () => {
+      vi.stubEnv('NODE_ENV', 'production');
       const config = await loadConfig();
       const headerGroups = await config.headers!();
       const allRouteGroup = headerGroups.find((g) => g.source === '/(.*)')!;
@@ -31,6 +34,7 @@ describe('Security response headers', () => {
     });
 
     it("includes Content-Security-Policy frame-ancestors with 'self' and the production teaching domain", async () => {
+      vi.stubEnv('NODE_ENV', 'production');
       const config = await loadConfig();
       const headerGroups = await config.headers!();
       const allRouteGroup = headerGroups.find((g) => g.source === '/(.*)')!;
@@ -46,6 +50,7 @@ describe('Security response headers', () => {
 
   describe('with ALLOWED_FRAME_ANCESTORS', () => {
     it('appends allowed origins to frame-ancestors', async () => {
+      vi.stubEnv('NODE_ENV', 'production');
       process.env.ALLOWED_FRAME_ANCESTORS = 'https://partner.example.com';
       const config = await loadConfig();
       const headerGroups = await config.headers!();
@@ -69,6 +74,7 @@ describe('Security response headers', () => {
     });
 
     it('supports multiple space-separated origins', async () => {
+      vi.stubEnv('NODE_ENV', 'production');
       process.env.ALLOWED_FRAME_ANCESTORS = 'https://a.example.com https://b.example.com';
       const config = await loadConfig();
       const headerGroups = await config.headers!();
@@ -148,7 +154,7 @@ describe('Security response headers', () => {
   });
 
   describe('development iframe embedding', () => {
-    it('allows localhost and 127.0.0.1 on any port in development', async () => {
+    it('allows an external parent page to embed the local development server', async () => {
       vi.stubEnv('NODE_ENV', 'development');
       const config = await loadConfig();
       const headerGroups = await config.headers!();
@@ -156,8 +162,7 @@ describe('Security response headers', () => {
 
       expect(allRouteGroup.headers).toContainEqual({
         key: 'Content-Security-Policy',
-        value:
-          "frame-ancestors 'self' https://bingo-teaching.app.bin-go.cc http://bingo-teaching.app.bin-go.cc http://localhost http://localhost:* http://127.0.0.1 http://127.0.0.1:*",
+        value: "frame-ancestors 'self' *",
       });
     });
 
@@ -170,5 +175,36 @@ describe('Security response headers', () => {
       const xfo = allRouteGroup.headers.find((h) => h.key === 'X-Frame-Options');
       expect(xfo).toBeUndefined();
     });
+  });
+});
+
+describe('Runtime security response headers', () => {
+  afterEach(() => {
+    delete process.env.ACCESS_CODE;
+    delete process.env.ALLOWED_FRAME_ANCESTORS;
+    delete process.env.NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS;
+    vi.unstubAllEnvs();
+  });
+
+  it('keeps external iframe parents allowed when middleware overwrites the development CSP', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+
+    const response = await middleware(
+      new NextRequest('http://localhost:10050/bingo-agent-class/auto-teacher'),
+    );
+
+    expect(response.headers.get('Content-Security-Policy')).toBe("frame-ancestors 'self' *");
+  });
+
+  it('does not add development iframe parents to the production runtime CSP', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+
+    const response = await middleware(
+      new NextRequest('http://localhost:10050/bingo-agent-class/auto-teacher'),
+    );
+
+    expect(response.headers.get('Content-Security-Policy')).toBe(
+      "frame-ancestors 'self' https://bingo-teaching.app.bin-go.cc http://bingo-teaching.app.bin-go.cc",
+    );
   });
 });

@@ -19,10 +19,17 @@ describe('auto-teacher protocol', () => {
     );
   });
 
-  it('includes the production teaching origin by default', () => {
-    expect(parseAllowedOrigins(undefined)).toEqual(
-      expect.arrayContaining(['https://bingo-teaching.app.bin-go.cc']),
-    );
+  it('includes the production teaching origin only in production', () => {
+    expect(
+      getAutoTeacherAllowedPdfOrigins({
+        env: { NODE_ENV: 'production' },
+      }),
+    ).toEqual(expect.arrayContaining(['https://bingo-teaching.app.bin-go.cc']));
+    expect(
+      getAutoTeacherAllowedPdfOrigins({
+        env: { NODE_ENV: 'development' },
+      }),
+    ).not.toContain('https://bingo-teaching.app.bin-go.cc');
   });
 
   it('adds the Guizhou teaching test origin in test environment', () => {
@@ -123,6 +130,20 @@ describe('auto-teacher protocol', () => {
       }),
     ).toMatchObject({
       coursewareName: '生活中的周期现象',
+    });
+  });
+
+  it('accepts and trims an optional prompt from the parent postMessage payload', () => {
+    expect(
+      parseAutoTeacherMessage({
+        type: AUTO_TEACHER_MESSAGE_TYPE,
+        file_url: 'https://cdn.example.com/course.pdf',
+        token: 'token-123',
+        upload_url: 'https://parent.example.com/api/upload',
+        prompt: '  请设计一节探究式课堂。  ',
+      }),
+    ).toMatchObject({
+      prompt: '请设计一节探究式课堂。',
     });
   });
 
@@ -244,6 +265,13 @@ describe('auto-teacher protocol', () => {
     expect(prompt).toContain('教师可直接使用的教案');
     expect(prompt).toContain('不要要求用户补充输入');
     expect(prompt).toContain('不要依赖图片生成、视频生成或 TTS 语音合成');
+  });
+
+  it('uses a custom prompt while keeping the parsed PDF context note', () => {
+    const prompt = buildAutoTeacherRequirement('PDF text', '请突出易错点和分层练习。');
+    expect(prompt).toContain('请突出易错点和分层练习。');
+    expect(prompt).toContain('当前可用文本长度约 8 字符');
+    expect(prompt).not.toContain('不要要求用户补充输入');
   });
 
   it('infers a display title from PDF content headings', () => {

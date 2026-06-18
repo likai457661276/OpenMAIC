@@ -1,17 +1,12 @@
 import type { NextConfig } from 'next';
 import {
+  AUTO_TEACHER_DEVELOPMENT_FRAME_ANCESTORS,
   AUTO_TEACHER_PRODUCTION_ALLOWED_ORIGINS,
   AUTO_TEACHER_TEST_ALLOWED_ORIGINS,
   isAutoTeacherTestEnvironment,
 } from './lib/auto-teacher/origins';
 
 const BASE_PATH = '/bingo-agent-class';
-const DEV_FRAME_ANCESTORS = [
-  'http://localhost',
-  'http://localhost:*',
-  'http://127.0.0.1',
-  'http://127.0.0.1:*',
-];
 
 function publicFeatureFlag(name: string, defaultValue: boolean): string {
   const value = process.env[name] ?? process.env[`NEXT_PUBLIC_${name}`];
@@ -28,7 +23,9 @@ function parseFrameAncestorSources(value: string | undefined): string[] {
 
 function getFrameAncestors(): string {
   const ancestors = new Set(["'self'"]);
-  AUTO_TEACHER_PRODUCTION_ALLOWED_ORIGINS.forEach((ancestor) => ancestors.add(ancestor));
+  if (process.env.NODE_ENV === 'production') {
+    AUTO_TEACHER_PRODUCTION_ALLOWED_ORIGINS.forEach((ancestor) => ancestors.add(ancestor));
+  }
   const configuredAncestors = [
     ...parseFrameAncestorSources(process.env.ALLOWED_FRAME_ANCESTORS),
     ...parseFrameAncestorSources(process.env.NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS),
@@ -40,7 +37,7 @@ function getFrameAncestors(): string {
       AUTO_TEACHER_TEST_ALLOWED_ORIGINS.forEach((ancestor) => ancestors.add(ancestor));
     }
   } else if (process.env.NODE_ENV === 'development') {
-    DEV_FRAME_ANCESTORS.forEach((ancestor) => ancestors.add(ancestor));
+    AUTO_TEACHER_DEVELOPMENT_FRAME_ANCESTORS.forEach((ancestor) => ancestors.add(ancestor));
   } else if (isAutoTeacherTestEnvironment()) {
     AUTO_TEACHER_TEST_ALLOWED_ORIGINS.forEach((ancestor) => ancestors.add(ancestor));
   }
@@ -50,7 +47,7 @@ function getFrameAncestors(): string {
 
 function hasFrameAncestorOverrides(): boolean {
   return (
-    AUTO_TEACHER_PRODUCTION_ALLOWED_ORIGINS.length > 0 ||
+    (process.env.NODE_ENV === 'production' && AUTO_TEACHER_PRODUCTION_ALLOWED_ORIGINS.length > 0) ||
     parseFrameAncestorSources(process.env.ALLOWED_FRAME_ANCESTORS).length > 0 ||
     parseFrameAncestorSources(process.env.NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS).length > 0 ||
     isAutoTeacherTestEnvironment() ||

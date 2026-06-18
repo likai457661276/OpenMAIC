@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
+  AUTO_TEACHER_DEVELOPMENT_FRAME_ANCESTORS,
   AUTO_TEACHER_PRODUCTION_ALLOWED_ORIGINS,
   AUTO_TEACHER_TEST_ALLOWED_ORIGINS,
   isAutoTeacherTestEnvironment,
@@ -48,15 +49,24 @@ async function verifyToken(token: string, accessCode: string): Promise<boolean> 
 }
 
 function getRuntimeFrameAncestors(): string {
-  const ancestors = new Set([
-    "'self'",
-    ...AUTO_TEACHER_PRODUCTION_ALLOWED_ORIGINS,
+  const configuredAncestors = [
     ...parseOriginList(process.env.ALLOWED_FRAME_ANCESTORS),
     ...parseOriginList(process.env.NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS),
-  ]);
+  ];
+  const ancestors = new Set(["'self'", ...configuredAncestors]);
+
+  if (process.env.NODE_ENV === 'production') {
+    AUTO_TEACHER_PRODUCTION_ALLOWED_ORIGINS.forEach((origin) => ancestors.add(origin));
+  }
 
   if (isAutoTeacherTestEnvironment()) {
     AUTO_TEACHER_TEST_ALLOWED_ORIGINS.forEach((origin) => ancestors.add(origin));
+  }
+
+  // next.config.ts also allows local iframe parents in development. Keep the
+  // runtime header in sync because middleware overwrites that static header.
+  if (process.env.NODE_ENV === 'development' && configuredAncestors.length === 0) {
+    AUTO_TEACHER_DEVELOPMENT_FRAME_ANCESTORS.forEach((origin) => ancestors.add(origin));
   }
 
   return Array.from(ancestors).join(' ');
