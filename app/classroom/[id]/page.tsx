@@ -15,6 +15,7 @@ import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
 import { apiPath } from '@/lib/app-paths';
 import { migrateScene } from '@/lib/edit/slide-schema';
 import type { Scene } from '@/lib/types/stage';
+import { shouldHideEmbeddedClassroomBackButton } from '@/lib/auto-teacher/protocol';
 
 const log = createLogger('Classroom');
 
@@ -22,7 +23,10 @@ export default function ClassroomDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const classroomId = params?.id as string;
-  const hideBackButton = searchParams.get('autoImport') === '1';
+  const hideBackButton = shouldHideEmbeddedClassroomBackButton({
+    autoImport: searchParams.get('autoImport'),
+    autoTeacher: searchParams.get('autoTeacher'),
+  });
 
   const { loadFromStorage } = useStageStore();
 
@@ -88,27 +92,36 @@ export default function ClassroomDetailPage() {
         await import('@/lib/orchestration/registry/store');
       const generatedAgentIds = await loadGeneratedAgentsForStage(classroomId);
       const { useSettingsStore } = await import('@/lib/store/settings');
-      if (generatedAgentIds.length > 0) {
-        // Auto mode — use generated agents from IndexedDB
-        useSettingsStore.getState().setAgentMode('auto');
-        useSettingsStore.getState().setSelectedAgentIds(generatedAgentIds);
-      } else {
-        // Preset mode — restore agent IDs saved in the stage at creation time.
-        // Filter out any stale generated IDs that may have been persisted before
-        // the bleed-fix, so they don't resolve against a leftover registry entry.
-        const stage = useStageStore.getState().stage;
-        const stageAgentIds = stage?.agentIds;
-        const registry = useAgentRegistry.getState();
-        const cleanIds = stageAgentIds?.filter((id) => {
+      const { restoreAgentSelection } =
+        await import('@/lib/orchestration/registry/agent-selection');
+      // Keep the user's explicit AgentBar mode/selection when still valid for
+      // this stage instead of unconditionally forcing auto mode (which
+      // clobbered it on every classroom visit); fall back to the stage-derived
+      // defaults otherwise, marking them as NOT user-set so the next classroom
+      // never mistakes them for a choice. Stale generated IDs (from another
+      // stage / pre-bleed-fix) never validate, so they don't resolve against a
+      // leftover registry entry.
+      const settings = useSettingsStore.getState();
+      const registry = useAgentRegistry.getState();
+      const stage = useStageStore.getState().stage;
+      const { selection: next, isUserSet } = restoreAgentSelection({
+        persisted: { mode: settings.agentMode, selectedAgentIds: settings.selectedAgentIds },
+        persistedIsUserSet: settings.agentSelectionIsUserSet,
+        generatedAgentIds,
+        stageAgentIds: stage?.agentIds,
+        isPresetAgent: (id) => {
           const a = registry.getAgent(id);
-          return a && !a.isGenerated;
-        });
-        useSettingsStore.getState().setAgentMode('auto');
-        useSettingsStore
-          .getState()
-          .setSelectedAgentIds(
-            cleanIds && cleanIds.length > 0 ? cleanIds : ['default-1', 'default-2', 'default-3'],
-          );
+          return !!a && !a.isGenerated;
+        },
+      });
+      // restoreAgentSelection returns the persisted object as-is when keeping
+      // it, so reference checks skip redundant store writes.
+      if (next.mode !== settings.agentMode) settings.setAgentMode(next.mode);
+      if (next.selectedAgentIds !== settings.selectedAgentIds) {
+        settings.setSelectedAgentIds(next.selectedAgentIds);
+      }
+      if (isUserSet !== settings.agentSelectionIsUserSet) {
+        settings.setAgentSelectionIsUserSet(isUserSet);
       }
     } catch (error) {
       log.error('Failed to load classroom:', error);

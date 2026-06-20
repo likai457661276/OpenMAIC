@@ -7,6 +7,7 @@ import {
   getServerVideoProviders,
   getServerWebSearchProviders,
   getServerDefaultSelections,
+  getParallelSceneConcurrency,
 } from '@/lib/server/provider-config';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { createLogger } from '@/lib/logger';
@@ -27,6 +28,9 @@ export async function GET() {
       video: getServerVideoProviders(),
       webSearch: getServerWebSearchProviders(),
       defaults: getServerDefaultSelections(),
+      generation: {
+        parallelSceneConcurrency: getParallelSceneConcurrency(),
+      },
     });
   } catch (error) {
     log.error('Error fetching server providers:', error);

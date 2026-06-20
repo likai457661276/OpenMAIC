@@ -58,7 +58,7 @@ function hasFrameAncestorOverrides(): boolean {
 const nextConfig: NextConfig = {
   basePath: BASE_PATH,
   output: process.env.VERCEL ? undefined : 'standalone',
-  transpilePackages: ['mathml2omml', 'pptxgenjs'],
+  transpilePackages: ['mathml2omml', 'pptxgenjs', '@maic/importer'],
   serverExternalPackages: [],
   env: {
     NEXT_PUBLIC_BASE_PATH: BASE_PATH,

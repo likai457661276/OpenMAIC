@@ -1,4 +1,4 @@
-import type { Slide } from '@/lib/types/slides';
+import type { Slide } from '@maic/dsl';
 import type { LessonPlan } from './lesson';
 
 export type TeacherSlideStyle = 'professional' | 'casual' | 'academic' | 'colorful';

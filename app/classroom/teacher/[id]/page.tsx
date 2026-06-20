@@ -13,6 +13,7 @@ import { loadImageMapping } from '@/lib/utils/image-storage';
 import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
 import { apiPath } from '@/lib/app-paths';
 import { createLogger } from '@/lib/logger';
+import { shouldHideEmbeddedClassroomBackButton } from '@/lib/auto-teacher/protocol';
 
 const log = createLogger('TeacherClassroom');
 
@@ -20,7 +21,10 @@ export default function TeacherClassroomPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const classroomId = params?.id as string;
-  const hideBackButton = searchParams.get('autoImport') === '1';
+  const hideBackButton = shouldHideEmbeddedClassroomBackButton({
+    autoImport: searchParams.get('autoImport'),
+    autoTeacher: searchParams.get('autoTeacher'),
+  });
   const { loadFromStorage } = useStageStore();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

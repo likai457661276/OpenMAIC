@@ -1729,9 +1729,10 @@ describe('TTS provider enablement (#665)', () => {
     expect(store.getState().ttsProvidersConfig['browser-native-tts'].enabled).toBe(false);
   });
 
-  it('TTS master toggle is OFF by default on a fresh install', async () => {
+  it('TTS waits for provider discovery on a fresh install', async () => {
     const store = await getStore();
     expect(store.getState().ttsEnabled).toBe(false);
+    expect(store.getState().ttsEnabledUserSet).toBe(false);
   });
 
   it('first server-sync auto-enables TTS when a server provider exists', async () => {
@@ -1747,6 +1748,27 @@ describe('TTS provider enablement (#665)', () => {
     const store = await getStore();
     await store.getState().fetchServerProviders();
     expect(store.getState().ttsEnabled).toBe(false);
+  });
+
+  it('later server-sync enables TTS for persisted users who never chose a value', async () => {
+    const store = await getStore();
+    store.setState({ autoConfigApplied: true, ttsEnabled: false, ttsEnabledUserSet: false });
+    mockServerResponse({ tts: { 'openai-tts': {} } });
+
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().ttsEnabled).toBe(true);
+  });
+
+  it('server-sync respects an explicit user TTS opt-out', async () => {
+    const store = await getStore();
+    store.getState().setTTSEnabled(false);
+    mockServerResponse({ tts: { 'openai-tts': {} } });
+
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().ttsEnabled).toBe(false);
+    expect(store.getState().ttsEnabledUserSet).toBe(true);
   });
 
   it('non-browser-native built-ins default enabled:true (configured ⇒ visible)', async () => {

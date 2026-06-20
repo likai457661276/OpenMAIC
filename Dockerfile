@@ -25,6 +25,7 @@ RUN apk add --no-cache python3 build-base g++ cairo-dev pango-dev jpeg-dev gifli
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/ ./packages/
+COPY scripts/ ./scripts/
 
 RUN pnpm install --frozen-lockfile
 
@@ -37,6 +38,7 @@ ENV NEXT_PUBLIC_MAIC_EDITOR_ENABLED=${NEXT_PUBLIC_MAIC_EDITOR_ENABLED}
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages ./packages
 COPY . .
+COPY --from=deps /app/public/vendor/maic-importer ./public/vendor/maic-importer
 
 RUN pnpm build
 
@@ -52,17 +54,17 @@ ENV HOSTNAME=0.0.0.0
 ENV PORT=10050
 
 RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR}|g" /etc/apk/repositories
-RUN apk add --no-cache libc6-compat cairo pango jpeg giflib librsvg
+RUN apk add --no-cache libc6-compat cairo pango jpeg giflib librsvg su-exec
 
 RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+    adduser --system --uid 1001 nextjs && \
+    mkdir -p /app/data && \
+    chown nextjs:nodejs /app/data
 
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-USER nextjs
-
 EXPOSE 10050
 
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "chown -R nextjs:nodejs /app/data && exec su-exec nextjs:nodejs node server.js"]

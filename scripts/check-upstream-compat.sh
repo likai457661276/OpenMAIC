@@ -58,9 +58,14 @@ awk '
   function isolated(path) {
     return path ~ /^app\/\(teacher\)\/teacher\// ||
       path ~ /^app\/api\/teacher\// ||
+      path ~ /^app\/auto-teacher\// ||
+      path ~ /^app\/auto-import-teacher\// ||
+      path ~ /^app\/api\/auto-teacher\// ||
       path ~ /^app\/join\// ||
       path ~ /^components\/teacher\// ||
+      path ~ /^components\/auto-teacher\// ||
       path ~ /^lib\/teacher\// ||
+      path ~ /^lib\/auto-teacher\// ||
       path == "configs/feature-flags.ts"
   }
 

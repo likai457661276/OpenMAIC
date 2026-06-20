@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useStageStore } from '@/lib/store/stage';
 import { isSceneEditLocked } from '@/lib/edit/regen-lock';
 import { getCurrentModelConfig } from '@/lib/utils/model-config';
@@ -12,8 +12,10 @@ import type { Scene } from '@/lib/types/stage';
 import type { SpeechAction } from '@/lib/types/action';
 import { splitLongSpeechActions } from '@/lib/audio/tts-utils';
 import { isTTSProviderEnabled } from '@/lib/audio/provider-enablement';
-import { getVoxCPMProviderOptions } from '@/lib/audio/voxcpm-voices';
+import { resolveAgentVoiceOptions, pickNarratorAgent } from '@/lib/audio/agent-voice';
+import { useAgentRegistry } from '@/lib/orchestration/registry/store';
 import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
+import { lazyBoundedMap } from '@/lib/utils/concurrency';
 import { createLogger } from '@/lib/logger';
 import { apiPath } from '@/lib/app-paths';
 import { getPublicFeatureFlag } from '@/lib/feature-flags';
@@ -150,13 +152,15 @@ export async function generateAndStoreTTS(
     return;
 
   const ttsProviderConfig = settings.ttsProvidersConfig?.[settings.ttsProviderId];
-  const providerOptions =
-    settings.ttsProviderId === 'voxcpm-tts'
-      ? {
-          ...(ttsProviderConfig?.providerOptions || {}),
-          ...(await getVoxCPMProviderOptions(settings.ttsVoice, { role: 'teacher', language })),
-        }
-      : undefined;
+  // Narration is the teacher's voice — resolve it from the teacher agent profile
+  // through the single resolver (registers + references by id for stable timbre).
+  const teacher = pickNarratorAgent(useAgentRegistry.getState().listAgents());
+  const providerOptions = await resolveAgentVoiceOptions(teacher, {
+    providerId: settings.ttsProviderId,
+    providerConfig: ttsProviderConfig,
+    voiceId: settings.ttsVoice,
+    language,
+  });
   const response = await fetch(apiPath('/api/generate/tts'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -273,6 +277,9 @@ export interface GenerationParams {
 export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
   const { isTeacherMode } = useTeacherMode();
   const voiceNarrationEnabled = !isTeacherMode || getPublicFeatureFlag('voiceNarration');
+  const ttsEnabled = useSettingsStore((state) => state.ttsEnabled);
+  const previousTtsEnabledRef = useRef(ttsEnabled);
+  const ttsBackfillRunningRef = useRef(false);
   const abortRef = useRef(false);
   const generatingRef = useRef(false);
   const mediaAbortRef = useRef<AbortController | null>(null);
@@ -281,6 +288,79 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
   const generateRemainingRef = useRef<((params: GenerationParams) => Promise<void>) | null>(null);
 
   const store = useStageStore;
+
+  // When TTS is enabled during generation, backfill completed scenes. Future
+  // scenes read the latest setting in the loop below, preventing silent early
+  // pages followed by narrated later pages.
+  useEffect(() => {
+    const wasEnabled = previousTtsEnabledRef.current;
+    previousTtsEnabledRef.current = ttsEnabled;
+    if (
+      wasEnabled ||
+      !ttsEnabled ||
+      !voiceNarrationEnabled ||
+      ttsBackfillRunningRef.current
+    ) {
+      return;
+    }
+
+    const settings = useSettingsStore.getState();
+    if (
+      settings.ttsProviderId === 'browser-native-tts' ||
+      !isTTSProviderEnabled(
+        settings.ttsProviderId,
+        settings.ttsProvidersConfig?.[settings.ttsProviderId],
+      )
+    ) {
+      return;
+    }
+
+    const { scenes, stage } = store.getState();
+    if (!stage || scenes.length === 0) return;
+
+    ttsBackfillRunningRef.current = true;
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        for (const scene of scenes) {
+          if (controller.signal.aborted) break;
+          const speechActions = (scene.actions || []).filter(
+            (action): action is SpeechAction => action.type === 'speech' && !!action.text,
+          );
+          const hasMissingAudio = (
+            await Promise.all(
+              speechActions.map(async (action) => {
+                if (!action.audioId) return true;
+                return !(await db.audioFiles.get(action.audioId));
+              }),
+            )
+          ).some(Boolean);
+          if (!hasMissingAudio) continue;
+
+          const result = await generateTTSForScene(
+            scene,
+            stage.languageDirective,
+            controller.signal,
+          );
+          if (result.success) {
+            store.getState().updateScene(scene.id, { actions: scene.actions });
+          } else {
+            log.warn('TTS backfill incomplete for scene', scene.id, result.error);
+          }
+        }
+        await store.getState().saveToStorage();
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          log.warn('TTS backfill failed:', error);
+        }
+      } finally {
+        ttsBackfillRunningRef.current = false;
+      }
+    })();
+
+    return () => controller.abort();
+  }, [store, ttsEnabled, voiceNarrationEnabled]);
 
   const generateRemaining = useCallback(
     async (params: GenerationParams) => {
@@ -340,21 +420,30 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
           .map((a) => a.text);
       }
 
-      // Serial generation loop — two-step per outline
+      // #572: opt-in parallel content fetch. Concurrency is server-configured
+      // (PARALLEL_SCENE_CONCURRENCY), default 0 = off, so out-of-box behaviour is
+      // unchanged.
+      const parallelConcurrency = Math.max(
+        0,
+        // Belt-and-suspenders: the value is already clamped server-side and again
+        // in the settings store; re-clamp here so a stale/garbage store value can
+        // never spawn an unbounded fetch fan-out.
+        Math.floor(useSettingsStore.getState().parallelSceneConcurrency ?? 0),
+      );
+      const useParallelContent = parallelConcurrency > 1 && pending.length > 1;
+
+      // Pipelined generation loop (#572). When parallelism is on, scene *content*
+      // fetches are kicked off up front with bounded concurrency (lazyBoundedMap)
+      // but CONSUMED IN ORDER inside the serial loop below — there is no barrier.
+      // So the first scene paints after content(1)+actions(1)+TTS(1) (same as
+      // serial) while later content fetches run hidden behind earlier scenes'
+      // actions/TTS. Content has no cross-scene dependency, so running it ahead is
+      // safe; actions + TTS stay strictly serial to preserve previousSpeeches
+      // threading and the pause-on-failure UX. With parallelism off this is exactly
+      // the original one-at-a-time loop.
       try {
-        let pausedByFailureOrAbort = false;
-        for (const outline of pending) {
-          if (abortRef.current || store.getState().generationEpoch !== startEpoch) {
-            store.getState().setGenerationStatus('paused');
-            pausedByFailureOrAbort = true;
-            break;
-          }
-
-          store.getState().setCurrentGeneratingOrder(outline.order);
-
-          // Step 1: Generate content
-          options.onPhaseChange?.('content', outline);
-          const contentResult = await fetchSceneContent(
+        const fetchContent = (outline: SceneOutline) =>
+          fetchSceneContent(
             {
               outline,
               allOutlines: outlines,
@@ -368,6 +457,59 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
             signal,
           );
 
+        // Pre-warm content fetches (<= parallelConcurrency in flight), keyed by
+        // outline id. Each promise resolves to a result and never rejects, so an
+        // unexpected throw routes through the same mark-failed path as the serial
+        // loop instead of taking sibling fetches down with it.
+        const contentPromises = useParallelContent
+          ? new Map(
+              lazyBoundedMap(
+                pending,
+                parallelConcurrency,
+                async (outline): Promise<SceneContentResult> => {
+                  options.onPhaseChange?.('content', outline);
+                  try {
+                    return await fetchContent(outline);
+                  } catch (err) {
+                    return {
+                      success: false,
+                      error: err instanceof Error ? err.message : 'Content generation failed',
+                    };
+                  }
+                },
+                {
+                  shouldContinue: () =>
+                    !abortRef.current && store.getState().generationEpoch === startEpoch,
+                },
+              ).map((promise, i) => [pending[i].id, promise] as const),
+            )
+          : null;
+
+        let pausedByFailureOrAbort = false;
+        let hadContentFailure = false;
+        for (const outline of pending) {
+          if (abortRef.current || store.getState().generationEpoch !== startEpoch) {
+            store.getState().setGenerationStatus('paused');
+            pausedByFailureOrAbort = true;
+            break;
+          }
+
+          store.getState().setCurrentGeneratingOrder(outline.order);
+
+          // Step 1: content — await this outline's pre-warmed fetch (parallel),
+          // which usually resolved while the previous scene's actions/TTS ran; or
+          // fetch it now (serial).
+          let contentResult: SceneContentResult;
+          if (contentPromises) {
+            contentResult = (await contentPromises.get(outline.id)) ?? {
+              success: false,
+              error: 'Content generation failed',
+            };
+          } else {
+            options.onPhaseChange?.('content', outline);
+            contentResult = await fetchContent(outline);
+          }
+
           if (!contentResult.success || !contentResult.content) {
             if (abortRef.current || store.getState().generationEpoch !== startEpoch) {
               pausedByFailureOrAbort = true;
@@ -375,6 +517,14 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
             }
             store.getState().addFailedOutline(outline);
             options.onSceneFailed?.(outline, contentResult.error || 'Content generation failed');
+            if (contentPromises) {
+              // Parallel: surface the failure but keep going with the other scenes
+              // (their content is already in flight).
+              hadContentFailure = true;
+              removeGeneratingOutline(outline.id);
+              continue;
+            }
+            // Serial: pause the batch (unchanged behaviour).
             store.getState().setGenerationStatus('paused');
             pausedByFailureOrAbort = true;
             break;
@@ -458,9 +608,15 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
         }
 
         if (!abortRef.current && !pausedByFailureOrAbort) {
-          store.getState().setGenerationStatus('completed');
-          store.getState().setGeneratingOutlines([]);
-          options.onComplete?.();
+          if (hadContentFailure) {
+            // Parallel content phase left some outlines failed but kept going;
+            // surface them for retry instead of signalling a clean completion.
+            store.getState().setGenerationStatus('paused');
+          } else {
+            store.getState().setGenerationStatus('completed');
+            store.getState().setGeneratingOutlines([]);
+            options.onComplete?.();
+          }
         }
       } catch (err: unknown) {
         // AbortError is expected when stop() is called — don't treat as failure

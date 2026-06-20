@@ -54,9 +54,105 @@
 ## 冲突处理原则
 
 - 教师扩展业务优先集中在 `app/(teacher)/teacher/`、`app/api/teacher/`、`components/teacher/`、`lib/teacher/`。
+- 自动教师桥接业务优先集中在 `app/auto-teacher/`、`app/auto-import-teacher/`、`app/api/auto-teacher/`、`components/auto-teacher/`、`lib/auto-teacher/`。
 - 原项目核心能力变化优先通过 `lib/teacher/adapters/` 吸收，不直接扩散到业务组件。
 - 如果官方更新修改了生成、导出、播放或 Prompt 等核心目录，先补适配层测试，再改业务层。
 - `.env.local`、`server-providers.yml` 不进入提交和冲突示例。
+
+## Auto Teacher 与 Auto Import Teacher 保留规则
+
+教师扩展包含两个供父系统通过 `iframe` 调用的自动化入口：
+
+- `/auto-teacher`：接收 PDF 地址和生成参数，创建教师课件，并在教师预览页将导出的课件 ZIP 上传回父系统。
+- `/auto-import-teacher`：接收课件 ZIP 地址，导入为教师课件或普通互动课堂，并跳转到对应详情页。
+
+这两个入口共用来源白名单、消息协议和服务端下载安全策略。合并官方更新时，必须把它们视为一条完整链路，不能只保留入口页面。
+
+| 文件或目录 | 必须保留的当前分支行为 |
+|------|------------------------|
+| `app/auto-teacher/`、`app/auto-import-teacher/` | 页面必须在服务端读取运行时 `NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS`，不能退回仅在构建期固化白名单；两个入口均应支持带 `basePath` 的部署。 |
+| `components/auto-teacher/` | 只处理 `AUTO_TEACHER_GENERATE` 消息；必须先校验 `event.origin` 再解析或执行消息；重复任务不能并发执行；状态、成功和错误消息必须回传给原消息窗口及原 origin。 |
+| `lib/auto-teacher/origins.ts` | 正式环境只允许显式配置和内置正式域名；测试域名只在测试环境启用；开发环境可在未配置白名单时联调，但不能把该宽松策略带入 production。 |
+| `lib/auto-teacher/protocol.ts` | 保留 PDF 生成与 ZIP 导入协议兼容：PDF 参数包括 `file_url`、`token`、`upload_url`，可选 `courseware_name`、`model`、`prompt`；ZIP 地址兼容 `zip_url`、`zipUrl`、`zipurl`，并保留 `teachType=teacher|classroom` 与可选 `fileName`。所有 URL 只允许 HTTP(S)。 |
+| `app/api/auto-teacher/parse-pdf-url/route.ts` | 保留 SSRF 校验、逐次重定向校验、可信 PDF origin 白名单、50MB 大小限制和 PDF Content-Type 校验；不得因联调内网地址而全局关闭 SSRF 防护。 |
+| `app/api/auto-teacher/download-zip/route.ts` | 保留服务端 ZIP 下载代理、逐次重定向 SSRF 校验、可信 ZIP origin 白名单、500MB 大小限制、Content-Type 校验及 `Cache-Control: no-store`。 |
+| `app/generation-preview/page.tsx`、`app/generation-preview/types.ts` | 保留 `teacherMode`、`teacherInteractiveConversion`、`autoTeacherBridge` 和 `originalRequirement`；自动教师生成禁用图片、视频和 TTS，生成完成后进入教师课件路由；与官方新增生成状态字段采用并集，不能互相覆盖。 |
+| `components/teacher/teacher-classroom-stage.tsx` | 保留导出 ZIP 后使用父系统传入的 `upload_url` 和 `token` 上传，并通过 `AUTO_TEACHER_SAVE_SUCCESS` / `AUTO_TEACHER_SAVE_ERROR` 回传结果；不得记录 token 或把 token 写入持久化日志。Auto Teacher 预览由父系统托管，必须隐藏“返回教师备课”按钮。 |
+| `lib/types/stage.ts`、`lib/utils/database.ts`、`lib/utils/stage-storage.ts` | 保留 `teacherMode` 的类型、持久化和列表恢复；如果官方新增其他模式字段，应采用并集。ZIP 导入时必须按 `teachType` 设置 `teacherMode` 并路由到教师或普通课堂详情页。 |
+| `lib/app-paths.ts`、`next.config.ts`、`middleware.ts` | 保留 `basePath` URL 处理和运行时 CSP `frame-ancestors`；配置跨源 iframe 后不能再用 `X-Frame-Options: SAMEORIGIN` 阻断合法父窗口。 |
+
+环境变量仍遵循以下边界：
+
+- `NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS`：父窗口 origin 白名单，同时用于 iframe CSP 和 `postMessage` 来源校验。
+- `AUTO_TEACHER_ALLOWED_PDF_ORIGINS`：允许服务端读取 PDF 的额外 origin。
+- `AUTO_TEACHER_ALLOWED_ZIP_ORIGINS`：允许服务端下载 ZIP 的额外 origin；未配置时可回退到 PDF origin 配置。
+- 白名单只填写 `scheme://host[:port]`，不得包含路径；不得在文档、日志或提交中写入真实 token。
+
+冲突处理后至少运行：
+
+```bash
+pnpm exec vitest run tests/auto-teacher/protocol.test.ts tests/api/auto-teacher-parse-pdf-url.test.ts tests/api/auto-teacher-download-zip.test.ts tests/generation-preview/types.test.ts tests/server/security-headers.test.ts
+pnpm exec tsc --noEmit
+pnpm lint
+```
+
+还应人工验证两条完整链路：
+
+1. 父窗口发送 PDF 生成消息，OpenMAIC 完成解析、生成、教师预览、ZIP 上传和保存结果回传；确认预览 URL 带有 `autoTeacher=1`，且不显示“返回教师备课”按钮。
+2. 父窗口发送 ZIP 导入消息，分别以 `teachType=teacher` 和 `teachType=classroom` 导入，确认 `teacherMode`、目标路由、返回按钮隐藏和 `AUTO_TEACHER_READY.nextPath` 正确。
+
+## 普通互动课堂 TTS 默认与生成一致性
+
+普通互动课堂的语音合成遵循“可用即默认开启、用户选择优先、生成过程前后一致”的约定。同步上游代码时必须同时检查设置同步、生成预览和课堂持久化，避免只合并 UI 开关而造成前几页无语音、后几页有语音。
+
+- `lib/store/settings.ts`：`ttsEnabled` 在本地初始阶段等待 Provider 探测；只要服务端返回至少一个可用 TTS Provider，且用户没有主动设置过总开关，就默认开启。`ttsEnabledUserSet` 用于区分系统默认值与用户显式开启/关闭，后续 Provider 同步不得覆盖用户选择。
+- `app/generation-preview/page.tsx`：正式生成场景前必须完成一次 `/api/server-providers` 同步，确保默认 TTS Provider、音色和总开关已经确定，不能让第一页先于 Provider 同步进入生成。
+- `lib/hooks/use-scene-generator.ts`：每个新场景生成后按最新 TTS 状态合成语音；生成过程中从关闭切换为开启时，必须为本次课堂中已经完成且缺少音频的场景回补 TTS，并保存更新后的场景。
+- 浏览器原生 TTS 只在课堂播放时实时朗读，不生成 `audioId` 对应的音频文件；不能把这种情况误判为服务端 TTS 回补失败。
+- 教师模式和 Auto Teacher 继续遵循各自的媒体能力开关；Auto Teacher 默认禁用 TTS，本节规则不得把它重新开启。
+- 回归验证至少覆盖：服务端存在 TTS 时新课堂默认开启、用户显式关闭后不被同步覆盖、生成中开启后第一页得到回补、无可用 Provider 时保持关闭、浏览器原生 TTS 不触发服务端合成。
+
+## 部署配置保留规则
+
+当前分支同时支持 Docker 开发环境和生产式 standalone 容器，并固定部署在 `/bingo-agent-class` 子路径。合并官方更新时，部署文件和应用运行时配置必须作为同一组变更审查，不能只验证本机 `pnpm dev`。
+
+| 文件或目录 | 必须保留的当前分支行为 |
+|------|------------------------|
+| `package.json`、`pnpm-lock.yaml`、`pnpm-workspace.yaml` | Node.js 保持 `>=20`，pnpm 保持 `>=10`；当前 Docker 镜像使用 Node 22 和 pnpm 10.28.0。合并新增 workspace 包后，postinstall、build、vendor 同步脚本及锁文件必须一致。 |
+| `Dockerfile` | 保留多阶段 standalone 构建、国内 Alpine/npm 镜像参数、原生图形依赖、非 root `nextjs` 用户、`HOSTNAME=0.0.0.0`、容器端口 `10050`，以及 `NEXT_PUBLIC_MAIC_EDITOR_ENABLED` 构建参数。 |
+| `Dockerfile` 与新增 workspace 构建脚本 | 依赖阶段必须复制或延后使用 postinstall 所需的 `scripts/` 和 workspace 源文件。官方若新增 `@maic/dsl`、`@maic/importer`、`@maic/renderer` 等构建或同步脚本，必须实际执行生产镜像构建，避免出现本机成功、镜像因缺少脚本或产物失败。 |
+| `Dockerfile.dev`、`docker-compose.dev.yml` | 保留 Debian 开发镜像及 canvas 相关编译依赖；开发服务监听 `0.0.0.0:10050`，宿主机映射 `10051:10050`；保留源码、`node_modules`、`.next` 和 pnpm store 独立卷，并使用 `pnpm install --frozen-lockfile`。 |
+| `docker-compose.yml` | 保留生产镜像的编辑器构建参数、1GB 内存/交换区限制、`0.0.0.0:10051:10050` 端口映射、`.env.local` 注入、`/app/data` 持久化卷和 `restart: unless-stopped`；如部署环境要求仅供本机 Nginx 访问，可在服务器部署配置中收紧为 `127.0.0.1:10051:10050`，不得在同步时无说明地改变监听策略。 |
+| `.dockerignore`、`.gitignore` | `.env*`（仅放行 `.env.example`）、`server-providers*.yml`、证书、日志和运行数据不得进入构建上下文或版本库；不得通过放宽 ignore 规则修复 Docker 构建。 |
+| `next.config.ts`、`lib/app-paths.ts` | 保留固定 `basePath=/bingo-agent-class`、`NEXT_PUBLIC_BASE_PATH`、非 Vercel standalone 输出和 workspace transpile 配置；新增页面、API、静态资源及父窗口回传路径必须使用 basePath 安全的路径工具。 |
+| `middleware.ts` | 保留运行时 CSP、访问码 HMAC 校验和 `/api/health` 放行；生产环境变量修改后只需重启容器即可更新 iframe 白名单，不能重新退化为仅构建期生效。 |
+| `.env.local`、`server-providers.yml` | 两者均为部署侧配置且不得提交。Compose 的基础设施环境变量不能用空值覆盖 `env_file` 中的 Provider、默认模型、白名单、访问码或设置页密码。挂载 `server-providers.yml` 时必须使用只读方式。 |
+| `DEPLOYMENT-zh.md`、`docs/AUTO_TEACHER_PRODUCTION_SETUP.md` | 保留 Nginx 不移除 `/bingo-agent-class` 前缀的约定，以及 Auto Teacher 父窗口 URL、CSP 和运行时白名单部署说明；代码行为变化时同步更新文档。 |
+
+部署配置的合并验收至少包括：
+
+```bash
+docker compose config
+docker compose -f docker-compose.dev.yml config
+docker compose build openmaic
+docker compose -f docker-compose.dev.yml build openmaic
+```
+
+容器启动后至少检查：
+
+```bash
+curl -I http://127.0.0.1:10051/bingo-agent-class/
+curl -I http://127.0.0.1:10051/bingo-agent-class/api/health
+curl -I http://127.0.0.1:10051/bingo-agent-class/auto-teacher
+curl -I http://127.0.0.1:10051/bingo-agent-class/auto-import-teacher
+```
+
+同时确认：
+
+1. 静态资源和 API 请求都保留 `/bingo-agent-class` 前缀，没有 404 或重复前缀。
+2. `/app/data` 中的课堂数据在容器重建后仍存在。
+3. 正式环境未把 `.env.local`、`server-providers.yml`、token 或 API Key 打入镜像层和构建日志。
+4. Nginx 反向代理不 rewrite 子路径，长时间生成请求的读写超时配置符合部署文档。
 
 ## 媒体 Provider 配置保留规则
 
@@ -84,6 +180,8 @@ pnpm lint
 
 - 当前教师扩展分支中，落在隔离边界之外的改动文件。
 - 本地与 `upstream/main` 同时改动的文件。
+
+脚本中的教师扩展隔离边界必须与本文保持一致。除传统教师目录外，还应包含 `app/auto-teacher/`、`app/auto-import-teacher/`、`app/api/auto-teacher/`、`components/auto-teacher/` 和 `lib/auto-teacher/`；无论文件是否位于隔离边界内，只要本地与上游同时修改，仍必须列为冲突候选并人工审查。
 
 可通过环境变量覆盖默认引用：
 

@@ -11,6 +11,7 @@ import { parseModelString, PROVIDERS } from '@/lib/ai/providers';
 import type { ThinkingConfig } from '@/lib/types/provider';
 import { getThinkingConfigKey, supportsConfigurableThinking } from '@/lib/ai/thinking-config';
 import type { TTSProviderId, ASRProviderId, BuiltInTTSProviderId } from '@/lib/audio/types';
+import type { AgentVoiceOverride } from '@/lib/audio/voice-resolver';
 import { isCustomTTSProvider, isCustomASRProvider } from '@/lib/audio/types';
 import { ASR_PROVIDERS, DEFAULT_TTS_VOICES, TTS_PROVIDERS } from '@/lib/audio/constants';
 import { DEFAULT_VOXCPM_BACKEND, VOXCPM_MODEL_ID, VOXCPM_VLLM_MODEL_ID } from '@/lib/audio/voxcpm';
@@ -178,7 +179,13 @@ export interface SettingsState {
 
   // Global TTS/ASR toggles
   ttsEnabled: boolean;
+  /** Whether the user explicitly changed the TTS master toggle. */
+  ttsEnabledUserSet: boolean;
   asrEnabled: boolean;
+
+  // Server-configured opt-in parallel scene-content concurrency (#572).
+  // 0 = off (serial generation); populated by fetchServerProviders.
+  parallelSceneConcurrency: number;
 
   // Auto-config lifecycle flag (persisted)
   autoConfigApplied: boolean;
@@ -196,6 +203,19 @@ export interface SettingsState {
   selectedAgentIds: string[];
   agentMode: 'preset' | 'auto';
   autoAgentCount: number;
+  /**
+   * Per-agent voice picks made in the AgentBar, keyed by agent id. Lives here
+   * (persisted) rather than on registry AgentConfig records because default
+   * agents are reset from code and generated agents are rebuilt from IndexedDB
+   * on every load. Highest-priority input to resolveAgentVoice.
+   */
+  agentVoiceOverrides: Record<string, AgentVoiceOverride>;
+  /**
+   * Whether agentMode/selectedAgentIds were explicitly set by the user (in the
+   * AgentBar), as opposed to stage-derived defaults written by a classroom
+   * load. Only a user-set selection carries across classrooms on restore.
+   */
+  agentSelectionIsUserSet: boolean;
 
   // Layout preferences (persisted via localStorage)
   sidebarCollapsed: boolean;
@@ -222,6 +242,9 @@ export interface SettingsState {
   setSelectedAgentIds: (ids: string[]) => void;
   setAgentMode: (mode: 'preset' | 'auto') => void;
   setAutoAgentCount: (count: number) => void;
+  /** Set (or clear, with `undefined`) the persisted voice pick for one agent. */
+  setAgentVoiceOverride: (agentId: string, voice: AgentVoiceOverride | undefined) => void;
+  setAgentSelectionIsUserSet: (isUserSet: boolean) => void;
 
   // Layout actions
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -816,6 +839,8 @@ export const useSettingsStore = create<SettingsState>()(
         selectedAgentIds: migratedData?.selectedAgentIds || ['default-1', 'default-2', 'default-3'],
         agentMode: 'auto' as const,
         autoAgentCount: 3,
+        agentVoiceOverrides: {},
+        agentSelectionIsUserSet: false,
 
         // Playback controls
         ttsMuted: false,
@@ -848,11 +873,14 @@ export const useSettingsStore = create<SettingsState>()(
         videoGenerationEnabled: false,
         reviewOutlineEnabled: false,
 
-        // TTS is OFF by default; auto-enabled on first server-sync when a TTS
-        // provider is configured (mirrors image/video). Fresh installs with no
-        // provider stay off and show an "enable browser-native" CTA (#665).
+        // TTS starts pending provider discovery. Server sync enables it whenever
+        // a usable provider exists, unless the user explicitly opted out.
         ttsEnabled: false,
+        ttsEnabledUserSet: false,
         asrEnabled: true,
+
+        // Off until the server reports a concurrency via fetchServerProviders.
+        parallelSceneConcurrency: 0,
 
         autoConfigApplied: false,
 
@@ -934,6 +962,17 @@ export const useSettingsStore = create<SettingsState>()(
 
         setAgentMode: (mode) => set({ agentMode: mode }),
         setAutoAgentCount: (count) => set({ autoAgentCount: count }),
+        setAgentVoiceOverride: (agentId, voice) =>
+          set((state) => {
+            const next = { ...state.agentVoiceOverrides };
+            if (voice) {
+              next[agentId] = voice;
+            } else {
+              delete next[agentId];
+            }
+            return { agentVoiceOverrides: next };
+          }),
+        setAgentSelectionIsUserSet: (isUserSet) => set({ agentSelectionIsUserSet: isUserSet }),
 
         // Layout actions
         setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
@@ -1114,7 +1153,7 @@ export const useSettingsStore = create<SettingsState>()(
           set({ videoGenerationEnabled: enabled });
         },
         setReviewOutlineEnabled: (enabled) => set({ reviewOutlineEnabled: enabled }),
-        setTTSEnabled: (enabled) => set({ ttsEnabled: enabled }),
+        setTTSEnabled: (enabled) => set({ ttsEnabled: enabled, ttsEnabledUserSet: true }),
         setASREnabled: (enabled) => set({ asrEnabled: enabled }),
 
         // Custom audio provider actions
@@ -1232,6 +1271,7 @@ export const useSettingsStore = create<SettingsState>()(
                 imageProvider?: string;
                 imageModel?: string;
               };
+              generation?: { parallelSceneConcurrency?: number };
             };
 
             set((state) => {
@@ -1407,7 +1447,8 @@ export const useSettingsStore = create<SettingsState>()(
               const buildFallback = <T extends string>(
                 config: Record<
                   string,
-                  { isServerConfigured?: boolean; apiKey?: string; serverDisabled?: boolean } | undefined
+                  | { isServerConfigured?: boolean; apiKey?: string; serverDisabled?: boolean }
+                  | undefined
                 >,
               ): T[] => [
                 // Server-disabled providers (TTS only) are never fallback targets.
@@ -1620,12 +1661,6 @@ export const useSettingsStore = create<SettingsState>()(
                   autoTtsVoice =
                     DEFAULT_TTS_VOICES[autoTtsProvider as BuiltInTTSProviderId] || 'default';
                 }
-                // Auto-enable TTS on first run when a server provider exists
-                // (mirrors image/video). No provider ⇒ stays off + CTA.
-                if (serverTtsIds.length > 0 && !state.ttsEnabled) {
-                  autoTtsEnabled = true;
-                }
-
                 // ASR: select first server provider if current is not server-configured
                 const serverAsrIds = Object.keys(data.asr) as ASRProviderId[];
                 if (
@@ -1667,6 +1702,17 @@ export const useSettingsStore = create<SettingsState>()(
                 }
               }
 
+              // TTS is default-on whenever the server exposes a usable provider.
+              // Keep this outside the one-time autoConfigApplied block: persisted
+              // users must not miss the default, while an explicit choice wins.
+              if (
+                serverTtsIds.length > 0 &&
+                !state.ttsEnabled &&
+                !state.ttsEnabledUserSet
+              ) {
+                autoTtsEnabled = true;
+              }
+
               // (LLM first-load auto-select removed: the symmetric provider
               // recovery + resolveSelectedModel above now resolve LLM provider
               // and model atomically at the source, covering server-configured
@@ -1680,6 +1726,13 @@ export const useSettingsStore = create<SettingsState>()(
                 imageProvidersConfig: newImageConfig,
                 videoProvidersConfig: newVideoConfig,
                 webSearchProvidersConfig: newWebSearchConfig,
+                // Already clamped server-side (getParallelSceneConcurrency); this
+                // re-clamp is intentional belt-and-suspenders against a malformed
+                // response. The consumer (use-scene-generator) clamps once more.
+                parallelSceneConcurrency: Math.max(
+                  0,
+                  Math.floor(data.generation?.parallelSceneConcurrency ?? 0),
+                ),
                 autoConfigApplied: true,
                 // Validated selections
                 ...(shouldApplyServerDefaultModel
@@ -1874,10 +1927,13 @@ export const useSettingsStore = create<SettingsState>()(
           state.reviewOutlineEnabled = false;
         }
 
-        // Add default audio toggles if missing. TTS defaults OFF (opt-in / CTA);
-        // first server-sync auto-enables it when a provider is configured (#665).
+        // Add default audio toggles if missing. TTS waits for provider discovery;
+        // server sync enables it by default when a usable provider is available.
         if ((state as Record<string, unknown>).ttsEnabled === undefined) {
           (state as Record<string, unknown>).ttsEnabled = false;
+        }
+        if ((state as Record<string, unknown>).ttsEnabledUserSet === undefined) {
+          (state as Record<string, unknown>).ttsEnabledUserSet = false;
         }
         if ((state as Record<string, unknown>).asrEnabled === undefined) {
           (state as Record<string, unknown>).asrEnabled = true;

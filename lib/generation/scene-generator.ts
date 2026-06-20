@@ -36,7 +36,7 @@ import {
   formatImageDescription,
   formatImagePlaceholder,
 } from './prompt-formatters';
-import type { PPTElement, Slide, SlideBackground, SlideTheme } from '@/lib/types/slides';
+import type { PPTElement, Slide, SlideBackground, SlideTheme } from '@maic/dsl';
 import type { QuizQuestion } from '@/lib/types/stage';
 import type {
   Action,
@@ -69,6 +69,7 @@ export interface SceneContentOptions {
   agents?: AgentInfo[];
   languageDirective?: string;
   thinkingConfig?: ThinkingConfig;
+  allowProceduralSkill?: boolean;
 }
 
 export interface SceneActionsOptions {
@@ -291,6 +292,7 @@ export async function generateSceneContent(
     agents,
     languageDirective,
     thinkingConfig,
+    allowProceduralSkill = false,
   } = options;
 
   // Unified path for interactive scenes (both normal and ultra mode)
@@ -314,7 +316,7 @@ export async function generateSceneContent(
     }
 
     // Route to widget generation (handles all 5 types)
-    return generateWidgetContent(outline, aiCall, languageDirective);
+    return generateWidgetContent(outline, aiCall, languageDirective, { allowProceduralSkill });
   }
 
   switch (outline.type) {
@@ -1027,10 +1029,11 @@ function extractHtml(response: string): string | null {
 /**
  * Generate widget content based on widget type (Ultra Mode)
  */
-async function generateWidgetContent(
+export async function generateWidgetContent(
   outline: SceneOutline,
   aiCall: AICallFn,
   languageDirective?: string,
+  options: { allowProceduralSkill?: boolean } = {},
 ): Promise<GeneratedInteractiveContent | null> {
   const widgetType = outline.widgetType;
   const widgetOutline = outline.widgetOutline;
@@ -1103,6 +1106,26 @@ async function generateWidgetContent(
         keyPoints: (outline.keyPoints || []).join('\n'),
         objects: widgetOutline.objects || [],
         interactions: widgetOutline.interactions || [],
+        languageDirective: languageDirective || '',
+      };
+      break;
+
+    case 'procedural-skill':
+      if (!options.allowProceduralSkill) {
+        log.warn(`Procedural-skill widget "${outline.title}" is not enabled`);
+        return null;
+      }
+      promptId = PROMPT_IDS.PROCEDURAL_SKILL_CONTENT;
+      variables = {
+        title: outline.title,
+        procedureType: widgetOutline.procedureType || 'custom',
+        task: widgetOutline.task || widgetOutline.concept || outline.title,
+        description: outline.description,
+        keyPoints: (outline.keyPoints || []).join('\n'),
+        tools: widgetOutline.tools || [],
+        steps: widgetOutline.steps || [],
+        successCriteria: widgetOutline.successCriteria || [],
+        errorConsequences: widgetOutline.errorConsequences || [],
         languageDirective: languageDirective || '',
       };
       break;

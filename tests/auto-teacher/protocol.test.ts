@@ -10,9 +10,17 @@ import {
   parseAllowedOrigins,
   parseAutoImportTeacherMessage,
   parseAutoTeacherMessage,
+  shouldHideEmbeddedClassroomBackButton,
 } from '@/lib/auto-teacher/protocol';
 
 describe('auto-teacher protocol', () => {
+  it('hides classroom back navigation for embedded auto flows only', () => {
+    expect(shouldHideEmbeddedClassroomBackButton({ autoTeacher: '1' })).toBe(true);
+    expect(shouldHideEmbeddedClassroomBackButton({ autoImport: '1' })).toBe(true);
+    expect(shouldHideEmbeddedClassroomBackButton({})).toBe(false);
+    expect(shouldHideEmbeddedClassroomBackButton({ autoTeacher: '0' })).toBe(false);
+  });
+
   it('parses allowed origins from comma-separated env value', () => {
     expect(parseAllowedOrigins('https://a.example, https://b.example ,,')).toEqual(
       expect.arrayContaining(['https://a.example', 'https://b.example']),

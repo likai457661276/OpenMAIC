@@ -12,7 +12,7 @@ import type {
   TeacherSlideType,
   UpdateSlideSetInput,
 } from '@/lib/teacher/types/slide';
-import type { PPTTextElement, Slide } from '@/lib/types/slides';
+import type { PPTTextElement, Slide } from '@maic/dsl';
 
 export const TEACHER_SLIDES_DIR = path.join(TEACHER_DATA_DIR, 'slides');
 

@@ -31,6 +31,7 @@ export interface StageListItem {
   updatedAt: number;
   interactiveMode?: boolean;
   teacherMode?: boolean;
+  taskEngineMode?: boolean;
 }
 
 /**
@@ -54,6 +55,7 @@ export async function saveStageData(stageId: string, data: StageStoreData): Prom
       videoManifest: data.stage.videoManifest,
       interactiveMode: data.stage.interactiveMode,
       teacherMode: data.stage.teacherMode,
+      taskEngineMode: data.stage.taskEngineMode,
     });
 
     // Delete old scenes first to avoid orphaned data
@@ -169,6 +171,7 @@ export async function listStages(): Promise<StageListItem[]> {
           teacherMode:
             stage.teacherMode ??
             stage.name.startsWith('请根据以下教师备课需求生成教师可直接使用的教案与课堂内容。'),
+          taskEngineMode: stage.taskEngineMode,
         };
       }),
     );
@@ -187,7 +190,7 @@ type ThumbnailMediaElement = {
   poster?: string;
 };
 
-type ThumbnailSlide = import('../types/slides').Slide;
+type ThumbnailSlide = import('@maic/dsl').Slide;
 
 function isGeneratedMediaRef(value: unknown): value is string {
   return typeof value === 'string' && /^gen_(img|vid)_[\w-]+$/i.test(value);

@@ -53,7 +53,7 @@ import { HeaderControls } from '@/components/stage/header-controls';
 import { EditShell } from '@/components/edit/EditShell';
 import { SlideNavRail } from '@/components/edit/SlideNavRail';
 import { LectureNotesView } from '@/components/chat/lecture-notes-view';
-import { ThumbnailSlide } from '@/components/slide-renderer/components/ThumbnailSlide';
+import { SlideThumbnail } from '@/components/slide-renderer/SlideThumbnail';
 import { ThumbnailInteractive } from '@/components/slide-renderer/components/ThumbnailInteractive';
 import { InteractiveIframeHost } from '@/components/scene-renderers/InteractiveIframeHost';
 import { ThemeSwitcher } from '@/components/theme-switcher';
@@ -202,7 +202,7 @@ function SceneThumbnail({
       )}
     >
       {slideContent ? (
-        <ThumbnailSlide
+        <SlideThumbnail
           slide={slideContent.canvas}
           viewportSize={viewportSize}
           viewportRatio={viewportRatio}
@@ -672,7 +672,7 @@ export function TeacherClassroomStage({
             : 'w-0 overflow-hidden border-r-0 p-0',
         )}
       >
-        {!hideBackButton && (
+        {!hideBackButton && !autoTeacherBridge && (
           <button
             onClick={() => router.push('/teacher')}
             className="mb-4 flex h-9 items-center gap-2 rounded-md px-2 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"

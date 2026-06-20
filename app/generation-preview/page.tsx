@@ -14,7 +14,8 @@ import { useSettingsStore } from '@/lib/store/settings';
 import { useAgentRegistry } from '@/lib/orchestration/registry/store';
 import { getEnabledProvidersWithVoices } from '@/lib/audio/voice-resolver';
 import { isTTSProviderEnabled } from '@/lib/audio/provider-enablement';
-import { getVoxCPMProviderOptions, useVoxCPMVoiceProfiles } from '@/lib/audio/voxcpm-voices';
+import { useVoxCPMVoiceProfiles } from '@/lib/audio/voxcpm-voices';
+import { resolveAgentVoiceOptions, pickNarratorAgent } from '@/lib/audio/agent-voice';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import {
   loadImageMapping,
@@ -39,6 +40,7 @@ import { generateAndStoreTTS } from '@/lib/hooks/use-scene-generator';
 import { splitLongSpeechActions } from '@/lib/audio/tts-utils';
 import { type GenerationSessionState, ALL_STEPS, getActiveSteps } from './types';
 import { StepVisualizer } from './components/visualizers';
+import { resolveTaskEngineModeFromOutlineDoneEvent } from './vocational-mode';
 
 const log = createLogger('GenerationPreview');
 const OUTLINE_REVIEW_AUTO_CONTINUE_MS = 2500;
@@ -258,6 +260,7 @@ function GenerationPreviewContent() {
         if (parsed.previewPhase === 'review' && !parsed.sceneOutlines?.length) {
           outlineReviewIntentRef.current = true;
         }
+        parsed.taskEngineMode = parsed.taskEngineMode === true;
         setSession(parsed);
       } catch (e) {
         log.error('Failed to parse generation session:', e);
@@ -859,6 +862,7 @@ function GenerationPreviewContent() {
         updatedAt: Date.now(),
         interactiveMode: !!currentSession.requirements.interactiveMode,
         teacherMode: currentSession.teacherMode || undefined,
+        taskEngineMode: currentSession.taskEngineMode === true,
       };
 
       // ── Generate outlines first (infers languageDirective) ──
@@ -875,6 +879,7 @@ function GenerationPreviewContent() {
         const outlineResult = await new Promise<{
           outlines: SceneOutline[];
           languageDirective: string;
+          taskEngineMode: boolean;
         }>((resolve, reject) => {
           const collected: SceneOutline[] = [];
           let directive: string | undefined;
@@ -936,6 +941,7 @@ function GenerationPreviewContent() {
                             languageDirective:
                               directive ||
                               'Teach in the language that matches the user requirement.',
+                            taskEngineMode: resolveTaskEngineModeFromOutlineDoneEvent(evt),
                           });
                           return;
                         } else if (evt.type === 'error') {
@@ -953,6 +959,7 @@ function GenerationPreviewContent() {
                         outlines: collected,
                         languageDirective:
                           directive || 'Teach in the language that matches the user requirement.',
+                        taskEngineMode: false,
                       });
                     } else {
                       reject(new Error(t('generation.outlineEmptyResponse')));
@@ -969,6 +976,7 @@ function GenerationPreviewContent() {
 
         outlines = outlineResult.outlines;
         languageDirective = outlineResult.languageDirective;
+        const effectiveTaskEngineMode = outlineResult.taskEngineMode;
         setIsOutlineStreaming(false);
 
         // Mid-stream review intent (sticky ref) overrides the auto-continue timer.
@@ -979,6 +987,7 @@ function GenerationPreviewContent() {
           ...currentSession,
           sceneOutlines: outlines,
           languageDirective,
+          taskEngineMode: effectiveTaskEngineMode,
           previewPhase: shouldReviewOutlines ? 'review' : 'outline-ready',
         };
         persistSession(updatedSession);
@@ -992,6 +1001,7 @@ function GenerationPreviewContent() {
         currentSession = {
           ...currentSession,
           sceneOutlines: outlines,
+          taskEngineMode: effectiveTaskEngineMode,
           previewPhase: 'generating-content',
         };
         persistSession(currentSession);
@@ -1012,6 +1022,7 @@ function GenerationPreviewContent() {
       if (!outlines || outlines.length === 0) {
         throw new Error(t('generation.outlineEmptyResponse'));
       }
+      stage.taskEngineMode = currentSession.taskEngineMode === true;
 
       // Store languageDirective on the stage
       if (languageDirective) {
@@ -1133,6 +1144,8 @@ function GenerationPreviewContent() {
           const { saveGeneratedAgents } = await import('@/lib/orchestration/registry/store');
           const savedIds = await saveGeneratedAgents(stage.id, agentData.agents);
           settings.setSelectedAgentIds(savedIds);
+          // Stage-derived, not a user choice — must not carry across classrooms.
+          settings.setAgentSelectionIsUserSet(false);
           stage.agentIds = savedIds;
 
           // Show card-reveal modal, continue generation once all cards are revealed
@@ -1236,6 +1249,7 @@ function GenerationPreviewContent() {
             stageId: stage.id,
             agents,
             languageDirective,
+            requirements: currentSession.requirements,
           }),
         ),
         signal,
@@ -1294,16 +1308,14 @@ function GenerationPreviewContent() {
         )
       ) {
         const ttsProviderConfig = settings.ttsProvidersConfig?.[settings.ttsProviderId];
-        const providerOptions =
-          settings.ttsProviderId === 'voxcpm-tts'
-            ? {
-                ...(ttsProviderConfig?.providerOptions || {}),
-                ...(await getVoxCPMProviderOptions(settings.ttsVoice, {
-                  role: 'teacher',
-                  language: languageDirective,
-                })),
-              }
-            : undefined;
+        // Narration uses the teacher agent's voice (single resolver → stable timbre).
+        const teacherAgent = pickNarratorAgent(useAgentRegistry.getState().listAgents());
+        const providerOptions = await resolveAgentVoiceOptions(teacherAgent, {
+          providerId: settings.ttsProviderId,
+          providerConfig: ttsProviderConfig,
+          voiceId: settings.ttsVoice,
+          language: languageDirective,
+        });
         const speechActions = (data.scene.actions || []).filter(
           (a: { type: string; text?: string }) => a.type === 'speech' && a.text,
         );
@@ -1404,7 +1416,13 @@ function GenerationPreviewContent() {
 
       sessionStorage.removeItem('generationSession');
       await store.saveToStorage();
-      router.push(teacherMode ? `/classroom/teacher/${stage.id}` : `/classroom/${stage.id}`);
+      const classroomPath = teacherMode
+        ? `/classroom/teacher/${stage.id}`
+        : `/classroom/${stage.id}`;
+      const autoTeacherQuery = currentSession.autoTeacherBridge?.enabled
+        ? '?autoTeacher=1'
+        : '';
+      router.push(`${classroomPath}${autoTeacherQuery}`);
     } catch (err) {
       setIsOutlineStreaming(false);
       // AbortError is expected when navigating away — don't show as error

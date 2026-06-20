@@ -62,6 +62,13 @@ export function inferAutoTeacherTeachType(pathname: string): AutoTeacherTeachTyp
   return pathname.includes('/classroom/teacher/') ? 'teacher' : 'classroom';
 }
 
+export function shouldHideEmbeddedClassroomBackButton(params: {
+  autoImport?: string | null;
+  autoTeacher?: string | null;
+}): boolean {
+  return params.autoImport === '1' || params.autoTeacher === '1';
+}
+
 function parseAutoTeacherModelString(model: AutoTeacherModel): {
   providerId: 'qwen';
   modelId: 'qwen3.7-plus' | 'deepseek-v4-flash';
