@@ -64,12 +64,18 @@ export function SpeechButton({
   const sizeClasses = isMd ? 'h-8 w-8' : 'h-6 w-6';
   const iconSize = isMd ? 'w-4 h-4' : 'w-3.5 h-3.5';
   const barH = isMd ? 14 : 10;
+  const buttonLabel = isProcessing
+    ? t('roundtable.processing')
+    : isRecording
+      ? t('voice.stopListening')
+      : t('voice.startListening');
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <button
           type="button"
+          aria-label={buttonLabel}
           disabled={isDisabled || isProcessing}
           onClick={handleClick}
           className={cn(
@@ -138,11 +144,7 @@ export function SpeechButton({
         </button>
       </TooltipTrigger>
       <TooltipContent side="top" className="text-xs">
-        {isProcessing
-          ? t('roundtable.processing')
-          : isRecording
-            ? t('voice.stopListening')
-            : t('voice.startListening')}
+        {buttonLabel}
       </TooltipContent>
     </Tooltip>
   );

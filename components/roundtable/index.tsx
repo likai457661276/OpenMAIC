@@ -1143,11 +1143,7 @@ export function Roundtable({
                       />
 
                       <div className="w-10 h-10 rounded-full bg-white dark:bg-gray-800 overflow-hidden relative z-10 shadow-sm border border-gray-50 dark:border-gray-700">
-                        <img
-                          src={teacherAvatar}
-                          alt={teacherName}
-                          className="w-full h-full object-cover"
-                        />
+                        <AvatarDisplay src={teacherAvatar} alt={teacherName} />
                       </div>
 
                       {activeRole === 'teacher' && (
@@ -1180,11 +1176,7 @@ export function Roundtable({
                       <>
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 bg-gray-100 dark:bg-gray-800">
-                            <img
-                              src={teacherAvatar}
-                              alt={teacherName}
-                              className="w-full h-full object-cover"
-                            />
+                            <AvatarDisplay src={teacherAvatar} alt={teacherName} />
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate">{teacherName}</p>

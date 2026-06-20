@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { createLogger } from '@/lib/logger';
+import { assetPath } from '@/lib/app-paths';
 import type { Slide } from '@maic/dsl';
 // Type-only import: stripped at compile time, never reaches the bundler.
 // pdfjs-dist (transitively pulled by `maic-importer/src`) uses dynamic
@@ -59,7 +60,7 @@ export function useImportPptx(options: UseImportPptxOptions = {}) {
         // Static URL → bundler never sees the import target.
         // `scripts/sync-maic-importer.mjs` copies the prebuilt dist into
         // `public/vendor/` after every `pnpm install`.
-        const url = '/vendor/maic-importer/index.js';
+        const url = assetPath('/vendor/maic-importer/index.js');
 
         // Runtime guard: the bundle is a gitignored artifact synced into
         // public/vendor during postinstall. If a deploy skipped that step the
