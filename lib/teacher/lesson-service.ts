@@ -14,6 +14,11 @@ export const TEACHER_DATA_DIR = path.join(process.cwd(), 'data', 'teacher');
 export const TEACHER_LESSONS_DIR = path.join(TEACHER_DATA_DIR, 'lessons');
 
 const DEFAULT_DURATION = 45;
+export const MIN_LESSON_DURATION = 20;
+
+export function isValidLessonDuration(value: unknown): value is number {
+  return Number.isInteger(value) && Number(value) >= MIN_LESSON_DURATION;
+}
 
 function lessonFilePath(id: string) {
   return path.join(TEACHER_LESSONS_DIR, `${id}.json`);
@@ -39,10 +44,23 @@ function normalizeLines(value?: string[] | string): string[] {
 }
 
 function distributeDuration(total: number, weights: number[]): number[] {
-  const base = weights.map((weight) => Math.max(5, Math.round(total * weight)));
-  const diff = total - base.reduce((sum, item) => sum + item, 0);
-  base[base.length - 1] += diff;
-  return base;
+  const minimumPerPhase = 5;
+  const remaining = total - minimumPerPhase * weights.length;
+  const weightTotal = weights.reduce((sum, weight) => sum + weight, 0);
+  const exactShares = weights.map((weight) => (remaining * weight) / weightTotal);
+  const allocated = exactShares.map(Math.floor);
+  let remainder = remaining - allocated.reduce((sum, item) => sum + item, 0);
+
+  const remainderOrder = exactShares
+    .map((share, index) => ({ index, fraction: share - allocated[index] }))
+    .sort((a, b) => b.fraction - a.fraction || a.index - b.index);
+  for (const { index } of remainderOrder) {
+    if (remainder === 0) break;
+    allocated[index] += 1;
+    remainder -= 1;
+  }
+
+  return allocated.map((duration) => duration + minimumPerPhase);
 }
 
 function buildTeachingProcess(input: CreateLessonInput): TeachingPhase[] {
@@ -90,13 +108,20 @@ export function createLessonPlanFromInput(input: CreateLessonInput): LessonPlan 
   const now = new Date().toISOString();
   const objectives = normalizeLines(input.objectives);
   const topic = input.topic.trim();
+  const duration = input.duration ?? DEFAULT_DURATION;
+
+  if (!isValidLessonDuration(duration)) {
+    throw new Error(
+      `Lesson duration must be an integer of at least ${MIN_LESSON_DURATION} minutes`,
+    );
+  }
 
   return {
     id: nanoid(10),
     title: topic,
     subject: input.subject.trim(),
     grade: input.grade.trim(),
-    duration: input.duration || DEFAULT_DURATION,
+    duration,
     createdAt: now,
     updatedAt: now,
     status: 'generated',
@@ -174,6 +199,11 @@ export async function updateTeacherLesson(
   id: string,
   patch: UpdateLessonInput,
 ): Promise<LessonPlan | null> {
+  if (patch.duration !== undefined && !isValidLessonDuration(patch.duration)) {
+    throw new Error(
+      `Lesson duration must be an integer of at least ${MIN_LESSON_DURATION} minutes`,
+    );
+  }
   const existing = await getTeacherLesson(id);
   if (!existing) return null;
 

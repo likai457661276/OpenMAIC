@@ -808,6 +808,8 @@
     "asrNotSupported": "Браузер не поддерживает Speech Recognition API",
     "browserTTSNotSupported": "Браузер не поддерживает Speech Synthesis API",
     "browserTTSNoVoices": "В текущем браузере нет доступных голосов TTS",
+    "ttsManagedByConfig": "TTS управляется файлом конфигурации, поэтому на этой странице нельзя изменить провайдера, голос или параметры подключения.",
+    "asrManagedByConfig": "ASR управляется файлом конфигурации, поэтому на этой странице нельзя изменить провайдера, язык или параметры подключения.",
     "microphoneAccessDenied": "Доступ к микрофону запрещён",
     "microphoneAccessFailed": "Не удалось получить доступ к микрофону",
     "asrResultPlaceholder": "Результат распознавания появится после записи",

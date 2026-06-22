@@ -3,7 +3,7 @@ import path from 'path';
 import { nanoid } from 'nanoid';
 import { writeJsonFileAtomic } from '@/lib/server/classroom-storage';
 import { isValidTeacherResourceId, TEACHER_DATA_DIR } from './lesson-service';
-import { getQuizSet, updateQuizSet } from './quiz-service';
+import { getQuizSet, gradeQuizQuestion, updateQuizSet } from './quiz-service';
 import type {
   CreateQuizSessionInput,
   Participant,
@@ -32,13 +32,6 @@ function sessionFilePath(id: string) {
 
 function createSessionCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000));
-}
-
-function normalizeAnswer(answer: string | string[]): string[] {
-  return (Array.isArray(answer) ? answer : [answer])
-    .map((item) => String(item).trim().toLowerCase())
-    .filter(Boolean)
-    .sort();
 }
 
 export async function getQuizSession(id: string): Promise<QuizSession | null> {
@@ -155,19 +148,16 @@ export async function submitQuizAnswer(input: {
   if (!quizSet) throw new Error('Quiz not found');
   const question = quizSet.questions.find((item) => item.id === input.questionId);
   if (!question) throw new Error('Question not found');
+  if (!session.participants.some((participant) => participant.id === input.participantId)) {
+    throw new Error('Participant not found');
+  }
 
-  const submitted = normalizeAnswer(input.answer);
-  const expected = normalizeAnswer(question.correctAnswer);
-  const isShortAnswer = question.type === 'short-answer';
-  const isCorrect =
-    isShortAnswer ||
-    (submitted.length === expected.length &&
-      submitted.every((item, index) => item === expected[index]));
+  const { isCorrect, score } = gradeQuizQuestion(question, input.answer);
   const answer: ParticipantAnswer = {
     questionId: question.id,
     answer: input.answer,
     isCorrect,
-    score: isCorrect ? question.score : 0,
+    score,
     answeredAt: new Date().toISOString(),
     timeTaken: Math.max(0, Number(input.timeTaken || 0)),
   };

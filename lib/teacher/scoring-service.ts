@@ -8,25 +8,12 @@ import type {
   ScoreRange,
   SessionReport,
 } from './types';
-import { getQuizSet } from './quiz-service';
+import { getQuizSet, gradeQuizQuestion } from './quiz-service';
 import { getQuizSession } from './realtime-service';
 
-function normalizeAnswer(answer: string | string[]): string[] {
-  return (Array.isArray(answer) ? answer : [answer])
-    .map((item) => String(item).trim().toLowerCase())
-    .filter(Boolean)
-    .sort();
-}
-
 export function scoreQuestion(question: QuizQuestion, answer: string | string[]): QuestionResult {
-  const submitted = normalizeAnswer(answer);
-  const expected = normalizeAnswer(question.correctAnswer);
-  const exact =
-    submitted.length === expected.length &&
-    submitted.every((item, index) => item === expected[index]);
   const isShortAnswer = question.type === 'short-answer';
-  const isCorrect = isShortAnswer ? submitted.join(' ').length >= 8 : exact;
-  const score = isCorrect ? question.score : 0;
+  const { isCorrect, score } = gradeQuizQuestion(question, answer);
 
   return {
     questionId: question.id,

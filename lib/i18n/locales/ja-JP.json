@@ -808,6 +808,8 @@
     "asrNotSupported": "お使いのブラウザは音声認識APIに対応していません",
     "browserTTSNotSupported": "お使いのブラウザは音声合成APIに対応していません",
     "browserTTSNoVoices": "お使いのブラウザに利用可能なTTSボイスがありません",
+    "ttsManagedByConfig": "TTS は設定ファイルで管理されているため、このページではプロバイダー、音声、接続設定を変更できません。",
+    "asrManagedByConfig": "ASR は設定ファイルで管理されているため、このページではプロバイダー、言語、接続設定を変更できません。",
     "microphoneAccessDenied": "マイクへのアクセスが拒否されました",
     "microphoneAccessFailed": "マイクへのアクセスに失敗しました",
     "asrResultPlaceholder": "録音後に認識結果が表示されます",

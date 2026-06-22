@@ -188,6 +188,15 @@
       "imageUrlPlaceholder": "https://…",
       "imageInsert": "Inserir"
     },
+    "interactive": {
+      "title": "Editor de página interativa",
+      "description": "Edite o título, a URL ou o HTML incorporado desta página interativa com visualização ao vivo.",
+      "pageTitle": "Título da página",
+      "url": "URL da página",
+      "html": "HTML incorporado",
+      "emptyPreview": "Adicione HTML ou uma URL para visualizar",
+      "noScene": "A página interativa atual não está disponível"
+    },
     "nav": {
       "addSlide": "Adicionar slide",
       "duplicate": "Duplicar",
@@ -799,6 +808,8 @@
     "asrNotSupported": "O navegador não suporta a API de Reconhecimento de Fala",
     "browserTTSNotSupported": "O navegador não suporta a API de Síntese de Fala",
     "browserTTSNoVoices": "O navegador atual não tem vozes TTS disponíveis",
+    "ttsManagedByConfig": "O TTS é gerenciado pelo arquivo de configuração; esta página não permite alterar o provedor, a voz ou as configurações de conexão.",
+    "asrManagedByConfig": "O ASR é gerenciado pelo arquivo de configuração; esta página não permite alterar o provedor, o idioma ou as configurações de conexão.",
     "microphoneAccessDenied": "Acesso ao microfone negado",
     "microphoneAccessFailed": "Falha ao acessar o microfone",
     "asrResultPlaceholder": "O resultado do reconhecimento aparecerá após a gravação",

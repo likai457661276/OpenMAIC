@@ -76,10 +76,6 @@
     "unknown": "알 수 없음",
     "stopDiscussion": "토론 중단",
     "endQA": "Q&A 종료",
-    "error": {
-      "emptyAgentResponses": "에이전트가 빈 응답을 반환하여 토론이 중단되었습니다. 다시 시도하거나 모델 설정을 확인하세요.",
-      "streamInterrupted": "스트림이 예기치 않게 종료되어 토론이 완료되지 않았습니다. 다시 시도해 주세요."
-    },
     "tabs": {
       "lecture": "노트",
       "chat": "채팅"
@@ -205,6 +201,15 @@
       "imageOr": "또는 이미지 URL 붙여넣기",
       "imageUrlPlaceholder": "https://…",
       "imageInsert": "삽입"
+    },
+    "interactive": {
+      "title": "인터랙티브 페이지 편집기",
+      "description": "실시간 미리보기와 함께 인터랙티브 코스웨어 페이지의 제목, URL 또는 임베드 HTML을 편집합니다.",
+      "pageTitle": "페이지 제목",
+      "url": "페이지 URL",
+      "html": "임베드 HTML",
+      "emptyPreview": "미리보려면 HTML 또는 URL을 추가하세요",
+      "noScene": "현재 인터랙티브 페이지를 사용할 수 없습니다"
     },
     "nav": {
       "addSlide": "슬라이드 추가",
@@ -482,6 +487,13 @@
   "settings": {
     "title": "설정",
     "description": "앱 설정 구성",
+    "passwordTitle": "설정 비밀번호 확인",
+    "passwordDescription": "설정을 보거나 변경하기 전에 비밀번호를 입력하세요.",
+    "passwordLabel": "설정 비밀번호",
+    "passwordPlaceholder": "설정 비밀번호 입력",
+    "passwordSubmit": "확인",
+    "passwordChecking": "비밀번호 확인 중...",
+    "passwordError": "비밀번호가 올바르지 않습니다",
     "language": "언어",
     "languageDesc": "인터페이스 언어 선택",
     "theme": "테마",
@@ -525,6 +537,8 @@
     "multiAgentMode": "멀티 에이전트 모드",
     "agentsCollaborating": "협업 토론",
     "agentsCollaboratingCount": "{{count}}개 에이전트가 협업 토론에 참여 중입니다",
+    "maxTurns": "최대 토론 턴 수",
+    "maxTurnsDesc": "에이전트 간 토론의 최대 턴 수입니다. 각 에이전트의 작업과 응답 완료를 한 턴으로 계산합니다.",
     "priority": "우선순위",
     "actions": "액션",
     "actionCount": "{{count}}개 액션",
@@ -711,6 +725,7 @@
     "ttsApiKey": "API 키",
     "doubaoAppId": "앱 ID",
     "doubaoAccessKey": "액세스 키",
+    "doubaoAuthHint": "새 콘솔: App ID는 비워 두고 API Key를 Access Key에 붙여 넣으세요. 이전 콘솔: API Key 이름이 아닌 실제 App ID와 Access Token을 입력하세요.",
     "asrProvider": "ASR 제공업체",
     "asrLanguage": "인식 언어",
     "asrBaseUrl": "기본 URL",
@@ -793,6 +808,8 @@
     "asrNotSupported": "브라우저가 Speech Recognition API를 지원하지 않습니다",
     "browserTTSNotSupported": "브라우저가 Speech Synthesis API를 지원하지 않습니다",
     "browserTTSNoVoices": "현재 브라우저에 사용 가능한 TTS 음성이 없습니다",
+    "ttsManagedByConfig": "TTS가 설정 파일에서 관리되므로 이 페이지에서는 제공업체, 음성 또는 연결 설정을 변경할 수 없습니다.",
+    "asrManagedByConfig": "ASR이 설정 파일에서 관리되므로 이 페이지에서는 제공업체, 언어 또는 연결 설정을 변경할 수 없습니다.",
     "microphoneAccessDenied": "마이크 접근이 거부되었습니다",
     "microphoneAccessFailed": "마이크 접근에 실패했습니다",
     "asrResultPlaceholder": "녹음 후 인식 결과가 표시됩니다",
@@ -1022,6 +1039,7 @@
     "imageModel": "이미지 생성 모델",
     "providerSeedream": "Seedream (ByteDance)",
     "providerOpenAIImage": "OpenAI Image",
+    "providerSiliconFlowImage": "SiliconFlow 이미지",
     "providerQwenImage": "Qwen Image (Alibaba)",
     "providerNanoBanana": "Nano Banana (Gemini)",
     "providerMiniMaxImage": "MiniMax Image",

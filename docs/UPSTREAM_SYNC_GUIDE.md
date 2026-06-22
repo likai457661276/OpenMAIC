@@ -1,33 +1,36 @@
-# OpenMAIC 官方版本同步指南
+# OpenMAIC 主线版本同步指南
 
-本文档用于在教师扩展版本中同步官方 OpenMAIC 更新，并尽量降低长期维护成本。
+本文档用于把官方 `upstream/main` 的更新同步到当前教师扩展分支，并记录合并时必须保留的定制行为、冲突热点与验证方式。项目中的“合并 main”默认均指合并 `upstream/main`；只有用户明确要求时才使用 `origin/main`。
 
 ## 分支约定
 
 | 分支 | 用途 |
 |------|------|
-| `main` | 教师扩展生产分支 |
-| `develop` | 教师扩展开发集成分支 |
-| `upstream/main` | 官方 OpenMAIC 追踪分支 |
-| `sync/upstream-vX.X.X` | 单次官方更新同步分支 |
+| `bingo-v1` | 当前教师扩展集成分支；如后续更名，以实际工作分支为准 |
+| `upstream/main` | 官方 OpenMAIC 主线，也是默认合并来源 |
+| `origin/main` | 当前 fork 的主分支，不作为默认主线合并来源 |
+| `sync/upstream-YYYYMMDD` | 单次官方主线同步分支，从当前教师扩展分支创建 |
 | `feature/*` | 日常功能开发分支 |
+
+不要把 `origin/main`、`upstream/main` 和当前教师扩展分支混为一谈。创建同步分支前，应使用 `git branch -vv` 和 `git remote -v` 确认实际分支及远程关系。
 
 ## 同步流程
 
-1. 更新官方远程：
+1. 确认工作区没有会被合并覆盖的未提交修改，并更新远程引用：
 
    ```bash
+   git status --short
    git fetch upstream main
    ```
 
-2. 从教师扩展开发分支创建同步分支：
+2. 从当前教师扩展分支创建同步分支：
 
    ```bash
-   git switch develop
-   git switch -c sync/upstream-vX.X.X
+   git switch bingo-v1
+   git switch -c sync/upstream-YYYYMMDD
    ```
 
-3. 合并官方更新：
+3. 合并官方主线：
 
    ```bash
    git merge upstream/main
@@ -38,7 +41,7 @@
 5. 运行兼容检查：
 
    ```bash
-   scripts/check-upstream-compat.sh
+   BASE_REF="$(git merge-base HEAD upstream/main)" UPSTREAM_REF=upstream/main scripts/check-upstream-compat.sh
    ```
 
 6. 运行项目验证：
@@ -49,7 +52,7 @@
    pnpm build
    ```
 
-7. Code Review 后合并到 `develop`，再按发布流程进入 `main`。
+7. Code Review 后把同步分支合并回当前教师扩展集成分支。不得把教师扩展定制反向合入 `upstream/main`；只有用户明确要求时才操作 `origin/main`。
 
 ## 冲突处理原则
 
@@ -58,6 +61,43 @@
 - 原项目核心能力变化优先通过 `lib/teacher/adapters/` 吸收，不直接扩散到业务组件。
 - 如果官方更新修改了生成、导出、播放或 Prompt 等核心目录，先补适配层测试，再改业务层。
 - `.env.local`、`server-providers.yml` 不进入提交和冲突示例。
+
+## 默认模型与服务端 Provider 保留规则
+
+当前部署默认使用 OpenAI-compatible 的豆包 Provider。模型选择、服务端托管配置与客户端设置必须作为一条链路审查，不能只保留设置页中的 Provider 名称。
+
+| 文件或目录 | 必须保留的当前分支行为 |
+|------|------------------------|
+| `lib/server/provider-config.ts` | 未配置 `DEFAULT_MODEL` 时回退到 `doubao:ep-20260225155849-krdlt`；同时支持环境变量和 `server-providers.yml`；默认模型必须出现在对应服务端 Provider 的公开模型列表中。 |
+| `lib/server/resolve-model.ts` | 模型解析顺序保留“阶段模型 → 请求模型 → `DEFAULT_MODEL` → 部署 fallback”；服务端托管 Provider 的 key 和 base URL 由服务端配置决定，客户端不得覆盖。 |
+| `lib/ai/providers.ts`、`lib/ai/model-metadata.ts` | 保留 `doubao` Provider、Ark OpenAI-compatible 连接方式、Seed 模型列表及 thinking/reasoning 参数映射；合并官方新模型时采用并集。 |
+| `lib/store/settings.ts`、`app/api/server-providers/route.ts` | 客户端只接收可公开的 Provider、模型和 managed 状态，不得暴露 API key 或服务端 base URL；当前模型失效时应回退到服务端默认模型。 |
+| `.env.example`、`DEPLOYMENT-zh.md` | 保留 `DOUBAO_API_KEY`、`DOUBAO_BASE_URL`、`DOUBAO_MODELS` 和 `DEFAULT_MODEL` 的无密钥示例。 |
+
+冲突处理后至少运行：
+
+```bash
+pnpm exec vitest run tests/server/provider-config.test.ts tests/server/resolve-model.test.ts tests/store/settings-server-sync.test.ts tests/ai/thinking-config.test.ts
+pnpm exec tsc --noEmit
+```
+
+## 教师课件模型与转互动课堂保留规则
+
+教师课件不是普通课堂数据的别名。合并上游的 `Slide`、`Scene`、生成流程或导出逻辑时，必须保留教师课件模型以及从教师预览转为学生互动课堂的完整上下文。
+
+| 文件或目录 | 必须保留的当前分支行为 |
+|------|------------------------|
+| `lib/teacher/types/slide.ts` | `TeacherSlide.content` 继续承载 `@maic/dsl` 的 `Slide`，并保留讲稿 `notes`、时长 `duration`、来源任务/课堂 ID 和教师课件样式；官方新增字段应兼容合并，不得退回与普通 `Scene` 混用。 |
+| `lib/teacher/slide-service.ts`、`lib/teacher/export-service.ts` | 教师课件的生成、保存、更新、来源追踪与 PPTX 导出继续围绕同一 `TeacherSlideSet` 工作。 |
+| `components/teacher/teacher-classroom-stage.tsx` | “转互动课堂”必须把当前课件页面、讲稿和讨论信息写入转换需求，设置 `agentMode=auto`、启用 TTS，并写入完整的 `generationSession`。 |
+| `app/generation-preview/page.tsx`、`app/generation-preview/types.ts` | 保留 `teacherInteractiveConversion`、`teacherInteractiveSource` 和 `originalRequirement`；教师转换不得重新走普通 PDF 解析或大纲重建流程，并与上游新增生成状态取并集。 |
+
+`generationSession` 至少保留 `requirements.interactiveMode=true`、`teacherMode=true`、`teacherInteractiveConversion=true`、`teacherInteractiveSource.stage`、`teacherInteractiveSource.scenes` 和 `originalRequirement`。合并后应验证生成内容面向学生讲解，而不是生成教师备课说明。
+
+```bash
+pnpm exec vitest run tests/generation-preview/types.test.ts tests/teacher/services.test.ts tests/teacher/adapters.test.ts
+pnpm exec tsc --noEmit
+```
 
 ## Auto Teacher 与 Auto Import Teacher 保留规则
 
@@ -111,6 +151,52 @@ pnpm lint
 - 浏览器原生 TTS 只在课堂播放时实时朗读，不生成 `audioId` 对应的音频文件；不能把这种情况误判为服务端 TTS 回补失败。
 - 教师模式和 Auto Teacher 继续遵循各自的媒体能力开关；Auto Teacher 默认禁用 TTS，本节规则不得把它重新开启。
 - 回归验证至少覆盖：服务端存在 TTS 时新课堂默认开启、用户显式关闭后不被同步覆盖、生成中开启后第一页得到回补、无可用 Provider 时保持关闭、浏览器原生 TTS 不触发服务端合成。
+
+## 首页交互模式、职教任务与语音输入
+
+普通课堂首页的输入工具栏包含交互模式、职教任务和语音输入三项定制能力。它们会改变生成参数或输入内容，不能在合并首页 UI 时只保留外观。
+
+| 文件或目录 | 必须保留的当前分支行为 |
+|------|------------------------|
+| `app/page.tsx` | 普通首页展示交互模式和语音输入；交互模式使用 `interactiveModeEnabled` 在 `localStorage` 中持久化，并写入 `generationSession.requirements.interactiveMode`。教师首页不展示这两项学生侧控件。 |
+| `app/page.tsx`、`playwright.config.ts` | `NEXT_PUBLIC_SHOW_VOCATIONAL_TEST_UI` 控制职教任务入口；启用后提交请求必须同时写入 `interactiveMode=true` 和 `taskEngineMode=true`。E2E 启动环境必须保留相关功能变量。 |
+| `components/audio/speech-button.tsx` | 语音按钮仅在 ASR 可用时启用；转写结果追加到需求输入；录音中必须仍可停止，并保留随录音/处理状态变化的可访问名称。 |
+| `components/roundtable/index.tsx` | 教师及参与者头像统一使用 `AvatarDisplay` 解析，避免 `basePath` 部署下头像路径失效。 |
+| `lib/import/use-import-pptx.ts` | 浏览器加载 `/vendor/maic-importer/index.js` 时必须通过 `assetPath()` 处理固定子路径部署。 |
+
+合并首页、输入工具栏、语音、职教任务、头像或 PPTX 导入代码后至少运行：
+
+```bash
+pnpm exec vitest run tests/classroom/roundtable-avatar-path.test.ts
+pnpm exec playwright test e2e/tests/home-to-generation.spec.ts
+pnpm exec tsc --noEmit
+```
+
+人工检查普通首页刷新后交互模式仍保持；职教任务生成会同时开启互动与任务引擎；`/teacher` 首页不出现交互模式和语音按钮；在 `/bingo-agent-class` 下头像与 PPTX 导入脚本均无 404。
+
+## 教师教案时长与课堂测验一致性
+
+教师扩展的教案与实时测验属于当前分支定制能力。同步上游或调整教师业务时，必须保留以下数据约束，避免接口返回成功但数据未写入，或实时成绩与课后报告不一致。
+
+| 文件 | 必须保留的当前分支行为 |
+|------|------------------------|
+| `lib/teacher/lesson-service.ts`、`app/api/teacher/lessons/route.ts` | 新建和更新教案时，课时必须是至少 20 分钟的整数；自动生成的四个教学环节各不少于 5 分钟，且环节时长总和必须严格等于教案总课时。API 与服务层都要保留校验，不能只依赖前端输入限制。 |
+| `lib/teacher/quiz-service.ts` | 客观题与简答题的标准化、正确性和得分计算必须保留单一判分入口，供实时提交和课后报告共同调用，避免两套规则漂移。 |
+| `lib/teacher/realtime-service.ts` | 保存答案前必须确认参与者属于当前场次；未知或过期的 `participantId` 必须失败，不能返回成功但不写入任何参与者。简答题空答案不得得分。 |
+| `lib/teacher/scoring-service.ts` | 报告生成必须复用与实时提交相同的判分函数，确保参与者即时总分、题目分析和最终报告一致。 |
+| `lib/i18n/locales/*.json` | 教师扩展合并新增设置项或互动页文案时，所有语言文件必须与 `en-US.json` 的叶子键完全对齐；不允许依赖英文 fallback 掩盖遗漏，也不保留源语言中不存在的废弃键。 |
+
+这些文件均可能与后续上游教师模式、测验或国际化改动发生冲突。解决冲突后至少运行：
+
+```bash
+pnpm exec vitest run tests/teacher/services.test.ts
+pnpm check:i18n-keys
+pnpm exec tsc --noEmit
+pnpm lint
+pnpm build
+```
+
+回归检查至少覆盖：20 分钟教案的四个环节均不少于 5 分钟且总和为 20；小于 20 分钟的新建或更新请求被拒绝；空简答题在实时结果和最终报告中均为 0 分；未知参与者提交答案时返回失败。
 
 ## 部署配置保留规则
 
@@ -176,15 +262,25 @@ pnpm lint
 
 ## 兼容检查脚本
 
-`scripts/check-upstream-compat.sh` 是只读脚本，会优先使用当前分支的 upstream tracking 分支作为本地基线；没有 tracking 分支时回退到 `main`。脚本会报告：
+`scripts/check-upstream-compat.sh` 是只读脚本。未传参数时，它会优先使用当前分支的 tracking 分支作为本地基线，没有 tracking 分支时回退到 `main`。当前教师扩展分支通常跟踪自己的远程同名分支，此默认值只能方便检查尚未推送或未提交的变化，不能完整代表“相对 main 的全部定制差异”。正式同步检查必须显式传入最近共同基线和本次合并来源。
+
+合并官方 `upstream/main` 前推荐运行：
+
+```bash
+BASE_REF="$(git merge-base HEAD upstream/main)" UPSTREAM_REF=upstream/main scripts/check-upstream-compat.sh
+```
+
+只有用户明确要求合并 `origin/main` 时，才改用：
+
+```bash
+BASE_REF="$(git merge-base HEAD origin/main)" UPSTREAM_REF=origin/main scripts/check-upstream-compat.sh
+```
+
+脚本会报告：
 
 - 当前教师扩展分支中，落在隔离边界之外的改动文件。
-- 本地与 `upstream/main` 同时改动的文件。
+- 本地与 `UPSTREAM_REF` 指定的主线来源同时改动的文件。
 
 脚本中的教师扩展隔离边界必须与本文保持一致。除传统教师目录外，还应包含 `app/auto-teacher/`、`app/auto-import-teacher/`、`app/api/auto-teacher/`、`components/auto-teacher/` 和 `lib/auto-teacher/`；无论文件是否位于隔离边界内，只要本地与上游同时修改，仍必须列为冲突候选并人工审查。
 
-可通过环境变量覆盖默认引用：
-
-```bash
-BASE_REF=develop UPSTREAM_REF=upstream/main scripts/check-upstream-compat.sh
-```
+如果需要审查某次历史同步，可把 `BASE_REF` 替换为该次同步前已纳入的主线提交 SHA。不要使用当前教师扩展分支的远程同名 tracking ref 代替主线基线，否则已提交的定制文件不会进入比较结果。

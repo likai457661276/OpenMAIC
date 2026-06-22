@@ -1045,6 +1045,8 @@
     },
     "browserTTSNoVoices": "目前瀏覽器沒有可用的 TTS 聲音",
     "browserTTSNotSupported": "瀏覽器不支援語音合成 API",
+    "ttsManagedByConfig": "目前 TTS 由設定檔統一管理，因此此頁面不支援變更提供者、聲音或連線設定。",
+    "asrManagedByConfig": "目前 ASR 由設定檔統一管理，因此此頁面不支援變更提供者、語言或連線設定。",
     "fetchVoices": "取得聲音列表",
     "fetchVoicesFailed": "取得聲音失敗",
     "fetchingVoices": "取得中...",

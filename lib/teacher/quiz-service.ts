@@ -52,6 +52,27 @@ function normalizeQuestion(question: QuizQuestion, index: number): QuizQuestion 
   };
 }
 
+function normalizeAnswer(answer: string | string[]): string[] {
+  return (Array.isArray(answer) ? answer : [answer])
+    .map((item) => String(item).trim().toLowerCase())
+    .filter(Boolean)
+    .sort();
+}
+
+export function gradeQuizQuestion(
+  question: QuizQuestion,
+  answer: string | string[],
+): { isCorrect: boolean; score: number } {
+  const submitted = normalizeAnswer(answer);
+  const expected = normalizeAnswer(question.correctAnswer);
+  const exact =
+    submitted.length === expected.length &&
+    submitted.every((item, index) => item === expected[index]);
+  const isCorrect = question.type === 'short-answer' ? submitted.join(' ').length >= 8 : exact;
+
+  return { isCorrect, score: isCorrect ? question.score : 0 };
+}
+
 function buildQuestion(
   lesson: LessonPlan,
   type: QuestionType,

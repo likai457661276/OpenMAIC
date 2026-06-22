@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  createLessonPlanFromInput,
   createTeacherLesson,
   deleteTeacherLesson,
   getTeacherLesson,
@@ -26,6 +27,26 @@ import {
 } from '@/lib/teacher/feedback-service';
 
 describe('teacher services', () => {
+  it('allocates valid phase durations and rejects lessons shorter than 20 minutes', () => {
+    const lesson = createLessonPlanFromInput({
+      subject: '数学',
+      grade: '一年级',
+      topic: '认识数字',
+      duration: 20,
+    });
+
+    expect(lesson.teachingProcess.every((phase) => phase.duration >= 5)).toBe(true);
+    expect(lesson.teachingProcess.reduce((sum, phase) => sum + phase.duration, 0)).toBe(20);
+    expect(() =>
+      createLessonPlanFromInput({
+        subject: '数学',
+        grade: '一年级',
+        topic: '认识数字',
+        duration: 10,
+      }),
+    ).toThrow('at least 20 minutes');
+  });
+
   it('persists and updates a structured lesson plan', async () => {
     const lesson = await createTeacherLesson({
       subject: '数学',
@@ -47,6 +68,10 @@ describe('teacher services', () => {
 
     const loaded = await getTeacherLesson(lesson.id);
     expect(loaded?.title).toBe('函数单调性');
+
+    await expect(updateTeacherLesson(lesson.id, { duration: 10 })).rejects.toThrow(
+      'at least 20 minutes',
+    );
 
     await deleteTeacherLesson(lesson.id);
   });
@@ -137,9 +162,35 @@ describe('teacher services', () => {
       timeTaken: 12,
     });
 
+    const shortAnswerQuestion = quizSet.questions.find(
+      (question) => question.type === 'short-answer',
+    );
+    expect(shortAnswerQuestion).toBeTruthy();
+    const emptyShortAnswer = await submitQuizAnswer({
+      sessionId: session.id,
+      participantId: joined.participant.id,
+      questionId: shortAnswerQuestion!.id,
+      answer: '',
+    });
+    expect(emptyShortAnswer.answer).toMatchObject({ isCorrect: false, score: 0 });
+
+    await expect(
+      submitQuizAnswer({
+        sessionId: session.id,
+        participantId: 'missing-participant',
+        questionId: firstQuestion.id,
+        answer,
+      }),
+    ).rejects.toThrow('Participant not found');
+
     const report = await buildSessionReport(session.id);
     expect(report.participantCount).toBe(1);
     expect(report.results[0].totalScore).toBeGreaterThan(0);
+    expect(
+      report.results[0].questionResults.find(
+        (result) => result.questionId === shortAnswerQuestion!.id,
+      ),
+    ).toMatchObject({ isCorrect: false, score: 0 });
 
     const feedback = await createFeedbackSession({
       lessonId: lesson.id,

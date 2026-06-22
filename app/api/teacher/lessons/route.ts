@@ -1,6 +1,11 @@
 import { type NextRequest } from 'next/server';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
-import { createTeacherLesson, listTeacherLessons } from '@/lib/teacher/lesson-service';
+import {
+  createTeacherLesson,
+  isValidLessonDuration,
+  listTeacherLessons,
+  MIN_LESSON_DURATION,
+} from '@/lib/teacher/lesson-service';
 import type { CreateLessonInput } from '@/lib/teacher/types';
 
 export const dynamic = 'force-dynamic';
@@ -28,6 +33,13 @@ export async function POST(req: NextRequest) {
         'MISSING_REQUIRED_FIELD',
         400,
         'Missing required fields: subject, grade, topic',
+      );
+    }
+    if (body.duration !== undefined && !isValidLessonDuration(body.duration)) {
+      return apiError(
+        'INVALID_REQUEST',
+        400,
+        `Lesson duration must be an integer of at least ${MIN_LESSON_DURATION} minutes`,
       );
     }
 
