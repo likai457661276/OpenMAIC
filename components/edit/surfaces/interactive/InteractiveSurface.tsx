@@ -169,6 +169,6 @@ function useInteractiveSurfaceState(): SurfaceState<InteractiveContent, Interact
 
 export const interactiveSurface: SceneEditorSurface<InteractiveContent, InteractiveSelection> = {
   sceneType: 'interactive',
-  CanvasComponent: InteractiveCanvas,
+  SurfaceComponent: InteractiveCanvas,
   useSurfaceState: useInteractiveSurfaceState,
 };

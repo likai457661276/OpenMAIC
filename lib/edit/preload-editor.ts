@@ -3,9 +3,10 @@
  * flag-off classroom/playback bundle:
  *   1. `editor-fonts` — ~23 @fontsource font-face tables the slide font
  *      picker needs (CSS side effect).
- *   2. `surfaces/slide` and `surfaces/interactive` — register the editable
- *      SceneEditorSurfaces into `sceneEditorRegistry` so EditShell can resolve
- *      them (otherwise it falls back to NOOP_SURFACE, i.e. a read-only flash).
+ *   2. `surfaces/slide`, `surfaces/interactive`, and `surfaces/quiz` —
+ *      register their SceneEditorSurfaces into `sceneEditorRegistry` so
+ *      EditShell can resolve them (otherwise it falls back to NOOP_SURFACE,
+ *      i.e. a read-only flash).
  *
  * Called from the Pro Switch handler BEFORE flipping into edit mode, so
  * the dynamic chunk is already downloaded/registered by the time the
@@ -22,6 +23,7 @@ export function preloadEditor(): Promise<void> {
       import('@/app/editor-fonts'),
       import('@/components/edit/surfaces/slide'),
       import('@/components/edit/surfaces/interactive'),
+      import('@/components/edit/surfaces/quiz'),
     ]).then(() => undefined);
   }
   return editorReady;

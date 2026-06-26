@@ -1,4 +1,4 @@
-import type { Slide } from '@maic/dsl';
+import type { Slide } from '@openmaic/dsl';
 import type { LessonPlan } from './lesson';
 
 export type TeacherSlideStyle = 'professional' | 'casual' | 'academic' | 'colorful';

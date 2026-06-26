@@ -2,7 +2,7 @@ import pptxgen from 'pptxgenjs';
 import { getTeacherLesson } from '@/lib/teacher/lesson-service';
 import { createSlideSetFromLesson, getLessonSlideSet } from '@/lib/teacher/slide-service';
 import type { LessonPlan, TeacherSlide, TeacherSlideSet } from '@/lib/teacher/types';
-import type { PPTElement, PPTTextElement, Slide } from '@maic/dsl';
+import type { PPTElement, PPTTextElement, Slide } from '@openmaic/dsl';
 import { type AST, toAST } from '@/lib/export/html-parser';
 
 export type TeacherExportFormat = 'pptx' | 'pdf';

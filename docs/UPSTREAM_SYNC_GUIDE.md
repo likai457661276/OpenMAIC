@@ -87,7 +87,7 @@ pnpm exec tsc --noEmit
 
 | 文件或目录 | 必须保留的当前分支行为 |
 |------|------------------------|
-| `lib/teacher/types/slide.ts` | `TeacherSlide.content` 继续承载 `@maic/dsl` 的 `Slide`，并保留讲稿 `notes`、时长 `duration`、来源任务/课堂 ID 和教师课件样式；官方新增字段应兼容合并，不得退回与普通 `Scene` 混用。 |
+| `lib/teacher/types/slide.ts` | `TeacherSlide.content` 继续承载 `@openmaic/dsl` 的 `Slide`，并保留讲稿 `notes`、时长 `duration`、来源任务/课堂 ID 和教师课件样式；官方新增字段应兼容合并，不得退回与普通 `Scene` 混用。 |
 | `lib/teacher/slide-service.ts`、`lib/teacher/export-service.ts` | 教师课件的生成、保存、更新、来源追踪与 PPTX 导出继续围绕同一 `TeacherSlideSet` 工作。 |
 | `components/teacher/teacher-classroom-stage.tsx` | “转互动课堂”必须把当前课件页面、讲稿和讨论信息写入转换需求，设置 `agentMode=auto`、启用 TTS，并写入完整的 `generationSession`。 |
 | `app/generation-preview/page.tsx`、`app/generation-preview/types.ts` | 保留 `teacherInteractiveConversion`、`teacherInteractiveSource` 和 `originalRequirement`；教师转换不得重新走普通 PDF 解析或大纲重建流程，并与上游新增生成状态取并集。 |
@@ -206,7 +206,7 @@ pnpm build
 |------|------------------------|
 | `package.json`、`pnpm-lock.yaml`、`pnpm-workspace.yaml` | Node.js 保持 `>=20`，pnpm 保持 `>=10`；当前 Docker 镜像使用 Node 22 和 pnpm 10.28.0。合并新增 workspace 包后，postinstall、build、vendor 同步脚本及锁文件必须一致。 |
 | `Dockerfile` | 保留多阶段 standalone 构建、国内 Alpine/npm 镜像参数、原生图形依赖、非 root `nextjs` 用户、`HOSTNAME=0.0.0.0`、容器端口 `10050`，以及 `NEXT_PUBLIC_MAIC_EDITOR_ENABLED` 构建参数。 |
-| `Dockerfile` 与新增 workspace 构建脚本 | 依赖阶段必须复制或延后使用 postinstall 所需的 `scripts/` 和 workspace 源文件。官方若新增 `@maic/dsl`、`@maic/importer`、`@maic/renderer` 等构建或同步脚本，必须实际执行生产镜像构建，避免出现本机成功、镜像因缺少脚本或产物失败。 |
+| `Dockerfile` 与新增 workspace 构建脚本 | 依赖阶段必须复制或延后使用 postinstall 所需的 `scripts/` 和 workspace 源文件。官方若新增 `@openmaic/dsl`、`@openmaic/importer`、`@openmaic/renderer` 等构建或同步脚本，必须实际执行生产镜像构建，避免出现本机成功、镜像因缺少脚本或产物失败。 |
 | `Dockerfile.dev`、`docker-compose.dev.yml` | 保留 Debian 开发镜像及 canvas 相关编译依赖；开发服务监听 `0.0.0.0:10050`，宿主机映射 `10051:10050`；保留源码、`node_modules`、`.next` 和 pnpm store 独立卷，并使用 `pnpm install --frozen-lockfile`。 |
 | `docker-compose.yml` | 保留生产镜像的编辑器构建参数、1GB 内存/交换区限制、`0.0.0.0:10051:10050` 端口映射、`.env.local` 注入、`/app/data` 持久化卷和 `restart: unless-stopped`；如部署环境要求仅供本机 Nginx 访问，可在服务器部署配置中收紧为 `127.0.0.1:10051:10050`，不得在同步时无说明地改变监听策略。 |
 | `.dockerignore`、`.gitignore` | `.env*`（仅放行 `.env.example`）、`server-providers*.yml`、证书、日志和运行数据不得进入构建上下文或版本库；不得通过放宽 ignore 规则修复 Docker 构建。 |
