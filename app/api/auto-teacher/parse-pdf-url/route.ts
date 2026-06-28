@@ -78,13 +78,22 @@ async function fetchPdfWithValidation(url: string, trustedOrigins: Set<string>):
       throw Object.assign(new Error(ssrfError), { status: 403, code: 'INVALID_URL' });
     }
 
-    const response = await fetch(currentUrl, {
-      method: 'GET',
-      redirect: 'manual',
-      headers: {
-        Accept: 'application/pdf,application/octet-stream;q=0.8,*/*;q=0.1',
-      },
-    });
+    let response: Response;
+    try {
+      response = await fetch(currentUrl, {
+        method: 'GET',
+        redirect: 'manual',
+        headers: {
+          Accept: 'application/pdf,application/octet-stream;q=0.8,*/*;q=0.1',
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown network error';
+      throw Object.assign(new Error(`Failed to fetch PDF: ${message}`), {
+        status: 502,
+        code: 'UPSTREAM_ERROR',
+      });
+    }
 
     if ([301, 302, 303, 307, 308].includes(response.status)) {
       const location = response.headers.get('location');
@@ -107,10 +116,28 @@ async function fetchPdfWithValidation(url: string, trustedOrigins: Set<string>):
   });
 }
 
+async function parseDownloadedPdf(arrayBuffer: ArrayBuffer): Promise<ParsedPdfContent> {
+  try {
+    return await parsePDF({ providerId: 'unpdf' }, Buffer.from(arrayBuffer));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to parse PDF';
+    throw Object.assign(new Error(`Unable to parse PDF content: ${message}`), {
+      status: 422,
+      code: 'PARSE_FAILED',
+    });
+  }
+}
+
 export async function POST(req: NextRequest) {
   let fileUrl: string | undefined;
   try {
-    const body = (await req.json()) as { file_url?: unknown; upload_url?: unknown };
+    let body: { file_url?: unknown; upload_url?: unknown };
+    try {
+      body = (await req.json()) as { file_url?: unknown; upload_url?: unknown };
+    } catch {
+      return apiError('INVALID_REQUEST', 400, 'Invalid JSON request body');
+    }
+
     if (typeof body.file_url !== 'string' || !body.file_url.trim()) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'Missing required field: file_url');
     }
@@ -159,7 +186,7 @@ export async function POST(req: NextRequest) {
       return apiError('INVALID_REQUEST', 413, 'PDF file is too large');
     }
 
-    const result = await parsePDF({ providerId: 'unpdf' }, Buffer.from(arrayBuffer));
+    const result = await parseDownloadedPdf(arrayBuffer);
     const resultWithMetadata: ParsedPdfContent = {
       ...result,
       metadata: {

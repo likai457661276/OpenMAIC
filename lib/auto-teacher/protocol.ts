@@ -36,6 +36,7 @@ export interface AutoTeacherGenerateMessage {
   courseware_name?: string;
   token: string;
   upload_url: string;
+  uploadUrl?: string;
   model?: string;
   prompt?: string;
 }
@@ -56,6 +57,8 @@ export interface AutoImportTeacherPayload {
   zipUrl: string;
   teachType: AutoTeacherTeachType;
   fileName?: string;
+  token?: string;
+  uploadUrl?: string;
 }
 
 export function inferAutoTeacherTeachType(pathname: string): AutoTeacherTeachType {
@@ -163,13 +166,14 @@ export function parseAutoTeacherMessage(data: unknown): AutoTeacherPayload {
     throw new Error('Missing required field: token');
   }
 
-  if (typeof payload.upload_url !== 'string' || !payload.upload_url.trim()) {
+  const rawUploadUrlValue = payload.upload_url ?? payload.uploadUrl;
+  if (typeof rawUploadUrlValue !== 'string' || !rawUploadUrlValue.trim()) {
     throw new Error('Missing required field: upload_url');
   }
 
   let uploadUrl: URL;
   try {
-    uploadUrl = new URL(payload.upload_url.trim());
+    uploadUrl = new URL(rawUploadUrlValue.trim());
   } catch {
     throw new Error('Invalid upload_url');
   }
@@ -209,6 +213,10 @@ export function parseAutoImportTeacherMessage(data: unknown): AutoImportTeacherP
     zipurl?: unknown;
     teachType?: unknown;
     fileName?: unknown;
+    token?: unknown;
+    upload_url?: unknown;
+    uploadUrl?: unknown;
+    uploadurl?: unknown;
   };
   if (payload.type !== AUTO_TEACHER_MESSAGE_TYPE) {
     throw new Error('Unsupported message type');
@@ -234,12 +242,38 @@ export function parseAutoImportTeacherMessage(data: unknown): AutoImportTeacherP
     throw new Error('Invalid teachType');
   }
 
+  const token = typeof payload.token === 'string' ? payload.token.trim() : '';
+  const rawUploadUrlValue = payload.upload_url ?? payload.uploadUrl ?? payload.uploadurl;
+  const uploadUrlValue = typeof rawUploadUrlValue === 'string' ? rawUploadUrlValue.trim() : '';
+  if (token || uploadUrlValue) {
+    if (!token) {
+      throw new Error('Missing required field: token');
+    }
+    if (!uploadUrlValue) {
+      throw new Error('Missing required field: upload_url');
+    }
+  }
+
+  let uploadUrl: URL | null = null;
+  if (uploadUrlValue) {
+    try {
+      uploadUrl = new URL(uploadUrlValue);
+    } catch {
+      throw new Error('Invalid upload_url');
+    }
+
+    if (uploadUrl.protocol !== 'https:' && uploadUrl.protocol !== 'http:') {
+      throw new Error('Only HTTP(S) upload_url is allowed');
+    }
+  }
+
   return {
     zipUrl: zipUrl.toString(),
     teachType: payload.teachType,
     ...(typeof payload.fileName === 'string' && payload.fileName.trim()
       ? { fileName: payload.fileName.trim() }
       : {}),
+    ...(token && uploadUrl ? { token, uploadUrl: uploadUrl.toString() } : {}),
   };
 }
 

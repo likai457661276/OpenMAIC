@@ -17,6 +17,7 @@ import {
   isOriginAllowed,
   parseAutoImportTeacherMessage,
   type AutoImportTeacherStage,
+  type AutoImportTeacherPayload,
   type AutoTeacherTeachType,
 } from '@/lib/auto-teacher/protocol';
 
@@ -99,6 +100,7 @@ export function AutoImportTeacherBridge({ allowedOrigins }: AutoImportTeacherBri
   const messageEventRef = useRef<MessageEvent | null>(null);
   const existingStageIdsRef = useRef<Set<string>>(new Set());
   const teachTypeRef = useRef<AutoTeacherTeachType>('teacher');
+  const importPayloadRef = useRef<AutoImportTeacherPayload | null>(null);
   const [status, setStatus] = useState<AutoImportTeacherStage>('idle');
   const [error, setError] = useState<string | null>(null);
 
@@ -124,12 +126,29 @@ export function AutoImportTeacherBridge({ allowedOrigins }: AutoImportTeacherBri
       }
 
       const teachType = teachTypeRef.current;
+      const importPayload = importPayloadRef.current;
       await db.stages.update(importedStage.id, {
         teacherMode: teachType === 'teacher',
         updatedAt: Date.now(),
       });
 
       setBridgeStatus('redirecting');
+      sessionStorage.setItem(
+        'generationParams',
+        JSON.stringify({
+          autoTeacherEmbedded: true,
+          ...(importPayload?.token && importPayload.uploadUrl && event
+            ? {
+                autoTeacherBridge: {
+                  enabled: true,
+                  token: importPayload.token,
+                  uploadUrl: importPayload.uploadUrl,
+                  sourceOrigin: event.origin,
+                },
+              }
+            : {}),
+        }),
+      );
       const routePath =
         teachType === 'teacher'
           ? `/classroom/teacher/${importedStage.id}?autoImport=1`
@@ -189,6 +208,7 @@ export function AutoImportTeacherBridge({ allowedOrigins }: AutoImportTeacherBri
         processingRef.current = true;
         messageEventRef.current = event;
         teachTypeRef.current = payload.teachType;
+        importPayloadRef.current = payload;
         setError(null);
 
         existingStageIdsRef.current = new Set((await listStages()).map((stage) => stage.id));

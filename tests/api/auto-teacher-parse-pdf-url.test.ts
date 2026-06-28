@@ -24,11 +24,15 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 async function postParsePdfUrl(body: Record<string, unknown>) {
+  return postParsePdfUrlRaw(JSON.stringify(body));
+}
+
+async function postParsePdfUrlRaw(body: string) {
   const { POST } = await import('@/app/api/auto-teacher/parse-pdf-url/route');
   const req = new Request('http://localhost/api/auto-teacher/parse-pdf-url', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body,
   });
   return POST(req as unknown as NextRequest);
 }
@@ -253,6 +257,62 @@ describe('POST /api/auto-teacher/parse-pdf-url', () => {
     expect(res.status).toBe(415);
     expect(json).toMatchObject({ success: false, errorCode: 'INVALID_REQUEST' });
     expect(mocks.parsePDF).not.toHaveBeenCalled();
+  });
+
+  it('rejects malformed JSON request body without returning 500', async () => {
+    const res = await postParsePdfUrlRaw('{bad json');
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json).toMatchObject({
+      success: false,
+      errorCode: 'INVALID_REQUEST',
+      error: 'Invalid JSON request body',
+    });
+    expect(mocks.parsePDF).not.toHaveBeenCalled();
+  });
+
+  it('returns upstream error when PDF fetch throws before a response', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError('fetch failed'));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await postParsePdfUrl({ file_url: 'https://cdn.example.com/course.pdf' });
+    const json = await res.json();
+
+    expect(res.status).toBe(502);
+    expect(json).toMatchObject({
+      success: false,
+      errorCode: 'UPSTREAM_ERROR',
+      error: 'Failed to fetch PDF: fetch failed',
+    });
+    expect(mocks.parsePDF).not.toHaveBeenCalled();
+  });
+
+  it('returns unprocessable PDF error when the downloaded PDF cannot be parsed', async () => {
+    const pdfBytes = new Uint8Array([1, 2, 3]);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(pdfBytes, {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/pdf',
+            'Content-Length': String(pdfBytes.byteLength),
+          },
+        }),
+      ),
+    );
+    mocks.parsePDF.mockRejectedValue(new Error('Invalid PDF structure'));
+
+    const res = await postParsePdfUrl({ file_url: 'https://cdn.example.com/broken.pdf' });
+    const json = await res.json();
+
+    expect(res.status).toBe(422);
+    expect(json).toMatchObject({
+      success: false,
+      errorCode: 'PARSE_FAILED',
+      error: 'Unable to parse PDF content: Invalid PDF structure',
+    });
   });
 
   it('rejects PDFs larger than 50MB from content-length', async () => {

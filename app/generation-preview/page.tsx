@@ -199,7 +199,8 @@ function GenerationPreviewContent() {
   const activeSteps = getActiveSteps(session);
   const isOutlineReady = session?.previewPhase === 'outline-ready';
   const isReviewingOutlines = session?.previewPhase === 'review';
-  const hideReturnActions = session?.autoTeacherBridge?.enabled === true;
+  const hideReturnActions =
+    session?.autoTeacherEmbedded === true || session?.autoTeacherBridge?.enabled === true;
 
   const persistSession = (nextSession: GenerationSessionState) => {
     setSession(nextSession);
@@ -576,10 +577,22 @@ function GenerationPreviewContent() {
     store.setScenes(enrichedScenes);
     store.setCurrentSceneId(enrichedScenes[0]?.id ?? null);
     store.setGenerationStatus('completed');
+    sessionStorage.setItem(
+      'generationParams',
+      JSON.stringify({
+        agents,
+        languageDirective,
+        autoTeacherEmbedded: currentSession.autoTeacherEmbedded,
+        autoTeacherBridge: currentSession.autoTeacherBridge,
+      }),
+    );
     sessionStorage.removeItem('generationSession');
-    sessionStorage.removeItem('generationParams');
     await store.saveToStorage();
-    router.push(`/classroom/${stage.id}`);
+    const embeddedQuery =
+      currentSession.autoTeacherBridge?.enabled || currentSession.autoTeacherEmbedded
+        ? '?autoImport=1'
+        : '';
+    router.push(`/classroom/${stage.id}${embeddedQuery}`);
   };
 
   // Auto-start generation when session is loaded
@@ -1436,6 +1449,7 @@ function GenerationPreviewContent() {
           agents,
           userProfile,
           languageDirective,
+          autoTeacherEmbedded: currentSession.autoTeacherEmbedded,
           autoTeacherBridge: currentSession.autoTeacherBridge,
         }),
       );
@@ -1445,9 +1459,10 @@ function GenerationPreviewContent() {
       const classroomPath = teacherMode
         ? `/classroom/teacher/${stage.id}`
         : `/classroom/${stage.id}`;
-      const autoTeacherQuery = currentSession.autoTeacherBridge?.enabled
-        ? '?autoTeacher=1'
-        : '';
+      const autoTeacherQuery =
+        currentSession.autoTeacherBridge?.enabled || currentSession.autoTeacherEmbedded
+          ? '?autoTeacher=1'
+          : '';
       router.push(`${classroomPath}${autoTeacherQuery}`);
     } catch (err) {
       setIsOutlineStreaming(false);

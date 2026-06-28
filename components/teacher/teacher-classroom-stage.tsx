@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   AlertCircle,
@@ -41,12 +41,8 @@ import { isMaicEditorEnabled } from '@/lib/config/feature-flags';
 import { isCurrentSceneEditable } from '@/lib/edit/stage-mode';
 import { preloadEditor } from '@/lib/edit/preload-editor';
 import { useExportPPTX } from '@/lib/export/use-export-pptx';
-import { buildClassroomZipBlob, useExportClassroom } from '@/lib/export/use-export-classroom';
-import {
-  AUTO_TEACHER_SAVE_ERROR_TYPE,
-  AUTO_TEACHER_SAVE_SUCCESS_TYPE,
-  inferAutoTeacherTeachType,
-} from '@/lib/auto-teacher/protocol';
+import { useExportClassroom } from '@/lib/export/use-export-classroom';
+import { useAutoTeacherClassroomSave } from '@/lib/auto-teacher/use-auto-teacher-classroom-save';
 import { cn } from '@/lib/utils';
 import { SceneRenderer } from '@/components/stage/scene-renderer';
 import { HeaderControls } from '@/components/stage/header-controls';
@@ -62,43 +58,6 @@ import type { InteractiveContent, Scene, SlideContent } from '@/lib/types/stage'
 import type { LectureNoteEntry } from '@/lib/types/chat';
 import { useCanvasStore } from '@/lib/store/canvas';
 import { useI18n } from '@/lib/hooks/use-i18n';
-import { getOpenMaicVersionPayload } from '@/lib/version';
-
-type AutoTeacherBridgeContext = {
-  enabled: true;
-  token: string;
-  uploadUrl: string;
-  sourceOrigin: string;
-};
-
-function readAutoTeacherBridgeContext(): AutoTeacherBridgeContext | null {
-  if (typeof window === 'undefined') return null;
-  const raw = sessionStorage.getItem('generationParams');
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as { autoTeacherBridge?: Partial<AutoTeacherBridgeContext> };
-    const bridge = parsed.autoTeacherBridge;
-    if (
-      bridge?.enabled === true &&
-      typeof bridge.token === 'string' &&
-      bridge.token.trim() &&
-      typeof bridge.uploadUrl === 'string' &&
-      bridge.uploadUrl.trim() &&
-      typeof bridge.sourceOrigin === 'string' &&
-      bridge.sourceOrigin.trim()
-    ) {
-      return {
-        enabled: true,
-        token: bridge.token,
-        uploadUrl: bridge.uploadUrl,
-        sourceOrigin: bridge.sourceOrigin,
-      };
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
 
 function buildTeacherLectureNotes(scenes: Scene[]): LectureNoteEntry[] {
   return scenes
@@ -374,7 +333,6 @@ export function TeacherClassroomStage({
   readonly hideBackButton?: boolean;
 }) {
   const router = useRouter();
-  const pathname = usePathname();
   const { t } = useI18n();
   const stage = useStageStore((state) => state.stage);
   const mode = useStageStore((state) => state.mode);
@@ -393,11 +351,6 @@ export function TeacherClassroomStage({
   const [previewOpen, setPreviewOpen] = useState(true);
   const [retryingOutlineId, setRetryingOutlineId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [autoTeacherBridge, setAutoTeacherBridge] = useState<AutoTeacherBridgeContext | null>(null);
-  const [isSavingAutoTeacher, setIsSavingAutoTeacher] = useState(false);
-  const [autoTeacherSaveStatus, setAutoTeacherSaveStatus] = useState<'idle' | 'success' | 'error'>(
-    'idle',
-  );
   const playbackRef = useRef<HTMLElement>(null);
 
   const pendingOutline = generatingOutlines[0] ?? null;
@@ -430,6 +383,13 @@ export function TeacherClassroomStage({
     failedOutlines.length === 0 &&
     Object.values(mediaTasks).every((task) => task.status === 'done' || task.status === 'failed');
   const isExporting = isExportingPptx || isExportingClassroom;
+  const {
+    bridge: autoTeacherBridge,
+    canSave: canSaveAutoTeacher,
+    isSaving: isSavingAutoTeacher,
+    saveStatus: autoTeacherSaveStatus,
+    saveClassroom: saveAutoTeacherClassroom,
+  } = useAutoTeacherClassroomSave(canExport, { requireAutoTeacherQuery: false });
   const canGoPrev = currentSceneIndex > 0;
   const canGoNext = currentSceneIndex < totalSceneCount - 1;
   const fullscreenLabel = isFullscreen ? '退出全屏播放' : '全屏播放';
@@ -479,72 +439,6 @@ export function TeacherClassroomStage({
     setMode('edit');
   }, [canEdit, editorEnabled, mode, setMode]);
 
-  const postAutoTeacherSaveMessage = useCallback(
-    (message: Record<string, unknown>) => {
-      if (!autoTeacherBridge || typeof window === 'undefined') return;
-      window.parent?.postMessage(
-        message,
-        autoTeacherBridge.sourceOrigin === 'null' ? '*' : autoTeacherBridge.sourceOrigin,
-      );
-    },
-    [autoTeacherBridge],
-  );
-
-  const saveAutoTeacherClassroom = useCallback(async () => {
-    if (!autoTeacherBridge || !canExport || isSavingAutoTeacher) return;
-    setIsSavingAutoTeacher(true);
-    setAutoTeacherSaveStatus('idle');
-    try {
-      const zipResult = await buildClassroomZipBlob();
-      if (!zipResult) {
-        throw new Error('暂无可保存的课件内容');
-      }
-
-      const formData = new FormData();
-      formData.append(
-        'file',
-        new File([zipResult.blob], zipResult.fileName, {
-          type: 'application/zip',
-        }),
-      );
-
-      const response = await fetch(autoTeacherBridge.uploadUrl, {
-        method: 'POST',
-        headers: {
-          Authorization: autoTeacherBridge.token,
-        },
-        body: formData,
-      });
-      const responseData = await response.json().catch(() => null);
-      if (!response.ok || responseData?.code !== 0 || !responseData?.data?.id) {
-        throw new Error(responseData?.message || '保存失败');
-      }
-
-      const savedFile = {
-        id: responseData.data.id,
-        name: responseData.data.name || zipResult.fileName,
-        url: responseData.data.url || '',
-      };
-      setAutoTeacherSaveStatus('success');
-      postAutoTeacherSaveMessage({
-        type: AUTO_TEACHER_SAVE_SUCCESS_TYPE,
-        ...savedFile,
-        teachType: inferAutoTeacherTeachType(pathname),
-        ...getOpenMaicVersionPayload(),
-        raw: responseData,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '保存失败';
-      setAutoTeacherSaveStatus('error');
-      postAutoTeacherSaveMessage({
-        type: AUTO_TEACHER_SAVE_ERROR_TYPE,
-        error: message,
-      });
-    } finally {
-      setIsSavingAutoTeacher(false);
-    }
-  }, [autoTeacherBridge, canExport, isSavingAutoTeacher, pathname, postAutoTeacherSaveMessage]);
-
   const convertToInteractiveClassroom = useCallback(() => {
     if (!stage?.id || scenes.length === 0) return;
 
@@ -577,11 +471,13 @@ export function TeacherClassroomStage({
           stage,
           scenes,
         },
+        autoTeacherEmbedded: hideBackButton || !!autoTeacherBridge,
+        autoTeacherBridge: autoTeacherBridge ?? undefined,
         originalRequirement: convertedTitle,
       }),
     );
     router.push('/generation-preview');
-  }, [router, scenes, stage]);
+  }, [autoTeacherBridge, hideBackButton, router, scenes, stage]);
 
   const toggleFullscreen = useCallback(async () => {
     const playbackElement = playbackRef.current;
@@ -638,16 +534,13 @@ export function TeacherClassroomStage({
     if (mode === 'edit' && !canEdit) setMode('playback');
   }, [canEdit, mode, setMode]);
 
-  useEffect(() => {
-    setAutoTeacherBridge(readAutoTeacherBridgeContext());
-  }, []);
-
   if (mode === 'edit' && currentScene && editorEnabled) {
     return (
       <div className="relative flex h-screen overflow-hidden bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
         <EditShell
           scene={currentScene}
-          leftRail={<SlideNavRail />}
+          leftRail={<SlideNavRail hideBackButton={hideBackButton} />}
+          hideBackButton={hideBackButton}
           commandTrailing={
             <HeaderControls
               mode="edit"
@@ -853,6 +746,41 @@ export function TeacherClassroomStage({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            {autoTeacherBridge && (
+              <button
+                type="button"
+                onClick={saveAutoTeacherClassroom}
+                disabled={!canSaveAutoTeacher}
+                className={cn(
+                  'flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white transition-colors dark:border-gray-700 dark:bg-gray-800',
+                  canSaveAutoTeacher
+                    ? autoTeacherSaveStatus === 'success'
+                      ? 'text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40'
+                      : autoTeacherSaveStatus === 'error'
+                        ? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40'
+                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'
+                    : 'cursor-not-allowed text-gray-300 opacity-50 dark:text-gray-600',
+                )}
+                title={
+                  canExport
+                    ? isSavingAutoTeacher
+                      ? '正在保存'
+                      : autoTeacherSaveStatus === 'success'
+                        ? '已保存到父项目'
+                        : autoTeacherSaveStatus === 'error'
+                          ? '重新保存到父项目'
+                          : '保存到父项目'
+                    : '课堂生成完成后可保存'
+                }
+                aria-label="保存到父项目"
+              >
+                {isSavingAutoTeacher ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+              </button>
+            )}
             <button
               onClick={convertToInteractiveClassroom}
               disabled={!canConvertInteractive}
@@ -1018,42 +946,6 @@ export function TeacherClassroomStage({
                     <Minimize2 className="h-5 w-5" />
                   </button>
                 </div>
-              </div>
-            )}
-            {autoTeacherBridge && !isFullscreen && (
-              <div className="absolute bottom-5 right-5 z-20">
-                <button
-                  type="button"
-                  onClick={saveAutoTeacherClassroom}
-                  disabled={!canExport || isSavingAutoTeacher}
-                  className={cn(
-                    'flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-semibold shadow-lg backdrop-blur-md transition-colors',
-                    canExport && !isSavingAutoTeacher
-                      ? autoTeacherSaveStatus === 'success'
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/70 dark:bg-emerald-950/60 dark:text-emerald-300'
-                        : autoTeacherSaveStatus === 'error'
-                          ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-900/70 dark:bg-red-950/60 dark:text-red-300'
-                          : 'border-gray-200 bg-white/90 text-gray-700 hover:bg-white hover:text-gray-950 dark:border-gray-700 dark:bg-gray-900/90 dark:text-gray-200 dark:hover:bg-gray-800'
-                      : 'cursor-not-allowed border-gray-200 bg-white/70 text-gray-300 opacity-70 dark:border-gray-700 dark:bg-gray-900/70 dark:text-gray-600',
-                  )}
-                  title={canExport ? '保存到父项目' : '课件生成完成后可保存'}
-                  aria-label="保存到父项目"
-                >
-                  {isSavingAutoTeacher ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4" />
-                  )}
-                  <span>
-                    {isSavingAutoTeacher
-                      ? '保存中'
-                      : autoTeacherSaveStatus === 'success'
-                        ? '已保存'
-                        : autoTeacherSaveStatus === 'error'
-                          ? '重新保存'
-                          : '保存'}
-                  </span>
-                </button>
               </div>
             )}
           </section>

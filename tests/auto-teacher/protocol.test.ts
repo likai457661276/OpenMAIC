@@ -147,10 +147,11 @@ describe('auto-teacher protocol', () => {
         type: AUTO_TEACHER_MESSAGE_TYPE,
         file_url: 'https://cdn.example.com/course.pdf',
         token: 'token-123',
-        upload_url: 'https://parent.example.com/api/upload',
+        uploadUrl: 'https://parent.example.com/api/upload',
         prompt: '  请设计一节探究式课堂。  ',
       }),
     ).toMatchObject({
+      uploadUrl: 'https://parent.example.com/api/upload',
       prompt: '请设计一节探究式课堂。',
     });
   });
@@ -162,11 +163,15 @@ describe('auto-teacher protocol', () => {
         zip_url: 'https://cdn.example.com/course.maic.zip',
         teachType: 'teacher',
         fileName: '  贵州课堂.zip  ',
+        token: ' token-123 ',
+        upload_url: 'https://parent.example.com/api/upload',
       }),
     ).toEqual({
       zipUrl: 'https://cdn.example.com/course.maic.zip',
       teachType: 'teacher',
       fileName: '贵州课堂.zip',
+      token: 'token-123',
+      uploadUrl: 'https://parent.example.com/api/upload',
     });
 
     expect(
@@ -174,10 +179,14 @@ describe('auto-teacher protocol', () => {
         type: AUTO_TEACHER_MESSAGE_TYPE,
         zipUrl: 'https://cdn.example.com/classroom.zip',
         teachType: 'classroom',
+        token: 'token-123',
+        uploadUrl: 'https://parent.example.com/api/upload',
       }),
     ).toEqual({
       zipUrl: 'https://cdn.example.com/classroom.zip',
       teachType: 'classroom',
+      token: 'token-123',
+      uploadUrl: 'https://parent.example.com/api/upload',
     });
 
     expect(
@@ -215,6 +224,34 @@ describe('auto-teacher protocol', () => {
         teachType: 'unknown',
       }),
     ).toThrow('Invalid teachType');
+
+    expect(() =>
+      parseAutoImportTeacherMessage({
+        type: AUTO_TEACHER_MESSAGE_TYPE,
+        zip_url: 'https://cdn.example.com/course.zip',
+        teachType: 'teacher',
+        upload_url: 'https://parent.example.com/api/upload',
+      }),
+    ).toThrow('Missing required field: token');
+
+    expect(() =>
+      parseAutoImportTeacherMessage({
+        type: AUTO_TEACHER_MESSAGE_TYPE,
+        zip_url: 'https://cdn.example.com/course.zip',
+        teachType: 'teacher',
+        token: 'token-123',
+      }),
+    ).toThrow('Missing required field: upload_url');
+
+    expect(() =>
+      parseAutoImportTeacherMessage({
+        type: AUTO_TEACHER_MESSAGE_TYPE,
+        zip_url: 'https://cdn.example.com/course.zip',
+        teachType: 'teacher',
+        token: 'token-123',
+        upload_url: 'file:///tmp/upload',
+      }),
+    ).toThrow('Only HTTP(S) upload_url is allowed');
   });
 
   it('rejects missing file_url and non-http urls', () => {

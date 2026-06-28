@@ -128,6 +128,7 @@ export function AutoTeacherBridge({ allowedOrigins }: AutoTeacherBridgeProps) {
           currentStep: 'generating',
           previewPhase: 'preparing',
           teacherMode: true,
+          autoTeacherEmbedded: true,
           autoTeacherBridge: {
             enabled: true,
             token: payload.token,

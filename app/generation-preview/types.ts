@@ -47,6 +47,7 @@ export interface GenerationSessionState {
     uploadUrl: string;
     sourceOrigin: string;
   };
+  autoTeacherEmbedded?: boolean;
   originalRequirement?: string;
   // Server-effective vocational mode from the outline generation done event.
   taskEngineMode?: boolean;

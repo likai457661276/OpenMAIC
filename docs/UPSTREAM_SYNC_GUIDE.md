@@ -89,10 +89,10 @@ pnpm exec tsc --noEmit
 |------|------------------------|
 | `lib/teacher/types/slide.ts` | `TeacherSlide.content` 继续承载 `@openmaic/dsl` 的 `Slide`，并保留讲稿 `notes`、时长 `duration`、来源任务/课堂 ID 和教师课件样式；官方新增字段应兼容合并，不得退回与普通 `Scene` 混用。 |
 | `lib/teacher/slide-service.ts`、`lib/teacher/export-service.ts` | 教师课件的生成、保存、更新、来源追踪与 PPTX 导出继续围绕同一 `TeacherSlideSet` 工作。 |
-| `components/teacher/teacher-classroom-stage.tsx` | “转互动课堂”必须把当前课件页面、讲稿和讨论信息写入转换需求，设置 `agentMode=auto`、启用 TTS，并写入完整的 `generationSession`。 |
+| `components/teacher/teacher-classroom-stage.tsx` | “转互动课堂”必须把当前课件页面、讲稿和讨论信息写入转换需求，设置 `agentMode=auto`、启用 TTS，并写入完整的 `generationSession`；从 Auto Teacher 或 Auto Import Teacher 入口进入时还必须把 `autoTeacherEmbedded` 和可用的 `autoTeacherBridge` 延续到转换后的互动课堂，保证隐藏传统返回 UI，并在父系统提供保存参数时仍可保存回父系统。 |
 | `app/generation-preview/page.tsx`、`app/generation-preview/types.ts` | 保留 `teacherInteractiveConversion`、`teacherInteractiveSource` 和 `originalRequirement`；教师转换不得重新走普通 PDF 解析或大纲重建流程，并与上游新增生成状态取并集。 |
 
-`generationSession` 至少保留 `requirements.interactiveMode=true`、`teacherMode=true`、`teacherInteractiveConversion=true`、`teacherInteractiveSource.stage`、`teacherInteractiveSource.scenes` 和 `originalRequirement`。合并后应验证生成内容面向学生讲解，而不是生成教师备课说明。
+`generationSession` 至少保留 `requirements.interactiveMode=true`、`teacherMode=true`、`teacherInteractiveConversion=true`、`teacherInteractiveSource.stage`、`teacherInteractiveSource.scenes` 和 `originalRequirement`；嵌入式 Auto Teacher / Auto Import Teacher 转换还要保留 `autoTeacherEmbedded` 和可用的 `autoTeacherBridge`。合并后应验证生成内容面向学生讲解，而不是生成教师备课说明。
 
 ```bash
 pnpm exec vitest run tests/generation-preview/types.test.ts tests/teacher/services.test.ts tests/teacher/adapters.test.ts
@@ -113,11 +113,11 @@ pnpm exec tsc --noEmit
 | `app/auto-teacher/`、`app/auto-import-teacher/` | 页面必须在服务端读取运行时 `NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS`，不能退回仅在构建期固化白名单；两个入口均应支持带 `basePath` 的部署。 |
 | `components/auto-teacher/` | 只处理 `AUTO_TEACHER_GENERATE` 消息；必须先校验 `event.origin` 再解析或执行消息；重复任务不能并发执行；状态、成功和错误消息必须回传给原消息窗口及原 origin。 |
 | `lib/auto-teacher/origins.ts` | 正式环境只允许显式配置和内置正式域名；测试域名只在测试环境启用；开发环境可在未配置白名单时联调，但不能把该宽松策略带入 production。 |
-| `lib/auto-teacher/protocol.ts` | 保留 PDF 生成与 ZIP 导入协议兼容：PDF 参数包括 `file_url`、`token`、`upload_url`，可选 `courseware_name`、`model`、`prompt`；ZIP 地址兼容 `zip_url`、`zipUrl`、`zipurl`，并保留 `teachType=teacher|classroom` 与可选 `fileName`。所有 URL 只允许 HTTP(S)。 |
-| `app/api/auto-teacher/parse-pdf-url/route.ts` | 保留 SSRF 校验、逐次重定向校验、可信 PDF origin 白名单、50MB 大小限制和 PDF Content-Type 校验；不得因联调内网地址而全局关闭 SSRF 防护。 |
+| `lib/auto-teacher/protocol.ts` | 保留 PDF 生成与 ZIP 导入协议兼容：PDF 参数包括 `file_url`、`token`、`upload_url`/`uploadUrl`，可选 `courseware_name`、`model`、`prompt`；ZIP 地址兼容 `zip_url`、`zipUrl`、`zipurl`，并保留 `teachType=teacher|classroom`、可选 `fileName`，以及用于保存回父系统的可选 `token`、`upload_url`/`uploadUrl` 成对字段。所有 URL 只允许 HTTP(S)。 |
+| `app/api/auto-teacher/parse-pdf-url/route.ts` | 保留 SSRF 校验、逐次重定向校验、可信 PDF origin 白名单、50MB 大小限制和 PDF Content-Type 校验；请求体 JSON 无效应返回 400，远端 PDF 获取异常应返回 502，PDF 已下载但无法解析应返回 422 `PARSE_FAILED`，不得因联调内网地址而全局关闭 SSRF 防护。 |
 | `app/api/auto-teacher/download-zip/route.ts` | 保留服务端 ZIP 下载代理、逐次重定向 SSRF 校验、可信 ZIP origin 白名单、500MB 大小限制、Content-Type 校验及 `Cache-Control: no-store`。 |
 | `app/generation-preview/page.tsx`、`app/generation-preview/types.ts` | 保留 `teacherMode`、`teacherInteractiveConversion`、`autoTeacherBridge` 和 `originalRequirement`；自动教师生成禁用图片、视频和 TTS，生成完成后进入教师课件路由；自动教师的大纲生成、审阅大纲、生成失败等生成预览链路不得显示“返回首页”“返回修改需求”“返回重试”等返回入口；与官方新增生成状态字段采用并集，不能互相覆盖。 |
-| `components/stage.tsx`、`components/header.tsx`、`components/edit/`、`components/teacher/teacher-classroom-stage.tsx` | Auto Teacher 和 Auto Import Teacher 的预览由父系统托管，带 `autoTeacher=1` 或 `autoImport=1` 进入普通课堂、普通课堂 Pro 模式或教师课件预览时，必须隐藏返回首页、返回教师备课等返回入口。导出 ZIP 后继续使用父系统传入的 `upload_url` 和 `token` 上传，并通过 `AUTO_TEACHER_SAVE_SUCCESS` / `AUTO_TEACHER_SAVE_ERROR` 回传结果；不得记录 token 或把 token 写入持久化日志。 |
+| `components/stage.tsx`、`components/stage/header-controls.tsx`、`components/header.tsx`、`components/edit/`、`components/teacher/teacher-classroom-stage.tsx`、`components/auto-teacher/auto-import-teacher-bridge.tsx`、`lib/auto-teacher/use-auto-teacher-classroom-save.ts` | Auto Teacher 和 Auto Import Teacher 的预览由父系统托管，带 `autoTeacher=1` 或 `autoImport=1` 进入普通课堂、普通课堂 Pro 模式或教师课件预览时，必须隐藏返回首页、返回教师备课等返回入口；转换到 `generation-preview` 后也要通过独立的 `autoTeacherEmbedded` 标记继续隐藏传统返回 UI。Auto Teacher 生成或 Auto Import Teacher 传入保存字段后，直接导入的互动课堂、教师课件预览页，以及由教师课件转换出的互动课堂都必须延续 `autoTeacherBridge`；点击下载旁的保存按钮后继续使用父系统传入的 `upload_url`/`uploadUrl` 和 `token` 上传，并通过 `AUTO_TEACHER_SAVE_SUCCESS` / `AUTO_TEACHER_SAVE_ERROR` 回传结果；保存按钮不得影响普通互动课堂或未传保存字段的 Auto Import 课堂。不得记录 token 或把 token 写入持久化日志。 |
 | `lib/types/stage.ts`、`lib/utils/database.ts`、`lib/utils/stage-storage.ts` | 保留 `teacherMode` 的类型、持久化和列表恢复；如果官方新增其他模式字段，应采用并集。ZIP 导入时必须按 `teachType` 设置 `teacherMode` 并路由到教师或普通课堂详情页。 |
 | `lib/app-paths.ts`、`next.config.ts`、`middleware.ts` | 保留 `basePath` URL 处理和运行时 CSP `frame-ancestors`；配置跨源 iframe 后不能再用 `X-Frame-Options: SAMEORIGIN` 阻断合法父窗口。 |
 

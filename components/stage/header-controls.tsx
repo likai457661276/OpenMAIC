@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Archive, Download, FileDown, Loader2, Package, Settings } from 'lucide-react';
+import { Archive, Download, FileDown, Loader2, Package, Save, Settings } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +14,7 @@ import { useStageStore } from '@/lib/store';
 import { useMediaGenerationStore } from '@/lib/store/media-generation';
 import { useExportPPTX } from '@/lib/export/use-export-pptx';
 import { useExportClassroom } from '@/lib/export/use-export-classroom';
+import { useAutoTeacherClassroomSave } from '@/lib/auto-teacher/use-auto-teacher-classroom-save';
 import { LanguageSwitcher } from '../language-switcher';
 import { SettingsDialog } from '../settings';
 import { cn } from '@/lib/utils';
@@ -72,6 +73,13 @@ export function HeaderControls({
     generatingOutlines.length === 0 &&
     failedOutlines.length === 0 &&
     Object.values(mediaTasks).every((task) => task.status === 'done' || task.status === 'failed');
+  const {
+    bridge: autoTeacherBridge,
+    canSave: canSaveAutoTeacher,
+    isSaving: isSavingAutoTeacher,
+    saveStatus: autoTeacherSaveStatus,
+    saveClassroom: saveAutoTeacherClassroom,
+  } = useAutoTeacherClassroomSave(canExport);
 
   const compact = variant === 'compact';
 
@@ -228,6 +236,42 @@ export function HeaderControls({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {autoTeacherBridge && (
+        <button
+          type="button"
+          onClick={saveAutoTeacherClassroom}
+          disabled={!canSaveAutoTeacher}
+          title={
+            canExport
+              ? isSavingAutoTeacher
+                ? '正在保存'
+                : autoTeacherSaveStatus === 'success'
+                  ? '已保存到父项目'
+                  : autoTeacherSaveStatus === 'error'
+                    ? '重新保存到父项目'
+                    : '保存到父项目'
+              : '课堂生成完成后可保存'
+          }
+          className={cn(
+            'shrink-0 p-2 rounded-full transition-all',
+            canSaveAutoTeacher
+              ? autoTeacherSaveStatus === 'success'
+                ? 'text-emerald-600 hover:bg-emerald-50 hover:shadow-sm dark:text-emerald-400 dark:hover:bg-emerald-950/40'
+                : autoTeacherSaveStatus === 'error'
+                  ? 'text-red-600 hover:bg-red-50 hover:shadow-sm dark:text-red-400 dark:hover:bg-red-950/40'
+                  : 'text-gray-400 hover:bg-white hover:text-gray-800 hover:shadow-sm dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-200'
+              : 'cursor-not-allowed text-gray-300 opacity-50 dark:text-gray-600',
+          )}
+          aria-label="保存到父项目"
+        >
+          {isSavingAutoTeacher ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4" />
+          )}
+        </button>
+      )}
 
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
