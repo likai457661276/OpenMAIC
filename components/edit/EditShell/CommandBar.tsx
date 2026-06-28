@@ -19,6 +19,7 @@ interface CommandBarProps {
    * Header is unmounted to keep top chrome to a single bar.
    */
   readonly trailing?: ReactNode;
+  readonly hideBackButton?: boolean;
 }
 
 /**
@@ -32,7 +33,13 @@ interface CommandBarProps {
  * not a one-way state, so we deliberately do *not* place a "Done" pill
  * here that would compete with the Switch's affordance.
  */
-export function CommandBar({ title, history, commands, trailing }: CommandBarProps) {
+export function CommandBar({
+  title,
+  history,
+  commands,
+  trailing,
+  hideBackButton = false,
+}: CommandBarProps) {
   const { t } = useI18n();
   const router = useRouter();
 
@@ -41,9 +48,11 @@ export function CommandBar({ title, history, commands, trailing }: CommandBarPro
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {/* Back-to-home — mirrors playback Header's leftmost button so the
             user has the same global-out affordance across modes. */}
-        <IconButton title={t('generation.backToHome')} onClick={() => router.push('/')}>
-          <ArrowLeft className="h-4 w-4" />
-        </IconButton>
+        {!hideBackButton && (
+          <IconButton title={t('generation.backToHome')} onClick={() => router.push('/')}>
+            <ArrowLeft className="h-4 w-4" />
+          </IconButton>
+        )}
         {history && (
           <>
             <IconButton title={t('edit.undo')} disabled={!history.canUndo} onClick={history.undo}>

@@ -36,6 +36,7 @@ interface EditShellProps {
   readonly rightRail?: ReactNode;
   /** Optional bottom bar (under the canvas) — used for the actions timeline. */
   readonly bottomRail?: ReactNode;
+  readonly hideBackButton?: boolean;
 }
 
 const CHROME_TRANSITION = { duration: CHROME_DURATION, ease: CHROME_EASE } as const;
@@ -77,6 +78,7 @@ export function EditShell({
   commandTrailing,
   rightRail,
   bottomRail,
+  hideBackButton = false,
 }: EditShellProps) {
   const surface = sceneEditorRegistry.resolve(scene.type) ?? NOOP_SURFACE;
   // Surface state is published from a child runner (keyed by sceneType so it
@@ -105,6 +107,7 @@ export function EditShell({
         trailing={commandTrailing}
         rightRail={rightRail}
         bottomRail={bottomRail}
+        hideBackButton={hideBackButton}
       >
         <SurfaceComponent />
         {state?.insertItems && state.insertItems.length > 0 && (
@@ -228,6 +231,7 @@ interface FrameProps {
   readonly trailing?: ReactNode;
   readonly rightRail?: ReactNode;
   readonly bottomRail?: ReactNode;
+  readonly hideBackButton?: boolean;
   readonly children: ReactNode;
 }
 
@@ -239,6 +243,7 @@ function Frame({
   trailing,
   rightRail,
   bottomRail,
+  hideBackButton = false,
   children,
 }: FrameProps) {
   const prefersReducedMotion = useReducedMotion();
@@ -270,7 +275,13 @@ function Frame({
           animate={cmdAnimate}
           transition={{ ...stepTransition, delay: prefersReducedMotion ? 0 : COMMANDBAR_DELAY }}
         >
-          <CommandBar title={title} history={history} commands={commands} trailing={trailing} />
+          <CommandBar
+            title={title}
+            history={history}
+            commands={commands}
+            trailing={trailing}
+            hideBackButton={hideBackButton}
+          />
         </motion.div>
       }
       leftSlot={

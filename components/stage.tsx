@@ -136,6 +136,7 @@ export function Stage({
               scene={currentScene}
               isEditable={isEditable}
               onToggleEditMode={toggleHandler}
+              hideBackButton={hideBackButton}
             />
           </motion.div>
         ) : (

@@ -15,6 +15,7 @@ interface EditChromeRootProps {
   readonly scene: Scene;
   readonly isEditable: boolean;
   readonly onToggleEditMode?: () => void;
+  readonly hideBackButton?: boolean;
 }
 
 /**
@@ -37,7 +38,12 @@ interface EditChromeRootProps {
  * `scene` is required (non-null). The parent gates mounting on
  * `mode === 'edit' && currentScene` to satisfy this contract.
  */
-export function EditChromeRoot({ scene, isEditable, onToggleEditMode }: EditChromeRootProps) {
+export function EditChromeRoot({
+  scene,
+  isEditable,
+  onToggleEditMode,
+  hideBackButton = false,
+}: EditChromeRootProps) {
   // Mark the body while edit mode is mounted, so the editor-scoped CSS
   // rule in globals.css that pins `body.padding-right` to 0 only fires
   // in Pro mode — not on non-editor pages where Radix's
@@ -77,7 +83,8 @@ export function EditChromeRoot({ scene, isEditable, onToggleEditMode }: EditChro
   return (
     <EditShell
       scene={scene}
-      leftRail={<SlideNavRail />}
+      leftRail={<SlideNavRail hideBackButton={hideBackButton} />}
+      hideBackButton={hideBackButton}
       rightRail={
         agentEnabled ? (
           <AgentPanel scene={{ id: scene.id, title: scene.title, type: scene.type }} />

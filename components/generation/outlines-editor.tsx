@@ -44,6 +44,7 @@ interface OutlinesEditorProps {
   isStreaming?: boolean;
   /** Collapse the editor back to the preview surface (small streaming card / outline-ready). */
   onCollapse?: () => void;
+  hideBackButton?: boolean;
 }
 
 const SCENE_TYPES: SceneType[] = ['slide', 'quiz', 'interactive', 'pbl'];
@@ -117,6 +118,7 @@ export function OutlinesEditor({
   isLoading = false,
   isStreaming = false,
   onCollapse,
+  hideBackButton = false,
 }: OutlinesEditorProps) {
   const { t } = useI18n();
   const sceneTypeLabel = useSceneTypeLabel();
@@ -358,14 +360,16 @@ export function OutlinesEditor({
         </label>
 
         <div className="flex flex-col-reverse gap-2 md:flex-row md:items-center md:gap-2">
-          <Button
-            variant="ghost"
-            onClick={onBack}
-            disabled={isLoading}
-            className="rounded-full px-4 text-muted-foreground hover:text-foreground"
-          >
-            {t('generation.backToRequirements')}
-          </Button>
+          {!hideBackButton && (
+            <Button
+              variant="ghost"
+              onClick={onBack}
+              disabled={isLoading}
+              className="rounded-full px-4 text-muted-foreground hover:text-foreground"
+            >
+              {t('generation.backToRequirements')}
+            </Button>
+          )}
           <Button
             onClick={onConfirm}
             disabled={isLoading || isStreaming || outlines.length === 0}

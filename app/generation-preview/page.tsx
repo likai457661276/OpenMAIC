@@ -199,6 +199,7 @@ function GenerationPreviewContent() {
   const activeSteps = getActiveSteps(session);
   const isOutlineReady = session?.previewPhase === 'outline-ready';
   const isReviewingOutlines = session?.previewPhase === 'review';
+  const hideReturnActions = session?.autoTeacherBridge?.enabled === true;
 
   const persistSession = (nextSession: GenerationSessionState) => {
     setSession(nextSession);
@@ -1633,16 +1634,23 @@ function GenerationPreviewContent() {
 
     return (
       <div className="min-h-[100dvh] w-full bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex flex-col items-center p-4 relative overflow-hidden">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="absolute top-4 left-4 z-20"
-        >
-          <Button variant="ghost" size="sm" onClick={goBackToHome} disabled={isConfirmingOutlines}>
-            <ArrowLeft className="size-4 mr-2" />
-            {t('generation.backToHome')}
-          </Button>
-        </motion.div>
+        {!hideReturnActions && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="absolute top-4 left-4 z-20"
+          >
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={goBackToHome}
+              disabled={isConfirmingOutlines}
+            >
+              <ArrowLeft className="size-4 mr-2" />
+              {t('generation.backToHome')}
+            </Button>
+          </motion.div>
+        )}
 
         <div className="z-10 w-full max-w-3xl pt-16 pb-8">
           <motion.div
@@ -1693,6 +1701,7 @@ function GenerationPreviewContent() {
               isLoading={isConfirmingOutlines}
               isStreaming={isOutlineStreaming}
               onCollapse={handleCollapseEditor}
+              hideBackButton={hideReturnActions}
             />
           </motion.div>
         </div>
@@ -1715,16 +1724,18 @@ function GenerationPreviewContent() {
       </div>
 
       {/* Back button */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="absolute top-4 left-4 z-20"
-      >
-        <Button variant="ghost" size="sm" onClick={goBackToHome}>
-          <ArrowLeft className="size-4 mr-2" />
-          {t('generation.backToHome')}
-        </Button>
-      </motion.div>
+      {!hideReturnActions && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="absolute top-4 left-4 z-20"
+        >
+          <Button variant="ghost" size="sm" onClick={goBackToHome}>
+            <ArrowLeft className="size-4 mr-2" />
+            {t('generation.backToHome')}
+          </Button>
+        </motion.div>
+      )}
 
       <div className="z-10 w-full max-w-lg space-y-8 flex flex-col items-center">
         <motion.div
@@ -1887,7 +1898,7 @@ function GenerationPreviewContent() {
         {/* Footer Action */}
         <div className="h-16 flex items-center justify-center w-full">
           <AnimatePresence>
-            {error ? (
+            {error && !hideReturnActions ? (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}

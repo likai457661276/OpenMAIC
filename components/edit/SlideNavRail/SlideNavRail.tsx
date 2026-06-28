@@ -37,7 +37,7 @@ const RAIL_MAX_PX = 360;
  * explicit grip handle on the thumb so the whole tile remains
  * click-to-switch.
  */
-export function SlideNavRail() {
+export function SlideNavRail({ hideBackButton = false }: { readonly hideBackButton?: boolean }) {
   const { t } = useI18n();
   const router = useRouter();
   const scenes = useStageStore.use.scenes();
@@ -379,7 +379,7 @@ export function SlideNavRail() {
           collapsed ? 'flex flex-col items-center gap-1' : 'flex items-center justify-between',
         )}
       >
-        {!collapsed && (
+        {!collapsed && !hideBackButton && (
           <button
             type="button"
             onClick={() => router.push('/')}

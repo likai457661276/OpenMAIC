@@ -116,8 +116,8 @@ pnpm exec tsc --noEmit
 | `lib/auto-teacher/protocol.ts` | 保留 PDF 生成与 ZIP 导入协议兼容：PDF 参数包括 `file_url`、`token`、`upload_url`，可选 `courseware_name`、`model`、`prompt`；ZIP 地址兼容 `zip_url`、`zipUrl`、`zipurl`，并保留 `teachType=teacher|classroom` 与可选 `fileName`。所有 URL 只允许 HTTP(S)。 |
 | `app/api/auto-teacher/parse-pdf-url/route.ts` | 保留 SSRF 校验、逐次重定向校验、可信 PDF origin 白名单、50MB 大小限制和 PDF Content-Type 校验；不得因联调内网地址而全局关闭 SSRF 防护。 |
 | `app/api/auto-teacher/download-zip/route.ts` | 保留服务端 ZIP 下载代理、逐次重定向 SSRF 校验、可信 ZIP origin 白名单、500MB 大小限制、Content-Type 校验及 `Cache-Control: no-store`。 |
-| `app/generation-preview/page.tsx`、`app/generation-preview/types.ts` | 保留 `teacherMode`、`teacherInteractiveConversion`、`autoTeacherBridge` 和 `originalRequirement`；自动教师生成禁用图片、视频和 TTS，生成完成后进入教师课件路由；与官方新增生成状态字段采用并集，不能互相覆盖。 |
-| `components/teacher/teacher-classroom-stage.tsx` | 保留导出 ZIP 后使用父系统传入的 `upload_url` 和 `token` 上传，并通过 `AUTO_TEACHER_SAVE_SUCCESS` / `AUTO_TEACHER_SAVE_ERROR` 回传结果；不得记录 token 或把 token 写入持久化日志。Auto Teacher 预览由父系统托管，必须隐藏“返回教师备课”按钮。 |
+| `app/generation-preview/page.tsx`、`app/generation-preview/types.ts` | 保留 `teacherMode`、`teacherInteractiveConversion`、`autoTeacherBridge` 和 `originalRequirement`；自动教师生成禁用图片、视频和 TTS，生成完成后进入教师课件路由；自动教师的大纲生成、审阅大纲、生成失败等生成预览链路不得显示“返回首页”“返回修改需求”“返回重试”等返回入口；与官方新增生成状态字段采用并集，不能互相覆盖。 |
+| `components/stage.tsx`、`components/header.tsx`、`components/edit/`、`components/teacher/teacher-classroom-stage.tsx` | Auto Teacher 和 Auto Import Teacher 的预览由父系统托管，带 `autoTeacher=1` 或 `autoImport=1` 进入普通课堂、普通课堂 Pro 模式或教师课件预览时，必须隐藏返回首页、返回教师备课等返回入口。导出 ZIP 后继续使用父系统传入的 `upload_url` 和 `token` 上传，并通过 `AUTO_TEACHER_SAVE_SUCCESS` / `AUTO_TEACHER_SAVE_ERROR` 回传结果；不得记录 token 或把 token 写入持久化日志。 |
 | `lib/types/stage.ts`、`lib/utils/database.ts`、`lib/utils/stage-storage.ts` | 保留 `teacherMode` 的类型、持久化和列表恢复；如果官方新增其他模式字段，应采用并集。ZIP 导入时必须按 `teachType` 设置 `teacherMode` 并路由到教师或普通课堂详情页。 |
 | `lib/app-paths.ts`、`next.config.ts`、`middleware.ts` | 保留 `basePath` URL 处理和运行时 CSP `frame-ancestors`；配置跨源 iframe 后不能再用 `X-Frame-Options: SAMEORIGIN` 阻断合法父窗口。 |
 
@@ -138,8 +138,8 @@ pnpm lint
 
 还应人工验证两条完整链路：
 
-1. 父窗口发送 PDF 生成消息，OpenMAIC 完成解析、生成、教师预览、ZIP 上传和保存结果回传；确认预览 URL 带有 `autoTeacher=1`，且不显示“返回教师备课”按钮。
-2. 父窗口发送 ZIP 导入消息，分别以 `teachType=teacher` 和 `teachType=classroom` 导入，确认 `teacherMode`、目标路由、返回按钮隐藏和 `AUTO_TEACHER_READY.nextPath` 正确。
+1. 父窗口发送 PDF 生成消息，OpenMAIC 完成解析、生成、教师预览、ZIP 上传和保存结果回传；确认生成预览阶段不显示“返回首页”“返回修改需求”“返回重试”等返回入口，预览 URL 带有 `autoTeacher=1`，且不显示“返回教师备课”按钮。
+2. 父窗口发送 ZIP 导入消息，分别以 `teachType=teacher` 和 `teachType=classroom` 导入，确认 `teacherMode`、目标路由、`AUTO_TEACHER_READY.nextPath` 正确，并确认普通课堂播放态、普通课堂 Pro 模式和教师课件预览都不显示返回入口。
 
 ## 普通互动课堂 TTS 默认与生成一致性
 
