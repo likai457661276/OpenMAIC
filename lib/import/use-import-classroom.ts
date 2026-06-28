@@ -20,11 +20,19 @@ export type ImportPhase =
   | 'writingCourse'
   | 'done';
 
-export function useImportClassroom(onSuccess?: () => void) {
+type UseImportClassroomOptions = {
+  showSuccessToast?: boolean;
+};
+
+export function useImportClassroom(
+  onSuccess?: () => void,
+  options: UseImportClassroomOptions = {},
+) {
   const [importing, setImporting] = useState(false);
   const [phase, setPhase] = useState<ImportPhase>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { t } = useI18n();
+  const showSuccessToast = options.showSuccessToast ?? true;
 
   const triggerFileSelect = useCallback(() => {
     fileInputRef.current?.click();
@@ -234,7 +242,11 @@ export function useImportClassroom(onSuccess?: () => void) {
 
         // 6. Done
         setPhase('done');
-        toast.success(t('import.success'), { id: toastId });
+        if (showSuccessToast) {
+          toast.success(t('import.success'), { id: toastId });
+        } else {
+          toast.dismiss(toastId);
+        }
         onSuccess?.();
       } catch (error) {
         log.error('Classroom ZIP import failed:', error);
@@ -247,7 +259,7 @@ export function useImportClassroom(onSuccess?: () => void) {
         setPhase('idle');
       }
     },
-    [t, onSuccess],
+    [t, onSuccess, showSuccessToast],
   );
 
   return {

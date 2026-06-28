@@ -254,7 +254,7 @@ ACCESS_CODE=your-secret-code
 ```bash
 cp .env.example .env.local
 # 编辑 .env.local 填入你的 API Key，然后：
-docker compose up --build
+docker compose up -d --build
 ```
 
 如果你要部署到长期运行的服务器，建议直接参考独立文档：[DEPLOYMENT-zh.md](/Users/likai/Documents/workspace/OpenMAIC/DEPLOYMENT-zh.md)。

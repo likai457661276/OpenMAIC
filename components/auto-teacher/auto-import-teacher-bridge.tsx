@@ -169,7 +169,9 @@ export function AutoImportTeacherBridge({ allowedOrigins }: AutoImportTeacherBri
     }
   }, [router, setBridgeStatus]);
 
-  const { fileInputRef, handleFileChange, phase } = useImportClassroom(handleImportSuccess);
+  const { fileInputRef, handleFileChange, phase } = useImportClassroom(handleImportSuccess, {
+    showSuccessToast: false,
+  });
 
   useEffect(() => {
     if (phase === 'idle' || phase === 'done') return;
