@@ -94,8 +94,10 @@ pnpm exec tsc --noEmit
 
 `generationSession` 至少保留 `requirements.interactiveMode=true`、`teacherMode=true`、`teacherInteractiveConversion=true`、`teacherInteractiveSource.stage`、`teacherInteractiveSource.scenes` 和 `originalRequirement`；嵌入式 Auto Teacher / Auto Import Teacher 转换还要保留 `autoTeacherEmbedded` 和可用的 `autoTeacherBridge`。合并后应验证生成内容面向学生讲解，而不是生成教师备课说明。
 
+上游 v0.3.0 将交互内容的 `teacherActions` 旧字段迁移为统一的场景动作管线，并新增前台首屏生成重试。同步后教师课件转互动课堂必须继续复用公共 `fetchSceneContent`、`fetchSceneActions` 和 `generateAndStoreTTS`，同时通过 `apiPath()` 保留 `/bingo-agent-class` 子路径；不得把 `teacherActions` 字段重新写回 `InteractiveContent`。
+
 ```bash
-pnpm exec vitest run tests/generation-preview/types.test.ts tests/teacher/services.test.ts tests/teacher/adapters.test.ts
+pnpm exec vitest run tests/generation-preview/types.test.ts tests/teacher/services.test.ts tests/teacher/adapters.test.ts tests/generation/foreground-retry.test.ts tests/generation/widget-actions-direct-pipeline.test.ts tests/hooks/use-scene-generator-retry.test.ts
 pnpm exec tsc --noEmit
 ```
 

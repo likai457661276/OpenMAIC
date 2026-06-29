@@ -16,7 +16,7 @@ import type {
   Stage as DslStage,
 } from '@openmaic/dsl';
 import type { Action } from '@/lib/types/action';
-import type { WidgetType, WidgetConfig, TeacherAction } from '@/lib/types/widgets';
+import type { WidgetType, WidgetConfig } from '@/lib/types/widgets';
 import type { PBLProjectConfig } from '@/lib/pbl/types';
 import type { PBLProjectV2 } from '@/lib/pbl/v2/types';
 
@@ -74,7 +74,6 @@ export interface InteractiveContent {
   // Ultra Mode widget fields
   widgetType?: WidgetType;
   widgetConfig?: WidgetConfig;
-  teacherActions?: TeacherAction[];
 }
 
 /**
