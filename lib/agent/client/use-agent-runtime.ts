@@ -22,6 +22,7 @@ import {
   type ThreadMessageLike,
 } from '@assistant-ui/react';
 import type { AgentEvent } from '@earendil-works/pi-agent-core';
+import { apiPath } from '@/lib/app-paths';
 import { useStageStore } from '@/lib/store/stage';
 import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import type { SceneContextMap } from '@/app/api/agent/edit/route';
@@ -525,7 +526,7 @@ export function useAgentRuntime(opts: UseAgentRuntimeOptions) {
         // a server-side provider, so the agent would 500 when no server key is
         // configured even though generation works with the user's own config.
         const cfg = getCurrentModelConfig();
-        const res = await fetch('/api/agent/edit', {
+        const res = await fetch(apiPath('/api/agent/edit'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

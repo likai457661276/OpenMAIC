@@ -2,6 +2,10 @@ export const AUTO_TEACHER_TEST_ALLOWED_ORIGINS = [
   'http://guizhou.teaching.test.bin-go.me',
 ] as const;
 
+export const AUTO_TEACHER_DEVELOPMENT_ALLOWED_PDF_ORIGINS = [
+  'http://professional-development.local.bin-go.me',
+] as const;
+
 export const AUTO_TEACHER_DEVELOPMENT_FRAME_ANCESTORS = ['*'] as const;
 
 export const AUTO_TEACHER_PRODUCTION_ALLOWED_ORIGINS = [
@@ -58,6 +62,10 @@ export function getAutoTeacherAllowedPdfOrigins(params?: {
 
   if (shouldUseDefaultTestPdfOrigins(params?.env)) {
     AUTO_TEACHER_TEST_ALLOWED_ORIGINS.forEach((origin) => origins.add(origin));
+  }
+
+  if ((params?.env ?? process.env).NODE_ENV !== 'production') {
+    AUTO_TEACHER_DEVELOPMENT_ALLOWED_PDF_ORIGINS.forEach((origin) => origins.add(origin));
   }
 
   return Array.from(origins);

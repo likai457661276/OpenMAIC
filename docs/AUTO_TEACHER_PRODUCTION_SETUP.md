@@ -114,7 +114,13 @@ ALLOWED_FRAME_ANCESTORS=https://partner.example.com https://dashboard.example.co
 
 通常只接入自动教案入口时，配置 `NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS` 即可。
 
-## 4. 父窗口项目环境变量
+## 4. 父系统文档解析
+
+自动教案入口不再由 OpenMAIC 服务端请求 `file_url` 或解析 PDF。父系统必须先在自身网络上下文中完成 Word/PDF 解析，并在 `AUTO_TEACHER_GENERATE` 消息里传入 `pdf_text` 或 `pdfText`。
+
+`file_url` 可以作为可选来源字段保留，但 OpenMAIC 不会用它下载文件。这样可以避免测试域名、fake-ip DNS、浏览器代理或父系统内网文件只对父系统可读时，OpenMAIC 服务端二次抓取失败。
+
+## 5. 父窗口项目环境变量
 
 父窗口项目需要配置 iframe 页面地址：
 
@@ -130,7 +136,7 @@ VITE_AI_OPENMAIC_URL=https://openmaic.example.com/bingo-agent-class
 
 推荐正式环境显式配置 `VITE_AI_OPENMAIC_AUTO_TEACHER_URL`，避免路径被反向代理或 basePath 影响。
 
-## 5. 重启与构建
+## 6. 重启与构建
 
 OpenMAIC 的自动教案白名单同时用于服务端响应头和客户端 `postMessage` 校验。
 
@@ -152,9 +158,9 @@ docker compose up -d
 
 父窗口项目的 `VITE_` 环境变量会在构建时注入，正式环境修改后也需要重新构建父项目。
 
-## 6. 验证方法
+## 7. 验证方法
 
-### 6.1 检查 iframe 地址
+### 7.1 检查 iframe 地址
 
 在父窗口页面打开浏览器 DevTools，选中自动教案 iframe，确认：
 
@@ -164,7 +170,7 @@ docker compose up -d
 
 `src` 不能为空。
 
-### 6.2 检查 CSP 响应头
+### 7.2 检查 CSP 响应头
 
 请求 OpenMAIC 页面：
 
@@ -198,7 +204,7 @@ X-Frame-Options: SAMEORIGIN
 
 否则浏览器仍可能阻止 iframe。
 
-### 6.3 检查 postMessage
+### 7.3 检查 postMessage
 
 父窗口发送消息格式：
 
@@ -206,7 +212,8 @@ X-Frame-Options: SAMEORIGIN
 iframe.contentWindow?.postMessage(
   {
     type: "AUTO_TEACHER_GENERATE",
-    file_url: "https://example.com/demo.pdf",
+    pdf_text: "# 第一课时\n\n教学目标：...",
+    courseware_name: "认识平面图形",
     model: "qwen:deepseek-v4-flash"
   },
   "https://openmaic.example.com"
@@ -217,7 +224,6 @@ OpenMAIC 会回传：
 
 ```ts
 { type: "AUTO_TEACHER_STATUS", stage: "received" }
-{ type: "AUTO_TEACHER_STATUS", stage: "parsing_pdf" }
 { type: "AUTO_TEACHER_STATUS", stage: "preparing_session" }
 { type: "AUTO_TEACHER_READY", nextPath: "/bingo-agent-class/generation-preview" }
 ```
@@ -254,13 +260,12 @@ Failed to execute 'postMessage' on 'DOMWindow': The target origin provided does 
 2. 不要让 iframe `src` 为空
 3. 如果经过反向代理，确认最终 iframe URL 的协议、域名、端口与 postMessage targetOrigin 一致
 
-### PDF 无法解析
+### 教案文本未传入
 
-自动教案入口会由 OpenMAIC 服务端访问 `file_url` 并解析 PDF。
+自动教案入口要求父窗口传入 `pdf_text` 或 `pdfText`。如果缺少该字段，OpenMAIC 会返回 `AUTO_TEACHER_ERROR`。
 
 需要确认：
 
-1. PDF URL 能被 OpenMAIC 服务器访问
-2. PDF 响应类型是 `application/pdf`、`application/x-pdf` 或 `application/octet-stream`
-3. PDF 文件大小不超过 50MB
-4. 如需访问内网 PDF，必须由运维明确配置允许内网访问策略
+1. 父系统已调用自身文档解析接口并拿到 markdown/text
+2. postMessage payload 中包含非空 `pdf_text` 或 `pdfText`
+3. 不要依赖 `file_url` 让 OpenMAIC 二次读取 PDF

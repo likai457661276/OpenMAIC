@@ -48,12 +48,17 @@ describe('auto-teacher protocol', () => {
     ).toContain('http://guizhou.teaching.test.bin-go.me');
   });
 
-  it('adds the Guizhou teaching test PDF origin during local development', () => {
+  it('adds local development PDF origins during local development', () => {
     expect(
       getAutoTeacherAllowedPdfOrigins({
         env: { NODE_ENV: 'development' },
       }),
-    ).toContain('http://guizhou.teaching.test.bin-go.me');
+    ).toEqual(
+      expect.arrayContaining([
+        'http://guizhou.teaching.test.bin-go.me',
+        'http://professional-development.local.bin-go.me',
+      ]),
+    );
   });
 
   it('supports explicit PDF origins that differ from the parent project origin', () => {
@@ -112,12 +117,14 @@ describe('auto-teacher protocol', () => {
       parseAutoTeacherMessage({
         type: AUTO_TEACHER_MESSAGE_TYPE,
         file_url: 'https://cdn.example.com/course.pdf',
+        pdf_text: '# 第一课时\n教学目标',
         token: 'token-123',
         upload_url: 'https://parent.example.com/api/upload',
         model: 'qwen:deepseek-v4-flash',
       }),
     ).toEqual({
       fileUrl: 'https://cdn.example.com/course.pdf',
+      pdfText: '# 第一课时\n教学目标',
       token: 'token-123',
       uploadUrl: 'https://parent.example.com/api/upload',
       model: 'qwen:deepseek-v4-flash',
@@ -132,6 +139,7 @@ describe('auto-teacher protocol', () => {
       parseAutoTeacherMessage({
         type: AUTO_TEACHER_MESSAGE_TYPE,
         file_url: 'https://cdn.example.com/course.pdf',
+        pdf_text: '教案文本',
         courseware_name: '  生活中的周期现象  ',
         token: 'token-123',
         upload_url: 'https://parent.example.com/api/upload',
@@ -146,6 +154,7 @@ describe('auto-teacher protocol', () => {
       parseAutoTeacherMessage({
         type: AUTO_TEACHER_MESSAGE_TYPE,
         file_url: 'https://cdn.example.com/course.pdf',
+        pdf_text: '教案文本',
         token: 'token-123',
         uploadUrl: 'https://parent.example.com/api/upload',
         prompt: '  请设计一节探究式课堂。  ',
@@ -153,6 +162,40 @@ describe('auto-teacher protocol', () => {
     ).toMatchObject({
       uploadUrl: 'https://parent.example.com/api/upload',
       prompt: '请设计一节探究式课堂。',
+    });
+  });
+
+  it('requires parsed lesson text from the parent postMessage payload', () => {
+    expect(
+      parseAutoTeacherMessage({
+        type: AUTO_TEACHER_MESSAGE_TYPE,
+        pdf_text: '  # 第一课时\n教学目标  ',
+        token: 'token-123',
+        upload_url: 'https://parent.example.com/api/upload',
+      }),
+    ).toMatchObject({
+      pdfText: '# 第一课时\n教学目标',
+    });
+
+    expect(() =>
+      parseAutoTeacherMessage({
+        type: AUTO_TEACHER_MESSAGE_TYPE,
+        token: 'token-123',
+        upload_url: 'https://parent.example.com/api/upload',
+      }),
+    ).toThrow('Missing required field: pdf_text');
+  });
+
+  it('accepts camelCase parsed PDF text alias from the parent postMessage payload', () => {
+    expect(
+      parseAutoTeacherMessage({
+        type: AUTO_TEACHER_MESSAGE_TYPE,
+        pdfText: '  教案文本  ',
+        token: 'token-123',
+        upload_url: 'https://parent.example.com/api/upload',
+      }),
+    ).toMatchObject({
+      pdfText: '教案文本',
     });
   });
 
@@ -254,14 +297,12 @@ describe('auto-teacher protocol', () => {
     ).toThrow('Only HTTP(S) upload_url is allowed');
   });
 
-  it('rejects missing file_url and non-http urls', () => {
-    expect(() => parseAutoTeacherMessage({ type: AUTO_TEACHER_MESSAGE_TYPE })).toThrow(
-      'Missing required field: file_url',
-    );
+  it('allows omitted file_url but rejects non-http file_url when provided', () => {
     expect(() =>
       parseAutoTeacherMessage({
         type: AUTO_TEACHER_MESSAGE_TYPE,
         file_url: 'file:///tmp/course.pdf',
+        pdf_text: '教案文本',
         token: 'token-123',
         upload_url: 'https://parent.example.com/api/upload',
       }),
@@ -273,6 +314,7 @@ describe('auto-teacher protocol', () => {
       parseAutoTeacherMessage({
         type: AUTO_TEACHER_MESSAGE_TYPE,
         file_url: 'https://cdn.example.com/course.pdf',
+        pdf_text: '教案文本',
         upload_url: 'https://parent.example.com/api/upload',
       }),
     ).toThrow('Missing required field: token');
@@ -281,6 +323,7 @@ describe('auto-teacher protocol', () => {
       parseAutoTeacherMessage({
         type: AUTO_TEACHER_MESSAGE_TYPE,
         file_url: 'https://cdn.example.com/course.pdf',
+        pdf_text: '教案文本',
         token: 'token-123',
       }),
     ).toThrow('Missing required field: upload_url');
@@ -289,6 +332,7 @@ describe('auto-teacher protocol', () => {
       parseAutoTeacherMessage({
         type: AUTO_TEACHER_MESSAGE_TYPE,
         file_url: 'https://cdn.example.com/course.pdf',
+        pdf_text: '教案文本',
         token: 'token-123',
         upload_url: 'file:///tmp/upload',
       }),
@@ -304,18 +348,18 @@ describe('auto-teacher protocol', () => {
     });
   });
 
-  it('builds a PDF-driven teacher lesson prompt', () => {
-    const prompt = buildAutoTeacherRequirement('PDF text');
-    expect(prompt).toContain('PDF 内容');
+  it('builds a parent-text-driven teacher lesson prompt', () => {
+    const prompt = buildAutoTeacherRequirement('教案文本');
+    expect(prompt).toContain('教案文本');
     expect(prompt).toContain('教师可直接使用的教案');
     expect(prompt).toContain('不要要求用户补充输入');
     expect(prompt).toContain('不要依赖图片生成、视频生成或 TTS 语音合成');
   });
 
   it('uses a custom prompt while keeping the parsed PDF context note', () => {
-    const prompt = buildAutoTeacherRequirement('PDF text', '请突出易错点和分层练习。');
+    const prompt = buildAutoTeacherRequirement('教案文本', '请突出易错点和分层练习。');
     expect(prompt).toContain('请突出易错点和分层练习。');
-    expect(prompt).toContain('当前可用文本长度约 8 字符');
+    expect(prompt).toContain('当前可用文本长度约 4 字符');
     expect(prompt).not.toContain('不要要求用户补充输入');
   });
 

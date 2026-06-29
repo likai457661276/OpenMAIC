@@ -45,9 +45,7 @@ import { useExportClassroom } from '@/lib/export/use-export-classroom';
 import { useAutoTeacherClassroomSave } from '@/lib/auto-teacher/use-auto-teacher-classroom-save';
 import { cn } from '@/lib/utils';
 import { SceneRenderer } from '@/components/stage/scene-renderer';
-import { HeaderControls } from '@/components/stage/header-controls';
-import { EditShell } from '@/components/edit/EditShell';
-import { SlideNavRail } from '@/components/edit/SlideNavRail';
+import { EditChromeRoot } from '@/components/edit/EditChromeRoot';
 import { LectureNotesView } from '@/components/chat/lecture-notes-view';
 import { SlideThumbnail } from '@/components/slide-renderer/SlideThumbnail';
 import { ThumbnailInteractive } from '@/components/slide-renderer/components/ThumbnailInteractive';
@@ -537,18 +535,12 @@ export function TeacherClassroomStage({
   if (mode === 'edit' && currentScene && editorEnabled) {
     return (
       <div className="relative flex h-screen overflow-hidden bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
-        <EditShell
+        <EditChromeRoot
           scene={currentScene}
-          leftRail={<SlideNavRail hideBackButton={hideBackButton} />}
+          isEditable={canEdit}
+          onToggleEditMode={handleToggleEditMode}
           hideBackButton={hideBackButton}
-          commandTrailing={
-            <HeaderControls
-              mode="edit"
-              canEdit={canEdit}
-              onToggleEditMode={handleToggleEditMode}
-              variant="compact"
-            />
-          }
+          showActionsBar={false}
         />
         <InteractiveIframeHost />
       </div>

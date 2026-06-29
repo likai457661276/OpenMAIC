@@ -18,6 +18,7 @@ interface EditChromeRootProps {
   readonly isEditable: boolean;
   readonly onToggleEditMode?: () => void;
   readonly hideBackButton?: boolean;
+  readonly showActionsBar?: boolean;
 }
 
 /**
@@ -45,6 +46,7 @@ export function EditChromeRoot({
   isEditable,
   onToggleEditMode,
   hideBackButton = false,
+  showActionsBar = true,
 }: EditChromeRootProps) {
   // Mark the body while edit mode is mounted, so the editor-scoped CSS
   // rule in globals.css that pins `body.padding-right` to 0 only fires
@@ -115,7 +117,7 @@ export function EditChromeRoot({
           />
         ) : undefined
       }
-      bottomRail={authoringEnabled ? <ActionsBar sceneId={scene.id} /> : undefined}
+      bottomRail={showActionsBar && authoringEnabled ? <ActionsBar sceneId={scene.id} /> : undefined}
       commandTrailing={
         <HeaderControls
           mode="edit"
