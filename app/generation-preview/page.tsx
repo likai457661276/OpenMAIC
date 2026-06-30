@@ -30,6 +30,7 @@ import {
   storeImages,
 } from '@/lib/utils/image-storage';
 import { getCurrentModelConfig } from '@/lib/utils/model-config';
+import { db } from '@/lib/utils/database';
 import { MAX_PDF_CONTENT_CHARS, MAX_VISION_IMAGES } from '@/lib/constants/generation';
 import { buildVideoManifestFromOutlines } from '@/lib/media/video-manifest';
 import { nanoid } from 'nanoid';
@@ -37,6 +38,12 @@ import type { Stage, Scene } from '@/lib/types/stage';
 import type { SceneOutline, PdfImage, ImageMapping } from '@/lib/types/generation';
 import type { Action, SpeechAction } from '@/lib/types/action';
 import type { AgentInfo } from '@/lib/generation/pipeline-types';
+import {
+  collectTeacherInteractiveSpeechTexts,
+  ensureTeacherInteractiveSpeechAction,
+  extractTeacherInteractiveSceneText,
+  getTeacherInteractiveTTSBlockReason,
+} from '@/lib/teacher/interactive-conversion';
 import { AgentRevealModal } from '@/components/agent/agent-reveal-modal';
 import { createLogger } from '@/lib/logger';
 import { apiPath, assetPath } from '@/lib/app-paths';
@@ -53,43 +60,8 @@ function cloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-function extractSceneText(scene: Scene): string {
-  if (scene.content.type === 'slide') {
-    const elements = scene.content.canvas.elements as unknown as Array<Record<string, unknown>>;
-    return elements
-      .map((element) => {
-        const content = element.content;
-        if (typeof content === 'string') return content.replace(/<[^>]*>/g, '').trim();
-        const text = element.text;
-        return typeof text === 'string' ? text.trim() : '';
-      })
-      .filter(Boolean)
-      .slice(0, 8)
-      .join('；');
-  }
-  if (scene.content.type === 'quiz') {
-    return scene.content.questions
-      .map((question) => question.question)
-      .filter(Boolean)
-      .slice(0, 5)
-      .join('；');
-  }
-  if (scene.content.type === 'interactive') {
-    return scene.content.widgetConfig
-      ? JSON.stringify(scene.content.widgetConfig).slice(0, 500)
-      : scene.content.html?.replace(/<[^>]*>/g, '').slice(0, 500) || scene.title;
-  }
-  if (scene.content.type === 'pbl') {
-    return (
-      scene.content.projectConfig.projectInfo.description ||
-      scene.content.projectConfig.projectInfo.title
-    );
-  }
-  return scene.title;
-}
-
 function buildOutlineFromScene(scene: Scene, index: number): SceneOutline {
-  const sceneText = extractSceneText(scene);
+  const sceneText = extractTeacherInteractiveSceneText(scene);
   return {
     id: nanoid(),
     type: scene.type,
@@ -112,7 +84,7 @@ function toActionGenerationContent(scene: Scene): unknown {
     return {
       elements: scene.content.canvas.elements,
       background: scene.content.canvas.background,
-      remark: extractSceneText(scene),
+      remark: extractTeacherInteractiveSceneText(scene),
     };
   }
   if (scene.content.type === 'quiz') {
@@ -128,25 +100,94 @@ function toActionGenerationContent(scene: Scene): unknown {
   return { projectConfig: scene.content.projectConfig };
 }
 
+interface TeacherInteractiveTTSResult {
+  sceneOrder: number;
+  speechCount: number;
+  generatedCount: number;
+  missingAudioIds: string[];
+  skippedReason?: string;
+  success: boolean;
+}
+
+function formatTeacherInteractiveTTSError(result: TeacherInteractiveTTSResult): string {
+  const prefix = `第 ${result.sceneOrder} 页音频生成失败`;
+  if (result.skippedReason) return `${prefix}：${result.skippedReason}`;
+  if (result.speechCount === 0) {
+    return `${prefix}：当前页面没有可朗读的讲解动作，请重试转换。`;
+  }
+  return `${prefix}：${result.missingAudioIds.length} 条讲解没有生成可导出的音频，请检查服务端 TTS provider 后重试。`;
+}
+
 async function generateTTSForExistingScene(
   stageId: string,
   scene: Scene,
   language?: string,
   signal?: AbortSignal,
-) {
+): Promise<TeacherInteractiveTTSResult> {
   const settings = useSettingsStore.getState();
-  if (!settings.ttsEnabled || settings.ttsProviderId === 'browser-native-tts') return;
+  const sceneOrder = scene.order ?? 0;
 
   scene.actions = splitLongSpeechActions(scene.actions || [], settings.ttsProviderId);
   const speechActions = scene.actions.filter(
-    (action): action is SpeechAction => action.type === 'speech' && !!action.text,
+    (action): action is SpeechAction => action.type === 'speech' && action.text.trim().length > 0,
   );
-
-  for (const action of speechActions) {
-    const audioId = `tts_${stageId}_s${scene.order}_${action.id}`;
-    action.audioId = audioId;
-    await generateAndStoreTTS(audioId, action.text, language, signal);
+  const blockReason = getTeacherInteractiveTTSBlockReason(settings);
+  if (blockReason) {
+    return {
+      sceneOrder,
+      speechCount: speechActions.length,
+      generatedCount: 0,
+      missingAudioIds: [],
+      skippedReason: blockReason,
+      success: false,
+    };
   }
+
+  if (speechActions.length === 0) {
+    return {
+      sceneOrder,
+      speechCount: 0,
+      generatedCount: 0,
+      missingAudioIds: [],
+      success: false,
+    };
+  }
+
+  let generatedCount = 0;
+  let lastError: string | undefined;
+  const missingAudioIds: string[] = [];
+  for (const action of speechActions) {
+    const audioId = `tts_${stageId}_s${sceneOrder}_${action.id}`;
+    action.audioId = audioId;
+    try {
+      await generateAndStoreTTS(audioId, action.text, language, signal);
+      const record = await db.audioFiles.get(audioId);
+      if (record?.blob) {
+        generatedCount++;
+      } else {
+        missingAudioIds.push(audioId);
+      }
+    } catch (error) {
+      if (isAbortError(error)) throw error;
+      lastError = error instanceof Error ? error.message : String(error);
+      missingAudioIds.push(audioId);
+      log.warn('Teacher interactive TTS generation failed:', {
+        sceneOrder,
+        actionId: action.id,
+        audioId,
+        error: lastError,
+      });
+    }
+  }
+
+  return {
+    sceneOrder,
+    speechCount: speechActions.length,
+    generatedCount,
+    missingAudioIds,
+    skippedReason: lastError ? `TTS 生成失败：${lastError}` : undefined,
+    success: missingAudioIds.length === 0 && generatedCount === speechActions.length,
+  };
 }
 
 function GenerationPreviewContent() {
@@ -571,8 +612,12 @@ function GenerationPreviewContent() {
       }
 
       scene.actions = actionData.actions as Action[];
-      await generateTTSForExistingScene(stageId, scene, languageDirective, signal);
-      previousSpeeches = actionData.previousSpeeches || [];
+      ensureTeacherInteractiveSpeechAction(scene);
+      const ttsResult = await generateTTSForExistingScene(stageId, scene, languageDirective, signal);
+      if (!ttsResult.success) {
+        throw new Error(formatTeacherInteractiveTTSError(ttsResult));
+      }
+      previousSpeeches = collectTeacherInteractiveSpeechTexts(scene.actions);
       enrichedScenes.push(scene);
       setStatusMessage(`已补齐 ${index + 1}/${sourceScenes.length} 页互动动作`);
     }

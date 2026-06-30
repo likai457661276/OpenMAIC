@@ -97,8 +97,10 @@ pnpm exec tsc --noEmit
 
 上游 v0.3.0 将交互内容的 `teacherActions` 旧字段迁移为统一的场景动作管线，并新增前台首屏生成重试。同步后教师课件转互动课堂必须继续复用公共 `fetchSceneContent`、`fetchSceneActions` 和 `generateAndStoreTTS`，同时通过 `apiPath()` 保留 `/bingo-agent-class` 子路径；不得把 `teacherActions` 字段重新写回 `InteractiveContent`。
 
+教师课件转互动课堂的音频完整性是自定义质量门禁：`app/generation-preview/page.tsx` 必须在 `returnActionsOnly` 动作生成后保证每页至少有一条面向学生的 `speech`，并且在保存或回传父系统前确认所有 `speech.audioId` 都能从 IndexedDB 读到真实音频 blob。该转换链路不得接受 `browser-native-tts` 作为最终产物音频来源；若服务端 TTS provider 未启用、不可用或生成后缺音频，应中断转换并显示明确错误，避免导出 ZIP 中出现第一页或任一页面音频 `missing: true` 的静默成功包。
+
 ```bash
-pnpm exec vitest run tests/generation-preview/types.test.ts tests/teacher/services.test.ts tests/teacher/adapters.test.ts tests/generation/foreground-retry.test.ts tests/generation/widget-actions-direct-pipeline.test.ts tests/hooks/use-scene-generator-retry.test.ts
+pnpm exec vitest run tests/generation-preview/types.test.ts tests/teacher/services.test.ts tests/teacher/adapters.test.ts tests/teacher/interactive-conversion.test.ts tests/generation/foreground-retry.test.ts tests/generation/widget-actions-direct-pipeline.test.ts tests/hooks/use-scene-generator-retry.test.ts
 pnpm exec tsc --noEmit
 ```
 
