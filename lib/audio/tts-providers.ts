@@ -641,14 +641,18 @@ async function generateGLMTTS(config: TTSModelConfig, text: string): Promise<TTS
 /**
  * Qwen TTS implementation (DashScope API - Qwen3 TTS Flash)
  */
+const QWEN_TTS_DEFAULT_BASE_URL = 'https://dashscope.aliyuncs.com';
+const QWEN_TTS_GENERATION_PATH = '/api/v1/services/aigc/multimodal-generation/generation';
+
+function resolveQwenTTSGenerationUrl(baseUrl: string | undefined): string {
+  const normalized = (baseUrl || QWEN_TTS_DEFAULT_BASE_URL).replace(/\/+$/, '');
+  if (normalized.endsWith(QWEN_TTS_GENERATION_PATH)) return normalized;
+  if (normalized.endsWith('/api/v1')) return `${normalized}/services/aigc/multimodal-generation/generation`;
+  return `${normalized}${QWEN_TTS_GENERATION_PATH}`;
+}
+
 async function generateQwenTTS(config: TTSModelConfig, text: string): Promise<TTSGenerationResult> {
-  const baseUrl = config.baseUrl || TTS_PROVIDERS['qwen-tts'].defaultBaseUrl;
-
-  // Calculate speed: Qwen3 uses rate parameter from -500 to 500
-  // speed 1.0 = rate 0, speed 2.0 = rate 500, speed 0.5 = rate -250
-  const rate = Math.round(((config.speed || 1.0) - 1.0) * 500);
-
-  const response = await fetch(`${baseUrl}/services/aigc/multimodal-generation/generation`, {
+  const response = await fetch(resolveQwenTTSGenerationUrl(config.baseUrl), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${config.apiKey}`,
@@ -661,22 +665,22 @@ async function generateQwenTTS(config: TTSModelConfig, text: string): Promise<TT
         voice: config.voice,
         language_type: 'Chinese', // Default to Chinese, can be made configurable
       },
-      parameters: {
-        rate, // Speech rate from -500 to 500
-      },
     }),
   });
 
   if (!response.ok) {
     throwIfTtsRateLimited('Qwen', response.status);
     const errorText = await response.text().catch(() => response.statusText);
-    throw new Error(`Qwen TTS API error: ${errorText}`);
+    throw new Error(`Qwen TTS API error (${response.status}): ${errorText}`);
   }
 
   const data = await response.json();
 
   // Check for audio URL in response
   if (!data.output?.audio?.url) {
+    if (data.code || data.message) {
+      throw new Error(`Qwen TTS error: ${data.code || 'UNKNOWN'} - ${data.message || ''}`.trim());
+    }
     throw new Error(`Qwen TTS error: No audio URL in response. Response: ${JSON.stringify(data)}`);
   }
 
@@ -685,7 +689,9 @@ async function generateQwenTTS(config: TTSModelConfig, text: string): Promise<TT
   const audioResponse = await fetch(audioUrl);
 
   if (!audioResponse.ok) {
-    throw new Error(`Failed to download audio from URL: ${audioResponse.statusText}`);
+    throw new Error(
+      `Failed to download Qwen TTS audio (${audioResponse.status}): ${audioResponse.statusText}`,
+    );
   }
 
   const arrayBuffer = await audioResponse.arrayBuffer();

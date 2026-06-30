@@ -99,8 +99,10 @@ pnpm exec tsc --noEmit
 
 教师课件转互动课堂的音频完整性是自定义质量门禁：`app/generation-preview/page.tsx` 必须在 `returnActionsOnly` 动作生成后保证每页至少有一条面向学生的 `speech`，并且在保存或回传父系统前确认所有 `speech.audioId` 都能从 IndexedDB 读到真实音频 blob。该转换链路不得接受 `browser-native-tts` 作为最终产物音频来源；若服务端 TTS provider 未启用、不可用或生成后缺音频，应中断转换并显示明确错误，避免导出 ZIP 中出现第一页或任一页面音频 `missing: true` 的静默成功包。
 
+Qwen TTS 是 DashScope 百炼托管接口的定制适配：服务端优先使用 `TTS_QWEN_API_KEY`，未提供专用 TTS key 时可复用 `QWEN_API_KEY`；`TTS_QWEN_BASE_URL` 可配置为 DashScope 根域名、`/api/v1` 或完整 generation endpoint。`lib/audio/tts-providers.ts` 中 Qwen3 TTS 请求体必须保持官方 `model + input{text, voice, language_type}` 结构，不得把通用 `ttsSpeed` 转成未支持的 `parameters.rate`，否则正式环境会在 `/api/generate/tts` 返回上游 400。
+
 ```bash
-pnpm exec vitest run tests/generation-preview/types.test.ts tests/teacher/services.test.ts tests/teacher/adapters.test.ts tests/teacher/interactive-conversion.test.ts tests/generation/foreground-retry.test.ts tests/generation/widget-actions-direct-pipeline.test.ts tests/hooks/use-scene-generator-retry.test.ts
+pnpm exec vitest run tests/generation-preview/types.test.ts tests/teacher/services.test.ts tests/teacher/adapters.test.ts tests/teacher/interactive-conversion.test.ts tests/audio/qwen-tts.test.ts tests/server/provider-config.test.ts tests/generation/foreground-retry.test.ts tests/generation/widget-actions-direct-pipeline.test.ts tests/hooks/use-scene-generator-retry.test.ts
 pnpm exec tsc --noEmit
 ```
 

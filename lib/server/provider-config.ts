@@ -292,6 +292,7 @@ const DEFAULT_FILENAME = 'server-providers.yml';
 const OPENAI_IMAGE_PROVIDER_ID = 'openai-image';
 const QWEN_PROVIDER_ID = 'qwen';
 const QWEN_IMAGE_PROVIDER_ID = 'qwen-image';
+const QWEN_TTS_PROVIDER_ID = 'qwen-tts';
 
 /** Cache keyed by YAML filename (empty string = default file). */
 const _configs: Map<string, ServerConfig> = new Map();
@@ -340,6 +341,30 @@ function applyQwenImageFallback(
   return imageConfig;
 }
 
+function applyQwenTTSFallback(
+  ttsConfig: Record<string, ServerProviderEntry>,
+  llmConfig: Record<string, ServerProviderEntry>,
+  yamlTtsSection: Record<string, Partial<ServerProviderEntry>> | undefined,
+): Record<string, ServerProviderEntry> {
+  if (ttsConfig[QWEN_TTS_PROVIDER_ID]) return ttsConfig;
+
+  const qwenLlm = llmConfig[QWEN_PROVIDER_ID];
+  if (!qwenLlm?.apiKey) return ttsConfig;
+
+  const yamlQwenTts = yamlTtsSection?.[QWEN_TTS_PROVIDER_ID];
+  const envModels = readEnvValue('TTS_QWEN_MODELS')
+    ?.split(',')
+    .map((m) => m.trim())
+    .filter(Boolean);
+  ttsConfig[QWEN_TTS_PROVIDER_ID] = {
+    apiKey: qwenLlm.apiKey,
+    baseUrl: yamlQwenTts?.baseUrl || readEnvValue('TTS_QWEN_BASE_URL'),
+    models: envModels?.length ? envModels : yamlQwenTts?.models,
+    proxy: yamlQwenTts?.proxy,
+  };
+  return ttsConfig;
+}
+
 function buildConfig(yamlData: YamlData): ServerConfig {
   const providers = loadEnvSection(LLM_ENV_MAP, yamlData.providers, {
     keylessProviders: new Set(['ollama', 'lemonade']),
@@ -362,11 +387,17 @@ function buildConfig(yamlData: YamlData): ServerConfig {
     };
   }
 
-  return {
-    providers,
-    tts: loadEnvSection(TTS_ENV_MAP, yamlData.tts, {
+  const tts = applyQwenTTSFallback(
+    loadEnvSection(TTS_ENV_MAP, yamlData.tts, {
       keylessProviders: new Set(['voxcpm-tts', 'lemonade-tts']),
     }),
+    providers,
+    yamlData.tts,
+  );
+
+  return {
+    providers,
+    tts,
     asr: loadEnvSection(ASR_ENV_MAP, yamlData.asr, {
       keylessProviders: new Set(['lemonade-asr']),
     }),

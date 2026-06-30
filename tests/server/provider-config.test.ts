@@ -308,6 +308,25 @@ providers:
       );
     });
 
+    it('uses Qwen LLM key for Qwen TTS when no dedicated TTS key is set', async () => {
+      vi.stubEnv('QWEN_API_KEY', 'sk-qwen');
+      vi.stubEnv('TTS_QWEN_MODELS', 'qwen3-tts-flash,qwen3-tts-instruct-flash');
+      const { getServerTTSProviders, resolveTTSApiKey, resolveTTSModel } =
+        await import('@/lib/server/provider-config');
+
+      expect(getServerTTSProviders()['qwen-tts']).toEqual({});
+      expect(resolveTTSApiKey('qwen-tts')).toBe('sk-qwen');
+      expect(resolveTTSModel('qwen-tts')).toBe('qwen3-tts-flash');
+    });
+
+    it('keeps dedicated Qwen TTS key authoritative over the Qwen LLM fallback', async () => {
+      vi.stubEnv('QWEN_API_KEY', 'sk-qwen');
+      vi.stubEnv('TTS_QWEN_API_KEY', 'sk-qwen-tts');
+      const { resolveTTSApiKey } = await import('@/lib/server/provider-config');
+
+      expect(resolveTTSApiKey('qwen-tts')).toBe('sk-qwen-tts');
+    });
+
     it('maps OpenRouter env prefix to provider ID', async () => {
       vi.stubEnv('OPENROUTER_API_KEY', 'sk-openrouter');
       vi.stubEnv('OPENROUTER_MODELS', 'deepseek/deepseek-v4-pro,deepseek/deepseek-v4-flash');
