@@ -1,6 +1,6 @@
 # Auto Teacher 正式环境接入配置
 
-本文说明 `/bingo-agent-class/auto-teacher` 被父系统通过 `iframe` 引用时，正式环境需要配置的地址、白名单和验证方式。
+本文说明 `/bingo-agent-class/auto-teacher` 被父系统通过 `iframe` 引用时，正式环境需要配置的地址和验证方式。当前集成采用宽松 iframe 模式，不校验父窗口来源。
 
 ## 1. 地址关系
 
@@ -9,14 +9,7 @@
 - 父窗口系统：贵州教师端，例如 `https://qsh.example.com`
 - OpenMAIC：自动教案 iframe 页面，例如 `https://openmaic.example.com/bingo-agent-class/auto-teacher`
 
-如果两个系统不是完全同源，包含协议、域名、端口任意一项不同，都需要配置 iframe 与 postMessage 白名单。
-
-当前内置支持的正式父窗口 origin：
-
-```text
-https://bingo-teaching.app.bin-go.cc
-http://bingo-teaching.app.bin-go.cc
-```
+两个系统可以不同源，无需为 iframe 或 `postMessage` 配置父窗口白名单。
 
 注意：OpenMAIC 页面地址可以带 basePath，例如：
 
@@ -24,13 +17,13 @@ http://bingo-teaching.app.bin-go.cc
 https://bingo-teaching.app.bin-go.cc/bingo-agent-class/auto-teacher
 ```
 
-但白名单配置只写 origin：
+iframe 地址必须保留完整 basePath：
 
 ```text
-https://bingo-teaching.app.bin-go.cc
+https://bingo-teaching.app.bin-go.cc/bingo-agent-class/auto-teacher
 ```
 
-不要写成：
+不要误写成缺少入口路径的地址：
 
 ```text
 https://bingo-teaching.app.bin-go.cc/bingo-agent-class
@@ -57,62 +50,21 @@ iframe：https://openmaic.example.com/bingo-agent-class/auto-teacher
 iframe：https://openmaic.example.com:9443/bingo-agent-class/auto-teacher
 ```
 
-## 2. OpenMAIC 环境变量
+## 2. OpenMAIC iframe 策略
 
-在 OpenMAIC 正式环境中配置父窗口 origin：
+OpenMAIC 固定返回以下响应头，并且不返回 `X-Frame-Options`：
 
-```env
-NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS=https://qsh.example.com
+```text
+Content-Security-Policy: frame-ancestors *
 ```
 
-如果父窗口带端口，必须写完整端口：
+`/auto-teacher` 和 `/auto-import-teacher` 只按消息类型和 payload 结构判断是否处理，不再校验 `event.origin`。因此无需配置 `NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS` 来启用新的父站点。
 
-```env
-NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS=https://qsh.example.com:8443
-```
+该宽松策略意味着任何站点都可以嵌入 OpenMAIC 并向入口发送格式正确的消息。部署方应确认这是所需的信任边界，并继续通过访问码、API 鉴权和下载 URL 校验保护后端资源。
 
-如果有多个父窗口地址，用英文逗号分隔：
+## 3. 旧白名单变量
 
-```env
-NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS=https://qsh.example.com,https://qsh-admin.example.com:8443
-```
-
-也支持空格分隔，Docker Compose 中建议仍使用逗号，避免 YAML/平台变量处理差异：
-
-```env
-NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS=https://qsh.example.com,https://school.example.com,https://admin.example.com:8443
-```
-
-注意：这里配置的是 origin，只包含协议、域名、端口，不要带路径。
-
-正确：
-
-```env
-NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS=https://qsh.example.com:8443
-```
-
-错误：
-
-```env
-NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS=https://qsh.example.com:8443/course-detail
-```
-
-该变量同时用于：
-
-- `Content-Security-Policy: frame-ancestors`，允许父窗口 iframe 嵌入 OpenMAIC
-- 自动教案入口的 `postMessage` 来源校验
-
-## 3. 可选：通用 iframe 白名单
-
-如果还有其他页面也需要 iframe 嵌入 OpenMAIC，可以继续使用通用配置：
-
-```env
-ALLOWED_FRAME_ANCESTORS=https://partner.example.com https://dashboard.example.com:8443
-```
-
-`ALLOWED_FRAME_ANCESTORS` 使用空格或逗号分隔均可。OpenMAIC 会把它和 `NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS` 合并去重后写入 CSP。
-
-通常只接入自动教案入口时，配置 `NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS` 即可。
+`ALLOWED_FRAME_ANCESTORS` 和 `NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS` 不再收紧 iframe 嵌入或 `postMessage`。其中 `NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS` 仍兼容作为服务端可信 ZIP/PDF 下载来源的一部分；下载防护如需额外来源，优先使用对应的专用变量。
 
 ## 4. 父系统文档解析
 
@@ -138,9 +90,7 @@ VITE_AI_OPENMAIC_URL=https://openmaic.example.com/bingo-agent-class
 
 ## 6. 重启与构建
 
-OpenMAIC 的自动教案白名单同时用于服务端响应头和客户端 `postMessage` 校验。
-
-Docker 生产部署中，客户端不能依赖构建期固化的 `NEXT_PUBLIC_*` 值。当前实现会在请求 `/auto-teacher`、`/auto-import-teacher` 时由服务端读取运行时环境变量并注入页面，因此修改白名单后至少需要重启容器；如果镜像中还包含旧代码，则需要重新构建并发布。
+iframe 宽松策略由应用代码固定控制，不依赖构建期或运行时白名单环境变量。若当前镜像仍包含旧的来源校验代码，需要重新构建并发布。
 
 Docker 部署示例：
 
@@ -178,25 +128,13 @@ docker compose up -d
 curl -I https://openmaic.example.com/bingo-agent-class/auto-teacher
 ```
 
-响应头应包含父窗口 origin：
+响应头应为：
 
 ```text
-Content-Security-Policy: frame-ancestors 'self' https://qsh.example.com
+Content-Security-Policy: frame-ancestors *
 ```
 
-当前正式域名至少应看到：
-
-```text
-Content-Security-Policy: frame-ancestors 'self' https://bingo-teaching.app.bin-go.cc
-```
-
-如果父窗口带端口，响应头也要带相同端口：
-
-```text
-Content-Security-Policy: frame-ancestors 'self' https://qsh.example.com:8443
-```
-
-配置跨源嵌入后，不应再返回：
+同时不应返回：
 
 ```text
 X-Frame-Options: SAMEORIGIN
@@ -228,7 +166,7 @@ OpenMAIC 会回传：
 { type: "AUTO_TEACHER_READY", nextPath: "/bingo-agent-class/generation-preview" }
 ```
 
-## 7. 常见问题
+## 8. 常见问题
 
 ### Framing violates Content Security Policy
 
@@ -240,11 +178,9 @@ Framing 'https://openmaic.example.com/...' violates the following Content Securi
 
 处理方式：
 
-1. 确认 OpenMAIC 配置了 `NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS`
-2. 确认值是父窗口 origin，不是 iframe 地址
-3. 确认协议和端口完全一致
-4. 重启或重新部署 OpenMAIC
-5. 用 `curl -I` 检查响应头是否已更新
+1. 确认已经重新构建并部署包含宽松策略的 OpenMAIC 镜像
+2. 用 `curl -I` 确认响应头为 `Content-Security-Policy: frame-ancestors *`
+3. 确认 Nginx、网关或 CDN 没有覆盖 CSP，也没有额外添加 `X-Frame-Options`
 
 ### postMessage target origin 不匹配
 

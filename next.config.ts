@@ -1,10 +1,4 @@
 import type { NextConfig } from 'next';
-import {
-  AUTO_TEACHER_DEVELOPMENT_FRAME_ANCESTORS,
-  AUTO_TEACHER_PRODUCTION_ALLOWED_ORIGINS,
-  AUTO_TEACHER_TEST_ALLOWED_ORIGINS,
-  isAutoTeacherTestEnvironment,
-} from './lib/auto-teacher/origins';
 
 const BASE_PATH = '/bingo-agent-class';
 
@@ -12,47 +6,6 @@ function publicFeatureFlag(name: string, defaultValue: boolean): string {
   const value = process.env[name] ?? process.env[`NEXT_PUBLIC_${name}`];
   if (!value?.trim()) return String(defaultValue);
   return value;
-}
-
-function parseFrameAncestorSources(value: string | undefined): string[] {
-  return (value || '')
-    .split(/[\s,]+/)
-    .map((source) => source.trim())
-    .filter(Boolean);
-}
-
-function getFrameAncestors(): string {
-  const ancestors = new Set(["'self'"]);
-  if (process.env.NODE_ENV === 'production') {
-    AUTO_TEACHER_PRODUCTION_ALLOWED_ORIGINS.forEach((ancestor) => ancestors.add(ancestor));
-  }
-  const configuredAncestors = [
-    ...parseFrameAncestorSources(process.env.ALLOWED_FRAME_ANCESTORS),
-    ...parseFrameAncestorSources(process.env.NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS),
-  ];
-
-  if (configuredAncestors.length > 0) {
-    configuredAncestors.forEach((ancestor) => ancestors.add(ancestor));
-    if (isAutoTeacherTestEnvironment()) {
-      AUTO_TEACHER_TEST_ALLOWED_ORIGINS.forEach((ancestor) => ancestors.add(ancestor));
-    }
-  } else if (process.env.NODE_ENV === 'development') {
-    AUTO_TEACHER_DEVELOPMENT_FRAME_ANCESTORS.forEach((ancestor) => ancestors.add(ancestor));
-  } else if (isAutoTeacherTestEnvironment()) {
-    AUTO_TEACHER_TEST_ALLOWED_ORIGINS.forEach((ancestor) => ancestors.add(ancestor));
-  }
-
-  return Array.from(ancestors).join(' ');
-}
-
-function hasFrameAncestorOverrides(): boolean {
-  return (
-    (process.env.NODE_ENV === 'production' && AUTO_TEACHER_PRODUCTION_ALLOWED_ORIGINS.length > 0) ||
-    parseFrameAncestorSources(process.env.ALLOWED_FRAME_ANCESTORS).length > 0 ||
-    parseFrameAncestorSources(process.env.NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS).length > 0 ||
-    isAutoTeacherTestEnvironment() ||
-    process.env.NODE_ENV === 'development'
-  );
 }
 
 const nextConfig: NextConfig = {
@@ -91,19 +44,13 @@ const nextConfig: NextConfig = {
     proxyClientMaxBodySize: '200mb',
   },
   async headers() {
-    const frameAncestors = getFrameAncestors();
-    const hasCustomAncestors = hasFrameAncestorOverrides();
-
     return [
       {
         source: '/(.*)',
         headers: [
-          // X-Frame-Options only supports SAMEORIGIN (no allow-list),
-          // so we omit it when custom ancestors are configured.
-          ...(!hasCustomAncestors ? [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }] : []),
           {
             key: 'Content-Security-Policy',
-            value: `frame-ancestors ${frameAncestors}`,
+            value: 'frame-ancestors *',
           },
         ],
       },

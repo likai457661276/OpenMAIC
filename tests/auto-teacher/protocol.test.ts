@@ -5,9 +5,7 @@ import {
   getAutoTeacherAllowedPdfOrigins,
   inferAutoTeacherPdfTitle,
   isAutoTeacherGenerateMessage,
-  isOriginAllowed,
   normalizeAutoTeacherModel,
-  parseAllowedOrigins,
   parseAutoImportTeacherMessage,
   parseAutoTeacherMessage,
   shouldHideEmbeddedClassroomBackButton,
@@ -19,12 +17,6 @@ describe('auto-teacher protocol', () => {
     expect(shouldHideEmbeddedClassroomBackButton({ autoImport: '1' })).toBe(true);
     expect(shouldHideEmbeddedClassroomBackButton({})).toBe(false);
     expect(shouldHideEmbeddedClassroomBackButton({ autoTeacher: '0' })).toBe(false);
-  });
-
-  it('parses allowed origins from comma-separated env value', () => {
-    expect(parseAllowedOrigins('https://a.example, https://b.example ,,')).toEqual(
-      expect.arrayContaining(['https://a.example', 'https://b.example']),
-    );
   });
 
   it('includes the production teaching origin only in production', () => {
@@ -69,40 +61,6 @@ describe('auto-teacher protocol', () => {
         env: { NODE_ENV: 'production' },
       }),
     ).toEqual(expect.arrayContaining(['http://pdf.example.com', 'http://parent.example.com']));
-  });
-
-  it('allows unconfigured origins outside production only', () => {
-    expect(
-      isOriginAllowed({
-        origin: 'https://parent.example',
-        allowedOrigins: [],
-        nodeEnv: 'development',
-      }),
-    ).toBe(true);
-    expect(
-      isOriginAllowed({
-        origin: 'https://parent.example',
-        allowedOrigins: [],
-        nodeEnv: 'production',
-      }),
-    ).toBe(false);
-  });
-
-  it('requires exact origin match when allowlist is configured', () => {
-    expect(
-      isOriginAllowed({
-        origin: 'https://parent.example',
-        allowedOrigins: ['https://parent.example'],
-        nodeEnv: 'production',
-      }),
-    ).toBe(true);
-    expect(
-      isOriginAllowed({
-        origin: 'https://evil.example',
-        allowedOrigins: ['https://parent.example'],
-        nodeEnv: 'production',
-      }),
-    ).toBe(false);
   });
 
   it('identifies auto teacher generate messages before parsing', () => {

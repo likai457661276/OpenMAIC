@@ -6,8 +6,6 @@ export const AUTO_TEACHER_DEVELOPMENT_ALLOWED_PDF_ORIGINS = [
   'http://professional-development.local.bin-go.me',
 ] as const;
 
-export const AUTO_TEACHER_DEVELOPMENT_FRAME_ANCESTORS = ['*'] as const;
-
 export const AUTO_TEACHER_PRODUCTION_ALLOWED_ORIGINS = [
   'https://bingo-teaching.app.bin-go.cc',
   'http://bingo-teaching.app.bin-go.cc',

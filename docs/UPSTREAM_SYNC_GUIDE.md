@@ -113,24 +113,24 @@ pnpm exec tsc --noEmit
 - `/auto-teacher`：接收父系统已解析的教案文本和生成参数，创建教师课件，并在教师预览页将导出的课件 ZIP 上传回父系统。
 - `/auto-import-teacher`：接收课件 ZIP 地址，导入为教师课件或普通互动课堂，并跳转到对应详情页。
 
-这两个入口共用来源白名单、消息协议和保存回传策略。合并官方更新时，必须把它们视为一条完整链路，不能只保留入口页面。
+这两个入口共用宽松的 iframe 消息协议和保存回传策略。合并官方更新时，必须把它们视为一条完整链路，不能只保留入口页面。
 
 | 文件或目录 | 必须保留的当前分支行为 |
 |------|------------------------|
-| `app/auto-teacher/`、`app/auto-import-teacher/` | 页面必须在服务端读取运行时 `NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS`，不能退回仅在构建期固化白名单；两个入口均应支持带 `basePath` 的部署。 |
-| `components/auto-teacher/` | 只处理 `AUTO_TEACHER_GENERATE` 消息；必须先校验 `event.origin` 再解析或执行消息；重复任务不能并发执行；状态、成功和错误消息必须回传给原消息窗口及原 origin。 |
-| `lib/auto-teacher/origins.ts` | 正式环境只允许显式配置和内置正式域名；测试域名和本地父系统 PDF 域名只在测试或开发环境启用；开发环境可在未配置白名单时联调，但不能把该宽松策略带入 production。 |
+| `app/auto-teacher/`、`app/auto-import-teacher/` | 两个入口不读取父窗口来源白名单，均应支持任意父站点通过带 `basePath` 的地址嵌入。 |
+| `components/auto-teacher/` | 只处理 `AUTO_TEACHER_GENERATE` 消息；不校验 `event.origin`，但仍须严格解析消息结构；重复任务不能并发执行；状态、成功和错误消息必须回传给原消息窗口及原 origin。 |
+| `lib/auto-teacher/origins.ts` | 来源列表只服务于服务端 ZIP/PDF 下载防护，不得重新用于 iframe 嵌入或 `postMessage` 来源校验。 |
 | `lib/auto-teacher/protocol.ts` | 保留教案文本生成与 ZIP 导入协议兼容：自动教案必须由父系统传入 `pdf_text`/`pdfText`、`token`、`upload_url`/`uploadUrl`，可选 `file_url` 仅用于追溯来源，不得触发 OpenMAIC 服务端下载或解析 PDF；同时保留 `courseware_name`、`model`、`prompt`。ZIP 地址兼容 `zip_url`、`zipUrl`、`zipurl`，并保留 `teachType=teacher|classroom`、可选 `fileName`，以及用于保存回父系统的可选 `token`、`upload_url`/`uploadUrl` 成对字段。所有 URL 字段只允许 HTTP(S)。 |
 | `components/auto-teacher/auto-teacher-bridge.tsx` | 自动教案入口只消费父系统传入的教案文本并写入 `generationSession.pdfText`；不得恢复 `/api/auto-teacher/parse-pdf-url` 调用、服务端 PDF 下载、PDF 代理或 token 转发下载逻辑，避免测试域名 fake-ip、浏览器专属网络上下文和后端 SSRF 边界再次影响生成。 |
 | `app/api/auto-teacher/download-zip/route.ts` | 保留服务端 ZIP 下载代理、逐次重定向 SSRF 校验、可信 ZIP origin 白名单、500MB 大小限制、Content-Type 校验及 `Cache-Control: no-store`。 |
 | `app/generation-preview/page.tsx`、`app/generation-preview/types.ts` | 保留 `teacherMode`、`teacherInteractiveConversion`、`autoTeacherBridge` 和 `originalRequirement`；自动教师生成禁用图片、视频和 TTS，生成完成后进入教师课件路由；自动教师的大纲生成、审阅大纲、生成失败等生成预览链路不得显示“返回首页”“返回修改需求”“返回重试”等返回入口；与官方新增生成状态字段采用并集，不能互相覆盖。 |
 | `components/stage.tsx`、`components/stage/header-controls.tsx`、`components/header.tsx`、`components/edit/`、`components/teacher/teacher-classroom-stage.tsx`、`components/auto-teacher/auto-import-teacher-bridge.tsx`、`lib/import/use-import-classroom.ts`、`lib/auto-teacher/use-auto-teacher-classroom-save.ts` | Auto Teacher 和 Auto Import Teacher 的预览由父系统托管，带 `autoTeacher=1` 或 `autoImport=1` 进入普通课堂、普通课堂 Pro 模式或教师课件预览时，必须隐藏返回首页、返回教师备课等返回入口；转换到 `generation-preview` 后也要通过独立的 `autoTeacherEmbedded` 标记继续隐藏传统返回 UI。Auto Import Teacher 复用课堂 ZIP 导入逻辑时，导入成功必须静默关闭 loading toast，错误仍需提示，避免父系统嵌入预览被成功 toast 遮挡；普通手动导入仍保留成功提示。Auto Teacher 生成或 Auto Import Teacher 传入保存字段后，直接导入的互动课堂、教师课件预览页，以及由教师课件转换出的互动课堂都必须延续 `autoTeacherBridge`；点击下载旁的保存按钮后继续使用父系统传入的 `upload_url`/`uploadUrl` 和 `token` 上传，并通过 `AUTO_TEACHER_SAVE_SUCCESS` / `AUTO_TEACHER_SAVE_ERROR` 回传结果；保存按钮不得影响普通互动课堂或未传保存字段的 Auto Import 课堂。不得记录 token 或把 token 写入持久化日志。 |
 | `lib/types/stage.ts`、`lib/utils/database.ts`、`lib/utils/stage-storage.ts` | 保留 `teacherMode` 的类型、持久化和列表恢复；如果官方新增其他模式字段，应采用并集。ZIP 导入时必须按 `teachType` 设置 `teacherMode` 并路由到教师或普通课堂详情页。 |
-| `lib/app-paths.ts`、`next.config.ts`、`middleware.ts` | 保留 `basePath` URL 处理和运行时 CSP `frame-ancestors`；配置跨源 iframe 后不能再用 `X-Frame-Options: SAMEORIGIN` 阻断合法父窗口。 |
+| `lib/app-paths.ts`、`next.config.ts`、`middleware.ts` | 保留 `basePath` URL 处理；静态与运行时响应头均使用 `Content-Security-Policy: frame-ancestors *`，且不能返回 `X-Frame-Options`，保证自动流程跳转后的所有页面仍可被任意父站点嵌入。 |
 
 环境变量仍遵循以下边界：
 
-- `NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS`：父窗口 origin 白名单，同时用于 iframe CSP 和 `postMessage` 来源校验。
+- `NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS`：兼容旧部署的可信下载来源配置，仅参与服务端 ZIP/PDF 来源集合；不再限制 iframe CSP 或 `postMessage`。
 - `AUTO_TEACHER_ALLOWED_ZIP_ORIGINS`：允许服务端下载 ZIP 的额外 origin；历史环境若仍配置了 `AUTO_TEACHER_ALLOWED_PDF_ORIGINS`，ZIP 下载代理可兼容读取，但自动教案生成不得使用它下载 PDF。
 - 白名单只填写 `scheme://host[:port]`，不得包含路径；不得在文档、日志或提交中写入真实 token。
 
@@ -144,7 +144,7 @@ pnpm lint
 
 还应人工验证两条完整链路：
 
-1. 父窗口先调用自身文档解析能力拿到教案文本，再发送带 `pdf_text`/`pdfText` 的生成消息；OpenMAIC 不请求 `parse-pdf-url`，只完成生成、教师预览、ZIP 上传和保存结果回传；确认生成预览阶段不显示“返回首页”“返回修改需求”“返回重试”等返回入口，预览 URL 带有 `autoTeacher=1`，且不显示“返回教师备课”按钮。
+1. 从任意父窗口 origin 嵌入入口，先调用父系统自身文档解析能力拿到教案文本，再发送带 `pdf_text`/`pdfText` 的生成消息；确认不出现来源拒绝错误。OpenMAIC 不请求 `parse-pdf-url`，只完成生成、教师预览、ZIP 上传和保存结果回传；确认生成预览阶段不显示“返回首页”“返回修改需求”“返回重试”等返回入口，预览 URL 带有 `autoTeacher=1`，且不显示“返回教师备课”按钮。
 2. 父窗口发送 ZIP 导入消息，分别以 `teachType=teacher` 和 `teachType=classroom` 导入，确认 `teacherMode`、目标路由、`AUTO_TEACHER_READY.nextPath` 正确，并确认普通课堂播放态、普通课堂 Pro 模式和教师课件预览都不显示返回入口。
 
 ## 普通互动课堂 TTS 默认与生成一致性
@@ -217,9 +217,9 @@ pnpm build
 | `docker-compose.yml` | 保留生产镜像的编辑器构建参数、1GB 内存/交换区限制、`0.0.0.0:10051:10050` 端口映射、`.env.local` 注入、`/app/data` 持久化卷和 `restart: unless-stopped`；如部署环境要求仅供本机 Nginx 访问，可在服务器部署配置中收紧为 `127.0.0.1:10051:10050`，不得在同步时无说明地改变监听策略。 |
 | `.dockerignore`、`.gitignore` | `.env*`（仅放行 `.env.example`）、`server-providers*.yml`、证书、日志和运行数据不得进入构建上下文或版本库；不得通过放宽 ignore 规则修复 Docker 构建。 |
 | `next.config.ts`、`lib/app-paths.ts` | 保留固定 `basePath=/bingo-agent-class`、`NEXT_PUBLIC_BASE_PATH`、非 Vercel standalone 输出和 workspace transpile 配置；新增页面、API、静态资源及父窗口回传路径必须使用 basePath 安全的路径工具。 |
-| `middleware.ts` | 保留运行时 CSP、访问码 HMAC 校验和 `/api/health` 放行；生产环境变量修改后只需重启容器即可更新 iframe 白名单，不能重新退化为仅构建期生效。 |
+| `middleware.ts` | 保留运行时 CSP、访问码 HMAC 校验和 `/api/health` 放行；运行时 CSP 必须持续允许任意 iframe 父站点，不能重新引入环境白名单。 |
 | `.env.local`、`server-providers.yml` | 两者均为部署侧配置且不得提交。Compose 的基础设施环境变量不能用空值覆盖 `env_file` 中的 Provider、默认模型、白名单、访问码或设置页密码。挂载 `server-providers.yml` 时必须使用只读方式。 |
-| `DEPLOYMENT-zh.md`、`docs/AUTO_TEACHER_PRODUCTION_SETUP.md` | 保留 Nginx 不移除 `/bingo-agent-class` 前缀的约定，以及 Auto Teacher 父窗口 URL、CSP 和运行时白名单部署说明；代码行为变化时同步更新文档。 |
+| `DEPLOYMENT-zh.md`、`docs/AUTO_TEACHER_PRODUCTION_SETUP.md` | 保留 Nginx 不移除 `/bingo-agent-class` 前缀的约定，以及 Auto Teacher 父窗口 URL、宽松 iframe CSP 和无需来源白名单的部署说明；代码行为变化时同步更新文档。 |
 
 部署配置的合并验收至少包括：
 

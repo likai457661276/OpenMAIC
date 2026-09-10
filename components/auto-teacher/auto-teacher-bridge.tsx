@@ -13,7 +13,6 @@ import {
   buildAutoTeacherRequirement,
   inferAutoTeacherPdfTitle,
   isAutoTeacherGenerateMessage,
-  isOriginAllowed,
   parseAutoTeacherMessage,
   type AutoTeacherStage,
 } from '@/lib/auto-teacher/protocol';
@@ -26,17 +25,13 @@ type ParentReply =
   | { type: typeof AUTO_TEACHER_READY_TYPE; nextPath: string; warning?: string }
   | { type: typeof AUTO_TEACHER_ERROR_TYPE; error: string; details?: string };
 
-type AutoTeacherBridgeProps = {
-  allowedOrigins: string[];
-};
-
 function replyToParent(event: MessageEvent, message: ParentReply) {
   const target = event.source;
   if (!target || typeof target.postMessage !== 'function') return;
   (target as Window).postMessage(message, event.origin === 'null' ? '*' : event.origin);
 }
 
-export function AutoTeacherBridge({ allowedOrigins }: AutoTeacherBridgeProps) {
+export function AutoTeacherBridge() {
   const router = useRouter();
   const processingRef = useRef(false);
   const statusRef = useRef<AutoTeacherStage | 'idle'>('idle');
@@ -53,16 +48,6 @@ export function AutoTeacherBridge({ allowedOrigins }: AutoTeacherBridgeProps) {
 
       let warning: string | undefined;
       try {
-        if (
-          !isOriginAllowed({
-            origin: event.origin,
-            allowedOrigins,
-            nodeEnv: process.env.NODE_ENV,
-          })
-        ) {
-          throw new Error('Message origin is not allowed');
-        }
-
         if (processingRef.current) {
           replyToParent(event, {
             type: AUTO_TEACHER_STATUS_TYPE,
@@ -151,7 +136,7 @@ export function AutoTeacherBridge({ allowedOrigins }: AutoTeacherBridgeProps) {
     window.addEventListener('message', handleMessage);
     window.parent?.postMessage({ type: AUTO_TEACHER_BRIDGE_READY_TYPE }, '*');
     return () => window.removeEventListener('message', handleMessage);
-  }, [allowedOrigins, router]);
+  }, [router]);
 
   return (
     <main
