@@ -11,9 +11,10 @@ export const AUTO_TEACHER_SAVE_ERROR_TYPE = 'AUTO_TEACHER_SAVE_ERROR';
 
 export const AUTO_TEACHER_DEFAULT_MODEL = 'qwen:deepseek-v4-flash';
 export const AUTO_TEACHER_ALLOWED_MODELS = ['qwen:qwen3.7-plus', 'qwen:deepseek-v4-flash'] as const;
+export const AUTO_TEACHER_MAX_PDF_SIZE_BYTES = 50 * 1024 * 1024;
 
 export type AutoTeacherModel = (typeof AUTO_TEACHER_ALLOWED_MODELS)[number];
-export type AutoTeacherStage = 'received' | 'preparing_session' | 'redirecting';
+export type AutoTeacherStage = 'received' | 'parsing_pdf' | 'preparing_session' | 'redirecting';
 export type AutoTeacherTeachType = 'teacher' | 'classroom';
 export type AutoImportTeacherStage =
   | 'idle'
@@ -40,7 +41,7 @@ export interface AutoTeacherGenerateMessage {
 
 export interface AutoTeacherPayload {
   fileUrl?: string;
-  pdfText: string;
+  pdfText?: string;
   token: string;
   uploadUrl: string;
   coursewareName?: string;
@@ -168,14 +169,14 @@ export function parseAutoTeacherMessage(data: unknown): AutoTeacherPayload {
       : '';
   const rawPdfText = payload.pdf_text ?? payload.pdfText;
   const pdfText = typeof rawPdfText === 'string' ? rawPdfText.trim() : '';
-  if (!pdfText) {
-    throw new Error('Missing required field: pdf_text');
+  if (!pdfText && !fileUrl) {
+    throw new Error('Missing required field: pdf_text or file_url');
   }
   const prompt = typeof payload.prompt === 'string' ? payload.prompt.trim() : '';
   const { model, providerId, modelId, warning } = normalizeAutoTeacherModel(payload.model);
   return {
     ...(fileUrl ? { fileUrl: fileUrl.toString() } : {}),
-    pdfText,
+    ...(pdfText ? { pdfText } : {}),
     token: payload.token.trim(),
     uploadUrl: uploadUrl.toString(),
     ...(coursewareName ? { coursewareName } : {}),

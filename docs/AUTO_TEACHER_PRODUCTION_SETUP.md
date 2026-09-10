@@ -66,11 +66,11 @@ Content-Security-Policy: frame-ancestors *
 
 `ALLOWED_FRAME_ANCESTORS` 和 `NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS` 不再收紧 iframe 嵌入或 `postMessage`。其中 `NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS` 仍兼容作为服务端可信 ZIP/PDF 下载来源的一部分；下载防护如需额外来源，优先使用对应的专用变量。
 
-## 4. 父系统文档解析
+## 4. 教案内容传入方式
 
-自动教案入口不再由 OpenMAIC 服务端请求 `file_url` 或解析 PDF。父系统必须先在自身网络上下文中完成 Word/PDF 解析，并在 `AUTO_TEACHER_GENERATE` 消息里传入 `pdf_text` 或 `pdfText`。
+自动教案入口兼容两种方式：父系统可以直接传入 `pdf_text`/`pdfText`，也可以只传 `file_url`。两者同时存在时优先使用已经解析的文本；只有 `file_url` 时，OpenMAIC 会下载并解析 PDF。
 
-`file_url` 可以作为可选来源字段保留，但 OpenMAIC 不会用它下载文件。这样可以避免测试域名、fake-ip DNS、浏览器代理或父系统内网文件只对父系统可读时，OpenMAIC 服务端二次抓取失败。
+远程 PDF 解析仍会检查 HTTP(S) 协议、SSRF、响应类型和 50MB 大小上限，并把父消息携带的 token 作为 `Authorization` 转发给 PDF 地址。若 PDF 只在特殊浏览器网络中可见，建议父系统直接传入文本，避免 OpenMAIC 服务端无法访问该地址。
 
 ## 5. 父窗口项目环境变量
 
@@ -150,7 +150,7 @@ X-Frame-Options: SAMEORIGIN
 iframe.contentWindow?.postMessage(
   {
     type: "AUTO_TEACHER_GENERATE",
-    pdf_text: "# 第一课时\n\n教学目标：...",
+    file_url: "https://qsh.example.com/files/lesson.pdf",
     courseware_name: "认识平面图形",
     model: "qwen:deepseek-v4-flash"
   },
@@ -196,12 +196,12 @@ Failed to execute 'postMessage' on 'DOMWindow': The target origin provided does 
 2. 不要让 iframe `src` 为空
 3. 如果经过反向代理，确认最终 iframe URL 的协议、域名、端口与 postMessage targetOrigin 一致
 
-### 教案文本未传入
+### 教案内容未传入
 
-自动教案入口要求父窗口传入 `pdf_text` 或 `pdfText`。如果缺少该字段，OpenMAIC 会返回 `AUTO_TEACHER_ERROR`。
+自动教案入口要求父窗口传入 `pdf_text`/`pdfText` 或 `file_url`。两者都缺少时，OpenMAIC 会返回 `AUTO_TEACHER_ERROR`。
 
 需要确认：
 
-1. 父系统已调用自身文档解析接口并拿到 markdown/text
-2. postMessage payload 中包含非空 `pdf_text` 或 `pdfText`
-3. 不要依赖 `file_url` 让 OpenMAIC 二次读取 PDF
+1. 优先确认 postMessage payload 中包含非空 `pdf_text` 或 `pdfText`
+2. 如果只传 `file_url`，确认地址为 HTTP(S) PDF 且 OpenMAIC 服务端可访问
+3. 私有 PDF 地址需要正确配置可信来源，并确认 token 可用于下载

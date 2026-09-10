@@ -123,7 +123,7 @@ describe('auto-teacher protocol', () => {
     });
   });
 
-  it('requires parsed lesson text from the parent postMessage payload', () => {
+  it('accepts parsed lesson text or falls back to a PDF URL', () => {
     expect(
       parseAutoTeacherMessage({
         type: AUTO_TEACHER_MESSAGE_TYPE,
@@ -135,13 +135,24 @@ describe('auto-teacher protocol', () => {
       pdfText: '# 第一课时\n教学目标',
     });
 
+    expect(
+      parseAutoTeacherMessage({
+        type: AUTO_TEACHER_MESSAGE_TYPE,
+        file_url: 'https://cdn.example.com/course.pdf',
+        token: 'token-123',
+        upload_url: 'https://parent.example.com/api/upload',
+      }),
+    ).toMatchObject({
+      fileUrl: 'https://cdn.example.com/course.pdf',
+    });
+
     expect(() =>
       parseAutoTeacherMessage({
         type: AUTO_TEACHER_MESSAGE_TYPE,
         token: 'token-123',
         upload_url: 'https://parent.example.com/api/upload',
       }),
-    ).toThrow('Missing required field: pdf_text');
+    ).toThrow('Missing required field: pdf_text or file_url');
   });
 
   it('accepts camelCase parsed PDF text alias from the parent postMessage payload', () => {

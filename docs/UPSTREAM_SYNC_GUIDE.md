@@ -120,8 +120,8 @@ pnpm exec tsc --noEmit
 | `app/auto-teacher/`、`app/auto-import-teacher/` | 两个入口不读取父窗口来源白名单，均应支持任意父站点通过带 `basePath` 的地址嵌入。 |
 | `components/auto-teacher/` | 只处理 `AUTO_TEACHER_GENERATE` 消息；不校验 `event.origin`，但仍须严格解析消息结构；重复任务不能并发执行；状态、成功和错误消息必须回传给原消息窗口及原 origin。 |
 | `lib/auto-teacher/origins.ts` | 来源列表只服务于服务端 ZIP/PDF 下载防护，不得重新用于 iframe 嵌入或 `postMessage` 来源校验。 |
-| `lib/auto-teacher/protocol.ts` | 保留教案文本生成与 ZIP 导入协议兼容：自动教案必须由父系统传入 `pdf_text`/`pdfText`、`token`、`upload_url`/`uploadUrl`，可选 `file_url` 仅用于追溯来源，不得触发 OpenMAIC 服务端下载或解析 PDF；同时保留 `courseware_name`、`model`、`prompt`。ZIP 地址兼容 `zip_url`、`zipUrl`、`zipurl`，并保留 `teachType=teacher|classroom`、可选 `fileName`，以及用于保存回父系统的可选 `token`、`upload_url`/`uploadUrl` 成对字段。所有 URL 字段只允许 HTTP(S)。 |
-| `components/auto-teacher/auto-teacher-bridge.tsx` | 自动教案入口只消费父系统传入的教案文本并写入 `generationSession.pdfText`；不得恢复 `/api/auto-teacher/parse-pdf-url` 调用、服务端 PDF 下载、PDF 代理或 token 转发下载逻辑，避免测试域名 fake-ip、浏览器专属网络上下文和后端 SSRF 边界再次影响生成。 |
+| `lib/auto-teacher/protocol.ts` | 保留教案内容与 ZIP 导入协议兼容：自动教案允许 `pdf_text`/`pdfText` 或 `file_url` 二选一，并要求 `token`、`upload_url`/`uploadUrl`；同时保留 `courseware_name`、`model`、`prompt`。ZIP 地址兼容 `zip_url`、`zipUrl`、`zipurl`，并保留 `teachType=teacher|classroom`、可选 `fileName`，以及用于保存回父系统的可选 `token`、`upload_url`/`uploadUrl` 成对字段。所有 URL 字段只允许 HTTP(S)。 |
+| `components/auto-teacher/auto-teacher-bridge.tsx`、`app/api/auto-teacher/parse-pdf-url/route.ts` | 自动教案入口优先消费父系统传入的教案文本；缺少文本但存在 `file_url` 时，必须进入 `parsing_pdf` 阶段，通过服务端代理下载并使用 `unpdf` 解析。下载时兼容转发父消息 token，但不得记录 token；保留逐次重定向 SSRF 校验、可信来源例外、50MB 大小限制和 Content-Type 校验。 |
 | `app/api/auto-teacher/download-zip/route.ts` | 保留服务端 ZIP 下载代理、逐次重定向 SSRF 校验、可信 ZIP origin 白名单、500MB 大小限制、Content-Type 校验及 `Cache-Control: no-store`。 |
 | `app/generation-preview/page.tsx`、`app/generation-preview/types.ts` | 保留 `teacherMode`、`teacherInteractiveConversion`、`autoTeacherBridge` 和 `originalRequirement`；自动教师生成禁用图片、视频和 TTS，生成完成后进入教师课件路由；自动教师的大纲生成、审阅大纲、生成失败等生成预览链路不得显示“返回首页”“返回修改需求”“返回重试”等返回入口；与官方新增生成状态字段采用并集，不能互相覆盖。 |
 | `components/stage.tsx`、`components/stage/header-controls.tsx`、`components/header.tsx`、`components/edit/`、`components/teacher/teacher-classroom-stage.tsx`、`components/auto-teacher/auto-import-teacher-bridge.tsx`、`lib/import/use-import-classroom.ts`、`lib/auto-teacher/use-auto-teacher-classroom-save.ts` | Auto Teacher 和 Auto Import Teacher 的预览由父系统托管，带 `autoTeacher=1` 或 `autoImport=1` 进入普通课堂、普通课堂 Pro 模式或教师课件预览时，必须隐藏返回首页、返回教师备课等返回入口；转换到 `generation-preview` 后也要通过独立的 `autoTeacherEmbedded` 标记继续隐藏传统返回 UI。Auto Import Teacher 复用课堂 ZIP 导入逻辑时，导入成功必须静默关闭 loading toast，错误仍需提示，避免父系统嵌入预览被成功 toast 遮挡；普通手动导入仍保留成功提示。Auto Teacher 生成或 Auto Import Teacher 传入保存字段后，直接导入的互动课堂、教师课件预览页，以及由教师课件转换出的互动课堂都必须延续 `autoTeacherBridge`；点击下载旁的保存按钮后继续使用父系统传入的 `upload_url`/`uploadUrl` 和 `token` 上传，并通过 `AUTO_TEACHER_SAVE_SUCCESS` / `AUTO_TEACHER_SAVE_ERROR` 回传结果；保存按钮不得影响普通互动课堂或未传保存字段的 Auto Import 课堂。不得记录 token 或把 token 写入持久化日志。 |
@@ -137,14 +137,14 @@ pnpm exec tsc --noEmit
 冲突处理后至少运行：
 
 ```bash
-pnpm exec vitest run tests/auto-teacher/protocol.test.ts tests/api/auto-teacher-download-zip.test.ts tests/generation-preview/types.test.ts tests/server/security-headers.test.ts
+pnpm exec vitest run tests/auto-teacher/protocol.test.ts tests/api/auto-teacher-parse-pdf-url.test.ts tests/api/auto-teacher-download-zip.test.ts tests/generation-preview/types.test.ts tests/server/security-headers.test.ts
 pnpm exec tsc --noEmit
 pnpm lint
 ```
 
 还应人工验证两条完整链路：
 
-1. 从任意父窗口 origin 嵌入入口，先调用父系统自身文档解析能力拿到教案文本，再发送带 `pdf_text`/`pdfText` 的生成消息；确认不出现来源拒绝错误。OpenMAIC 不请求 `parse-pdf-url`，只完成生成、教师预览、ZIP 上传和保存结果回传；确认生成预览阶段不显示“返回首页”“返回修改需求”“返回重试”等返回入口，预览 URL 带有 `autoTeacher=1`，且不显示“返回教师备课”按钮。
+1. 从任意父窗口 origin 嵌入入口，分别验证直接发送 `pdf_text`/`pdfText` 与仅发送 `file_url` 两种生成消息；确认不出现来源拒绝或缺少 `pdf_text` 错误，URL 模式能够完成 `parse-pdf-url`、生成、教师预览、ZIP 上传和保存结果回传。确认生成预览阶段不显示“返回首页”“返回修改需求”“返回重试”等返回入口，预览 URL 带有 `autoTeacher=1`，且不显示“返回教师备课”按钮。
 2. 父窗口发送 ZIP 导入消息，分别以 `teachType=teacher` 和 `teachType=classroom` 导入，确认 `teacherMode`、目标路由、`AUTO_TEACHER_READY.nextPath` 正确，并确认普通课堂播放态、普通课堂 Pro 模式和教师课件预览都不显示返回入口。
 
 ## 普通互动课堂 TTS 默认与生成一致性

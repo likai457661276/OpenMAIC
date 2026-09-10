@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { nanoid } from 'nanoid';
-import { appPath } from '@/lib/app-paths';
+import { apiPath, appPath } from '@/lib/app-paths';
 import { useSettingsStore } from '@/lib/store/settings';
 import {
   AUTO_TEACHER_ERROR_TYPE,
@@ -70,7 +70,24 @@ export function AutoTeacherBridge() {
         useSettingsStore.getState().setVideoGenerationEnabled(false);
         useSettingsStore.getState().setTTSEnabled(false);
 
-        const rawPdfText = payload.pdfText;
+        let rawPdfText = payload.pdfText || '';
+        if (!rawPdfText && payload.fileUrl) {
+          setBridgeStatus('parsing_pdf');
+          replyToParent(event, { type: AUTO_TEACHER_STATUS_TYPE, stage: 'parsing_pdf', warning });
+          const parseResponse = await fetch(apiPath('/api/auto-teacher/parse-pdf-url'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              file_url: payload.fileUrl,
+              token: payload.token,
+            }),
+          });
+          const parseResult = await parseResponse.json().catch(() => null);
+          if (!parseResponse.ok || !parseResult?.success || !parseResult.data?.text) {
+            throw new Error(parseResult?.error || 'PDF parsing failed');
+          }
+          rawPdfText = String(parseResult.data.text);
+        }
         const pdfText =
           rawPdfText.length > MAX_PDF_CONTENT_CHARS
             ? rawPdfText.substring(0, MAX_PDF_CONTENT_CHARS)
