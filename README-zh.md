@@ -102,118 +102,28 @@ pnpm install
 cp .env.example .env.local
 ```
 
-至少填写一个 LLM 服务商的 API Key：
+本部署只使用阿里云百炼（QWEN），所有服务商配置统一维护在 `.env.local`：
 
 ```env
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-GOOGLE_API_KEY=...
-GROK_API_KEY=xai-...
-OPENROUTER_API_KEY=sk-or-...
-TENCENT_API_KEY=sk-...
-XIAOMI_API_KEY=...
+QWEN_API_KEY=...
+QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+QWEN_MODELS=qwen3.7-flash
+DEFAULT_MODEL=qwen:qwen3.7-flash
+
+IMAGE_QWEN_IMAGE_BASE_URL=https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation
+IMAGE_QWEN_IMAGE_MODELS=qwen-image-2.0-pro-2026-03-03,qwen-image-2.0-2026-03-03
+DEFAULT_IMAGE_PROVIDER=qwen-image
+DEFAULT_IMAGE_MODEL=qwen-image-2.0-2026-03-03
+
+TTS_QWEN_BASE_URL=https://dashscope.aliyuncs.com/api/v1
+TTS_QWEN_MODELS=qwen3-tts-flash
+DEFAULT_TTS_PROVIDER=qwen-tts
+DEFAULT_TTS_VOICE=Cherry
 ```
 
-硅基流动快速示例：
+图片和 TTS 的专用密钥可以省略，服务端会复用 `QWEN_API_KEY`。不额外配置或挂载 `server-providers.yml`。其他服务商的通用实现仍保留，当前部署不启用。
 
-```env
-SILICONFLOW_API_KEY=...
-SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1
-SILICONFLOW_MODELS=Pro/MiniMaxAI/MiniMax-M2.5
-DEFAULT_MODEL=siliconflow:Pro/MiniMaxAI/MiniMax-M2.5
-
-IMAGE_SILICONFLOW_API_KEY=...
-IMAGE_SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1
-DEFAULT_IMAGE_PROVIDER=siliconflow-image
-DEFAULT_IMAGE_MODEL=Qwen/Qwen-Image
-```
-
-其中 `IMAGE_SILICONFLOW_API_KEY` 可省略；未设置时，图片生成会自动复用 `SILICONFLOW_API_KEY`，并在设置首次同步后默认开启图片生成。
-如果希望指定默认图片 provider / model，建议写在你本地的 `.env.local` 中。
-
-也可以通过 `server-providers.yml` 配置服务商：
-
-```yaml
-providers:
-  openai:
-    apiKey: sk-...
-  anthropic:
-    apiKey: sk-ant-...
-```
-
-支持的服务商：**OpenAI**、**Anthropic**、**Google Gemini**、**DeepSeek**、**通义千问 Qwen**、**Kimi**、**MiniMax**、**Grok (xAI)**、**硅基流动**、**OpenRouter**、**豆包**、**腾讯混元 / TokenHub**、**小米 MiMo**、**智谱 GLM**、**Ollama**（本地）、**Lemonade**（本地 LLM / 图像 / TTS / ASR）以及任何兼容 OpenAI API 的服务。
-
-<a id="lemonade-local-ai"></a>
-
-### 可选：Lemonade（本地 AI 服务商）
-
-OpenMAIC 支持将 Lemonade 作为本地 OpenAI 兼容服务商使用，可用于 LLM、图像生成、TTS 和 ASR，不需要 API Key。
-
-本地启动 Lemonade 后，在 OpenMAIC 中配置：
-
-```env
-LEMONADE_BASE_URL=http://localhost:13305/v1
-TTS_LEMONADE_BASE_URL=http://localhost:13305/v1
-ASR_LEMONADE_BASE_URL=http://localhost:13305/v1
-IMAGE_LEMONADE_BASE_URL=http://localhost:13305/v1
-```
-
-OpenAI 快速示例：
-
-```env
-OPENAI_API_KEY=sk-...
-DEFAULT_MODEL=openai:gpt-5.5
-```
-
-MiniMax 快速示例：
-
-```env
-MINIMAX_API_KEY=...
-MINIMAX_BASE_URL=https://api.minimaxi.com/anthropic/v1
-DEFAULT_MODEL=minimax:MiniMax-M2.7-highspeed
-
-TTS_MINIMAX_API_KEY=...
-TTS_MINIMAX_BASE_URL=https://api.minimaxi.com
-
-IMAGE_MINIMAX_API_KEY=...
-IMAGE_MINIMAX_BASE_URL=https://api.minimaxi.com
-
-IMAGE_OPENAI_API_KEY=...
-IMAGE_OPENAI_BASE_URL=https://api.openai.com/v1
-
-VIDEO_MINIMAX_API_KEY=...
-VIDEO_MINIMAX_BASE_URL=https://api.minimaxi.com
-```
-
-小米 MiMo Token Plan 快速示例：
-
-```env
-MIMO_API_KEY=tp-...
-MIMO_BASE_URL=https://token-plan-cn.xiaomimimo.com/v1
-DEFAULT_MODEL=xiaomi:mimo-v2.5-pro
-```
-
-新加坡或欧洲 Token Plan 集群可分别使用 `https://token-plan-sgp.xiaomimimo.com/v1`、`https://token-plan-ams.xiaomimimo.com/v1`。
-
-智谱 GLM 快速示例：
-
-```env
-# 国内站（默认）
-GLM_API_KEY=...
-GLM_BASE_URL=https://open.bigmodel.cn/api/paas/v4
-
-# 国际站（z.ai）
-GLM_API_KEY=...
-GLM_BASE_URL=https://api.z.ai/api/paas/v4
-
-DEFAULT_MODEL=glm:glm-5.1
-```
-
-> **推荐模型：** **Gemini 3 Flash** — 效果与速度的最佳平衡。追求最高质量可选 **Gemini 3.1 Pro**（速度较慢）。
->
-> 如果希望 OpenMAIC 服务端默认走 Gemini，还需要额外设置 `DEFAULT_MODEL=google:gemini-3-flash-preview`。
->
-> 如果希望默认走 MiniMax，可设置 `DEFAULT_MODEL=minimax:MiniMax-M2.7-highspeed`。
+修改 env 后需重新创建 Docker 容器；开发环境运行 `docker compose -f docker-compose.dev.yml up -d --no-build --force-recreate`。
 
 ### 3. 启动
 

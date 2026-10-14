@@ -170,6 +170,7 @@ describe('OpenAI provider defaults', () => {
       { mode: 'enabled', budgetTokens: 4096 },
       { enable_thinking: true, thinking_budget: 4096 },
     ],
+    ['qwen', 'qwen3.7-flash', { mode: 'disabled' }, { enable_thinking: false }],
     [
       'qwen',
       'deepseek-v4-flash',

@@ -258,6 +258,16 @@ providers:
       expect(providers.doubao.models).toEqual(['ep-20260225155849-krdlt']);
     });
 
+    it('publishes the Bailian fallback model without activating Doubao', async () => {
+      vi.stubEnv('QWEN_API_KEY', 'sk-qwen');
+      const { getServerProviders, getServerDefaultSelections } = await import(
+        '@/lib/server/provider-config'
+      );
+
+      expect(getServerProviders()).toEqual({ qwen: { models: ['qwen3.7-flash'] } });
+      expect(getServerDefaultSelections().model).toBe('qwen:qwen3.7-flash');
+    });
+
     it('prepends DEFAULT_MODEL to the provider model list without duplicating it', async () => {
       vi.stubEnv('DOUBAO_API_KEY', 'sk-doubao');
       vi.stubEnv('DEFAULT_MODEL', 'doubao:ep-20260225155849-krdlt');

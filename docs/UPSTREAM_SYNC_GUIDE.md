@@ -64,23 +64,38 @@
 
 ## 默认模型与服务端 Provider 保留规则
 
-当前部署默认使用 OpenAI-compatible 的豆包 Provider。模型选择、服务端托管配置与客户端设置必须作为一条链路审查，不能只保留设置页中的 Provider 名称。
+当前部署只启用 OpenAI-compatible 的阿里云百炼 Provider（`qwen`）及 QWEN 图片、TTS，默认模型为 `qwen:qwen3.7-flash`。部署参数统一通过 `.env.local` 管理，不额外配置或挂载 `server-providers.yml`；`.env.example`、README 和部署说明仅提供 QWEN 配置示例。通用 Provider 实现、YAML 兼容能力及设置页面仍保留。模型选择、服务端托管配置与客户端设置必须作为一条链路审查，不能只保留设置页中的 Provider 名称。本地 `.env.local` 使用 `QWEN_API_KEY`、`QWEN_BASE_URL`、`QWEN_MODELS=qwen3.7-flash` 和 `DEFAULT_MODEL=qwen:qwen3.7-flash`，不再配置豆包、硅基流动或 Tavily；未配置独立搜索服务时不能误报可用的联网搜索能力。密钥不得写入文档或提交。百炼模型名称应以当前账号实际可调用的模型为准，不得仅凭其他供应商的同名模型补入列表。
 
 | 文件或目录 | 必须保留的当前分支行为 |
 |------|------------------------|
-| `lib/server/provider-config.ts` | 未配置 `DEFAULT_MODEL` 时回退到 `doubao:ep-20260225155849-krdlt`；同时支持环境变量和 `server-providers.yml`；默认模型必须出现在对应服务端 Provider 的公开模型列表中。 |
+| `lib/server/provider-config.ts` | 未配置 `DEFAULT_MODEL` 时回退到 `qwen:qwen3.7-flash`；同时支持环境变量和 `server-providers.yml`；默认模型必须出现在对应服务端 Provider 的公开模型列表中。 |
 | `lib/server/resolve-model.ts` | 模型解析顺序保留“阶段模型 → 请求模型 → `DEFAULT_MODEL` → 部署 fallback”；服务端托管 Provider 的 key 和 base URL 由服务端配置决定，客户端不得覆盖。 |
-| `lib/ai/providers.ts`、`lib/ai/model-metadata.ts` | 保留 `doubao` Provider、Ark OpenAI-compatible 连接方式、Seed 模型列表及 thinking/reasoning 参数映射；合并官方新模型时采用并集。 |
+| `lib/ai/providers.ts`、`lib/ai/model-metadata.ts` | 保留 `qwen3.7-flash` 模型及其视觉、流式输出、工具调用和 Qwen thinking 参数适配；不得因模型目录合并漏掉 `enable_thinking` / `thinking_budget` 映射。其他 Provider 的协议兼容能力继续保留，合并官方新模型时采用并集。 |
 | `lib/store/settings.ts`、`app/api/server-providers/route.ts` | 客户端只接收可公开的 Provider、模型和 managed 状态，不得暴露 API key 或服务端 base URL；当前模型失效时应回退到服务端默认模型。 |
 | `lib/agent/client/use-agent-runtime.ts`、`app/api/agent/edit/route.ts` | `Edit with AI` 专业模式必须继续通过 `apiPath('/api/agent/edit')` 调用 SSE 接口，保留 `/bingo-agent-class` 子路径部署；同时继续随请求转发当前前端模型配置和 thinking 配置，避免在客户端模型可用时退回到缺失服务端 key 的 Provider。 |
-| `.env.example`、`DEPLOYMENT-zh.md` | 保留 `DOUBAO_API_KEY`、`DOUBAO_BASE_URL`、`DOUBAO_MODELS` 和 `DEFAULT_MODEL` 的无密钥示例。 |
+| `.env.example`、`DEPLOYMENT-zh.md`、`README.md`、`README-zh.md`、`docker-compose.yml`、`AGENTS.md` | 部署示例仅使用 QWEN 大模型、图片和 TTS 的 env 配置；不能重新引入其他服务商密钥示例或 YAML 挂载，功能开关、访问控制和通用 Provider 能力继续保留。 |
 
 冲突处理后至少运行：
 
 ```bash
-pnpm exec vitest run tests/server/provider-config.test.ts tests/server/resolve-model.test.ts tests/store/settings-server-sync.test.ts tests/ai/thinking-config.test.ts
+pnpm exec vitest run tests/server/provider-config.test.ts tests/server/resolve-model.test.ts tests/store/settings-server-sync.test.ts tests/ai/thinking-config.test.ts tests/ai/openai-provider.test.ts
 pnpm exec tsc --noEmit
 ```
+
+本地切换 Provider 后应重新创建开发容器以更新环境变量，检查 `/bingo-agent-class/api/server-providers` 返回的默认模型与公开列表，确认不含豆包托管配置，并实测 `/bingo-agent-class/api/generate/scene-outlines-stream` 产生 `outline` 和 `done` 事件。刷新页面后，旧模型选择应随服务端默认值更新。
+
+### 大纲流式错误诊断
+
+`app/api/generate/scene-outlines-stream/route.ts` 必须捕获 AI SDK 的 `onError` 回调：`textStream` 不会输出上游错误片段，不能把模型不存在、鉴权失败或关闭端点误判为成功的空文本。错误 SSE 保留上游 HTTP 状态、错误码和原始错误消息，仅移除密钥等敏感信息；不可重试的错误立即结束，可重试错误保留现有重试流程。上游在部分大纲输出后报错时不得发送 `done`。前端继续通过 `evt.error` 显示诊断信息。
+
+合并涉及流式大纲、共享 LLM 包装或生成预览错误展示时，运行：
+
+```bash
+pnpm exec vitest run tests/generation/outline-stream-errors.test.ts tests/generation/task-engine-outline-route.test.ts
+pnpm exec tsc --noEmit
+```
+
+还应使用不存在的 QWEN 模型实测：确认页面收到带 HTTP 状态与供应商错误码的错误，而不是 `LLM returned empty response`，并检查日志中没有无效的重复请求或密钥。
 
 ## 教师课件模型与转互动课堂保留规则
 

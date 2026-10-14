@@ -15,6 +15,17 @@ function getThinking(providerId: ProviderId, modelId: string) {
 }
 
 describe('thinking config metadata', () => {
+  it('supports Bailian Flash vision and configurable thinking', () => {
+    const flash = getProvider('qwen')?.models.find((model) => model.id === 'qwen3.7-flash');
+
+    expect(flash?.capabilities?.vision).toBe(true);
+    expect(flash?.capabilities?.thinking?.requestAdapter).toBe('qwen');
+    expect(supportsConfigurableThinking(flash?.capabilities?.thinking)).toBe(true);
+    expect(normalizeThinkingConfig(flash?.capabilities?.thinking, { mode: 'disabled' })?.mode).toBe(
+      'disabled',
+    );
+  });
+
   it('marks configurable models with adapter-backed thinking capabilities', () => {
     const thinking = getThinking('qwen', 'qwen3.7-plus');
     const qwenDeepSeekThinking = getThinking('qwen', 'deepseek-v4-flash');

@@ -63,14 +63,20 @@ vim .env.local
 最小示例：
 
 ```env
-SILICONFLOW_API_KEY=你的密钥
-SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1
-SILICONFLOW_MODELS=Pro/MiniMaxAI/MiniMax-M2.5
-DEFAULT_MODEL=siliconflow:Pro/MiniMaxAI/MiniMax-M2.5
+QWEN_API_KEY=你的百炼密钥
+QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+QWEN_MODELS=qwen3.7-flash
+DEFAULT_MODEL=qwen:qwen3.7-flash
 
-DEFAULT_IMAGE_PROVIDER=siliconflow-image
-DEFAULT_IMAGE_MODEL=Qwen/Qwen-Image
-IMAGE_SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1
+IMAGE_QWEN_IMAGE_BASE_URL=https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation
+IMAGE_QWEN_IMAGE_MODELS=qwen-image-2.0-pro-2026-03-03,qwen-image-2.0-2026-03-03
+DEFAULT_IMAGE_PROVIDER=qwen-image
+DEFAULT_IMAGE_MODEL=qwen-image-2.0-2026-03-03
+
+TTS_QWEN_BASE_URL=https://dashscope.aliyuncs.com/api/v1
+TTS_QWEN_MODELS=qwen3-tts-flash
+DEFAULT_TTS_PROVIDER=qwen-tts
+DEFAULT_TTS_VOICE=Cherry
 
 ACCESS_CODE=你的访问码
 SETTINGS_PASSWORD=你的设置页密码
@@ -78,7 +84,10 @@ SETTINGS_PASSWORD=你的设置页密码
 
 说明：
 
-- `IMAGE_SILICONFLOW_API_KEY` 可不填，不填时会复用 `SILICONFLOW_API_KEY`
+- 部署仅配置百炼，所有服务商密钥、模型和默认选择统一维护在 `.env.local`；不额外配置或挂载 `server-providers.yml`。
+- `IMAGE_QWEN_IMAGE_API_KEY`、`TTS_QWEN_API_KEY` 可不填，未设置时复用 `QWEN_API_KEY`。
+- 未配置独立网络搜索服务商，因此本部署不启用 Tavily 等搜索服务。
+- 修改 env 后执行 `docker compose up -d --force-recreate`；开发环境使用 `docker compose -f docker-compose.dev.yml up -d --no-build --force-recreate`，使新环境变量生效。
 - `ACCESS_CODE` 用来限制站点访问
 - `SETTINGS_PASSWORD` 用来保护设置页
 

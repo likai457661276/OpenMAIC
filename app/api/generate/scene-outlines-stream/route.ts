@@ -14,6 +14,7 @@
  */
 
 import { NextRequest } from 'next/server';
+import { APICallError, RetryError } from 'ai';
 import { streamLLM } from '@/lib/ai/llm';
 import { buildPrompt, PROMPT_IDS } from '@/lib/prompts';
 import {
@@ -40,6 +41,41 @@ import { resolveVocationalActive } from '@/lib/config/feature-flags';
 const log = createLogger('Outlines Stream');
 
 export const maxDuration = 300;
+
+interface OutlineStreamFailure {
+  error: string;
+  statusCode?: number;
+  providerCode?: string;
+  retryable: boolean;
+}
+
+function describeStreamFailure(error: unknown, apiKey?: string): OutlineStreamFailure {
+  const underlying = RetryError.isInstance(error) ? error.lastError : error;
+  let message = underlying instanceof Error ? underlying.message : String(underlying);
+  let statusCode: number | undefined;
+  let providerCode: string | undefined;
+  let retryable = true;
+
+  if (APICallError.isInstance(underlying)) {
+    statusCode = underlying.statusCode;
+    retryable = underlying.isRetryable;
+    try {
+      // Extract diagnostic fields only; never send request bodies, headers or URLs.
+      const body = JSON.parse(underlying.responseBody || '{}');
+      if (typeof body.error?.message === 'string') message = body.error.message;
+      if (typeof body.error?.code === 'string') providerCode = body.error.code;
+    } catch {
+      // Non-JSON responses still retain the SDK's original error message.
+    }
+  }
+
+  const context = [statusCode ? `HTTP ${statusCode}` : undefined, providerCode].filter(Boolean);
+  let detail = context.length ? `${context.join(' / ')}: ${message}` : message;
+  if (apiKey) detail = detail.split(apiKey).join('[REDACTED]');
+  detail = detail.replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]');
+  if (providerCode && apiKey) providerCode = providerCode.split(apiKey).join('[REDACTED]');
+  return { error: detail, statusCode, providerCode, retryable };
+}
 
 /**
  * Extract the languageDirective from the streamed wrapper JSON.
@@ -293,6 +329,7 @@ export async function POST(req: NextRequest) {
       modelInfo,
       modelString,
       thinkingConfig,
+      apiKey,
     } = await resolveModelFromRequest(req, body, 'scene-outlines-stream');
     resolvedModelString = modelString;
 
@@ -448,8 +485,11 @@ export async function POST(req: NextRequest) {
           let languageDirective: string | null = null;
           let courseTitle: string | null = null;
           let lastError: string | undefined;
+          let lastFailure: OutlineStreamFailure | undefined;
+          let attemptCount = 0;
 
           for (let attempt = 1; attempt <= MAX_STREAM_RETRIES + 1; attempt++) {
+            attemptCount = attempt;
             try {
               let fullText = '';
               let scanFrom = 0;
@@ -457,8 +497,16 @@ export async function POST(req: NextRequest) {
               languageDirective = null;
               courseTitle = null;
               const usedOutlineIds = new Set<string>();
+              let streamError: unknown;
               const textStream = streamLLM(
-                streamParams,
+                {
+                  ...streamParams,
+                  onError: ({ error }) => {
+                    // textStream omits error parts. Preserve the SDK callback's
+                    // failure so an upstream rejection cannot become "empty response".
+                    streamError = error;
+                  },
+                },
                 'scene-outlines-stream',
                 thinkingConfig,
               ).textStream;
@@ -532,6 +580,8 @@ export async function POST(req: NextRequest) {
                 }
               }
 
+              if (streamError !== undefined) throw streamError;
+
               // Validate: got outlines?
               if (parsedOutlines.length > 0) {
                 if (!courseTitle) {
@@ -547,6 +597,7 @@ export async function POST(req: NextRequest) {
               lastError = fullText.trim()
                 ? 'LLM response could not be parsed into outlines'
                 : 'LLM returned empty response';
+              lastFailure = undefined;
               log.warn(
                 `Outlines attempt ${attempt} diagnostics: textLen=${fullText.length}, outlines=${parsedOutlines.length}, languageDirective=${languageDirective ? 'yes' : 'no'}, preview=${JSON.stringify(fullText.slice(0, 240))}`,
               );
@@ -570,15 +621,21 @@ export async function POST(req: NextRequest) {
                 stopHeartbeat();
                 return;
               }
-              lastError = error instanceof Error ? error.message : String(error);
+              lastFailure = describeStreamFailure(error, apiKey);
+              lastError = lastFailure.error;
+              // Partial output from a failed request is not a successful generation.
+              parsedOutlines = [];
               log.warn(
                 `Outlines stream error detail (attempt ${attempt}/${MAX_STREAM_RETRIES + 1}): ${lastError}`,
               );
 
+              // Authentication, invalid models and closed endpoints cannot be
+              // repaired by issuing the same request again.
+              if (!lastFailure.retryable) break;
+
               if (attempt <= MAX_STREAM_RETRIES) {
                 log.warn(
                   `Stream error (attempt ${attempt}/${MAX_STREAM_RETRIES + 1}), retrying...`,
-                  error,
                 );
                 const retryEvent = JSON.stringify({
                   type: 'retry',
@@ -605,12 +662,12 @@ export async function POST(req: NextRequest) {
             controller.enqueue(encoder.encode(`data: ${doneEvent}\n\n`));
           } else {
             // All retries exhausted, no outlines produced
-            log.error(
-              `Outline generation failed after ${MAX_STREAM_RETRIES + 1} attempts: ${lastError}`,
-            );
+            log.error(`Outline generation failed after ${attemptCount} attempts: ${lastError}`);
             const errorEvent = JSON.stringify({
               type: 'error',
               error: lastError || 'Failed to generate outlines',
+              statusCode: lastFailure?.statusCode,
+              providerCode: lastFailure?.providerCode,
             });
             controller.enqueue(encoder.encode(`data: ${errorEvent}\n\n`));
           }

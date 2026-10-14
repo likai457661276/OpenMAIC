@@ -12,7 +12,7 @@ import { createLogger } from '@/lib/logger';
 import { parseModelString } from '@/lib/ai/providers';
 
 const log = createLogger('ServerProviderConfig');
-const FALLBACK_DEFAULT_MODEL = 'doubao:ep-20260225155849-krdlt';
+const FALLBACK_DEFAULT_MODEL = 'qwen:qwen3.7-flash';
 
 // ---------------------------------------------------------------------------
 // Types

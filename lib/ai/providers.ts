@@ -471,6 +471,22 @@ export const PROVIDERS: Record<ProviderId, ProviderConfig> = {
     icon: '/logos/qwen.svg',
     models: [
       {
+        id: 'qwen3.7-flash',
+        name: 'Qwen3.7 Flash',
+        contextWindow: 1000000,
+        outputWindow: 131072,
+        capabilities: {
+          streaming: true,
+          tools: true,
+          vision: true,
+          thinking: {
+            toggleable: true,
+            budgetAdjustable: true,
+            defaultEnabled: true,
+          },
+        },
+      },
+      {
         id: 'qwen3.7-plus',
         name: 'Qwen3.7 Plus',
         contextWindow: 1000000,

@@ -21,12 +21,15 @@ Always respond in Chinese-simplified.
 ## Provider Access
 
 - The project supports OpenAI-compatible providers through the shared provider layer.
-- Doubao is configured as provider ID `doubao` and uses the OpenAI-compatible protocol.
-- Server-side Doubao configuration uses:
-  - `DOUBAO_API_KEY`
-  - `DOUBAO_BASE_URL`
-  - `DOUBAO_MODELS`
-- The expected local default model is `DEFAULT_MODEL=doubao:ep-20260225155849-krdlt`.
+- Alibaba Cloud Bailian is configured as provider ID `qwen` and uses the OpenAI-compatible protocol.
+- Server-side Bailian configuration uses:
+  - `QWEN_API_KEY`
+  - `QWEN_BASE_URL`
+  - `QWEN_MODELS`
+- The expected local default model is `DEFAULT_MODEL=qwen:qwen3.7-flash`.
+- Local deployments configure only QWEN LLM, image and TTS providers through `.env.local`.
+- Keep `.env.example` and deployment examples limited to QWEN; do not configure or mount `server-providers.yml` for this deployment.
+- Preserve the shared provider implementations and settings UI for compatibility.
 
 ## Work Rules
 

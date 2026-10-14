@@ -101,118 +101,28 @@ pnpm install
 cp .env.example .env.local
 ```
 
-Fill in at least one LLM provider key:
+This deployment uses Alibaba Cloud Bailian (QWEN). Keep all provider configuration in `.env.local`:
 
 ```env
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-GOOGLE_API_KEY=...
-GROK_API_KEY=xai-...
-OPENROUTER_API_KEY=sk-or-...
-TENCENT_API_KEY=sk-...
-XIAOMI_API_KEY=...
+QWEN_API_KEY=...
+QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+QWEN_MODELS=qwen3.7-flash
+DEFAULT_MODEL=qwen:qwen3.7-flash
+
+IMAGE_QWEN_IMAGE_BASE_URL=https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation
+IMAGE_QWEN_IMAGE_MODELS=qwen-image-2.0-pro-2026-03-03,qwen-image-2.0-2026-03-03
+DEFAULT_IMAGE_PROVIDER=qwen-image
+DEFAULT_IMAGE_MODEL=qwen-image-2.0-2026-03-03
+
+TTS_QWEN_BASE_URL=https://dashscope.aliyuncs.com/api/v1
+TTS_QWEN_MODELS=qwen3-tts-flash
+DEFAULT_TTS_PROVIDER=qwen-tts
+DEFAULT_TTS_VOICE=Cherry
 ```
 
-SiliconFlow quick example:
+Image generation and TTS reuse `QWEN_API_KEY` unless a dedicated key is set. Do not configure or mount `server-providers.yml` for this deployment. Shared provider implementations remain available, while this deployment enables only QWEN.
 
-```env
-SILICONFLOW_API_KEY=...
-SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1
-SILICONFLOW_MODELS=Pro/MiniMaxAI/MiniMax-M2.5
-DEFAULT_MODEL=siliconflow:Pro/MiniMaxAI/MiniMax-M2.5
-
-IMAGE_SILICONFLOW_API_KEY=...
-IMAGE_SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1
-DEFAULT_IMAGE_PROVIDER=siliconflow-image
-DEFAULT_IMAGE_MODEL=Qwen/Qwen-Image
-```
-
-`IMAGE_SILICONFLOW_API_KEY` is optional. When omitted, image generation automatically reuses `SILICONFLOW_API_KEY`, and image generation will auto-enable on the first settings sync.
-If you want to pin the default image provider/model, prefer setting it in your local `.env.local`.
-
-You can also configure providers via `server-providers.yml`:
-
-```yaml
-providers:
-  openai:
-    apiKey: sk-...
-  anthropic:
-    apiKey: sk-ant-...
-```
-
-Supported providers: **OpenAI**, **Anthropic**, **Google Gemini**, **DeepSeek**, **Qwen**, **Kimi**, **MiniMax**, **Grok (xAI)**, **SiliconFlow**, **OpenRouter**, **Doubao**, **Tencent Hunyuan/TokenHub**, **Xiaomi MiMo**, **GLM (Zhipu)**, **Ollama** (local), **Lemonade** (local LLM / image / TTS / ASR), and any OpenAI-compatible API.
-
-<a id="lemonade-local-ai"></a>
-
-### Optional: Lemonade (Local AI Provider)
-
-OpenMAIC supports Lemonade as a local, OpenAI-compatible provider for LLMs, image generation, TTS, and ASR. No API key is required.
-
-Run Lemonade locally, then point OpenMAIC to it:
-
-```env
-LEMONADE_BASE_URL=http://localhost:13305/v1
-TTS_LEMONADE_BASE_URL=http://localhost:13305/v1
-ASR_LEMONADE_BASE_URL=http://localhost:13305/v1
-IMAGE_LEMONADE_BASE_URL=http://localhost:13305/v1
-```
-
-OpenAI quick example:
-
-```env
-OPENAI_API_KEY=sk-...
-DEFAULT_MODEL=openai:gpt-5.5
-```
-
-MiniMax quick examples:
-
-```env
-MINIMAX_API_KEY=...
-MINIMAX_BASE_URL=https://api.minimaxi.com/anthropic/v1
-DEFAULT_MODEL=minimax:MiniMax-M2.7-highspeed
-
-TTS_MINIMAX_API_KEY=...
-TTS_MINIMAX_BASE_URL=https://api.minimaxi.com
-
-IMAGE_MINIMAX_API_KEY=...
-IMAGE_MINIMAX_BASE_URL=https://api.minimaxi.com
-
-IMAGE_OPENAI_API_KEY=...
-IMAGE_OPENAI_BASE_URL=https://api.openai.com/v1
-
-VIDEO_MINIMAX_API_KEY=...
-VIDEO_MINIMAX_BASE_URL=https://api.minimaxi.com
-```
-
-Xiaomi MiMo Token Plan quick example:
-
-```env
-MIMO_API_KEY=tp-...
-MIMO_BASE_URL=https://token-plan-cn.xiaomimimo.com/v1
-DEFAULT_MODEL=xiaomi:mimo-v2.5-pro
-```
-
-Use `https://token-plan-sgp.xiaomimimo.com/v1` or `https://token-plan-ams.xiaomimimo.com/v1` for the Singapore or Europe Token Plan clusters.
-
-GLM (Zhipu) quick examples:
-
-```env
-# China (default)
-GLM_API_KEY=...
-GLM_BASE_URL=https://open.bigmodel.cn/api/paas/v4
-
-# International (z.ai)
-GLM_API_KEY=...
-GLM_BASE_URL=https://api.z.ai/api/paas/v4
-
-DEFAULT_MODEL=glm:glm-5.1
-```
-
-> **Recommended model:** **Gemini 3 Flash** — best balance of quality and speed. For highest quality (at slower speed), try **Gemini 3.1 Pro**.
->
-> If you want OpenMAIC server APIs to use Gemini by default, also set `DEFAULT_MODEL=google:gemini-3-flash-preview`.
->
-> If you want to use MiniMax as the default server model, set `DEFAULT_MODEL=minimax:MiniMax-M2.7-highspeed`.
+After editing env, recreate the Docker container. For development, run `docker compose -f docker-compose.dev.yml up -d --no-build --force-recreate`.
 
 ### 3. Run
 

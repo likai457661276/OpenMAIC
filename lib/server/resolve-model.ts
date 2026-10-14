@@ -17,7 +17,7 @@ import {
 import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
 import { getStageRoute, type LlmStage } from '@/lib/server/model-routes';
 
-const FALLBACK_DEFAULT_MODEL = 'doubao:ep-20260225155849-krdlt';
+const FALLBACK_DEFAULT_MODEL = 'qwen:qwen3.7-flash';
 
 export interface ResolvedModel extends ModelWithInfo {
   /** Original model string (e.g. "openai/gpt-4o-mini") */
@@ -58,8 +58,8 @@ export async function resolveModel(params: {
   // A configured stage route is the operator's deliberate per-stage choice and
   // wins even over a client-sent x-model (otherwise the browser UI, which always
   // sends its saved model, would shadow every route). Unrouted stages fall back
-  // to the client x-model, DEFAULT_MODEL, then the teacher deployment's managed
-  // Doubao model for backward compatibility.
+  // to the client x-model, DEFAULT_MODEL, then the deployment's managed
+  // Alibaba Cloud Bailian model.
   const stageRoute = getStageRoute(params.stage);
   const stageModel = stageRoute?.model;
   const requestedModelString = params.modelString?.trim();

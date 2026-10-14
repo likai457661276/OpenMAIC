@@ -41,10 +41,10 @@ describe('resolveModel — per-stage resolution order', () => {
     delete process.env.DEFAULT_MODEL;
   });
 
-  it('uses the deployment Doubao fallback when nothing is configured', async () => {
+  it('uses the deployment Bailian fallback when nothing is configured', async () => {
     const { resolveModel } = await import('@/lib/server/resolve-model');
     const result = await resolveModel({ stage: 'scene-content' });
-    expect(result.modelString).toBe('doubao:ep-20260225155849-krdlt');
+    expect(result.modelString).toBe('qwen:qwen3.7-flash');
   });
 
   it('uses DEFAULT_MODEL when no stage route matches', async () => {
