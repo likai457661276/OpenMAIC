@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useStageStore } from '@/lib/store/stage';
 import { isSceneEditLocked } from '@/lib/edit/regen-lock';
-import { getCurrentModelConfig } from '@/lib/utils/model-config';
+import { getCurrentModelConfig, getModelRequestHeaders } from '@/lib/utils/model-config';
 import { useSettingsStore } from '@/lib/store/settings';
 import { db } from '@/lib/utils/database';
 import type {
@@ -52,17 +52,13 @@ type ClientRetryOptions<T> = Partial<
 >;
 
 function getApiHeaders(): HeadersInit {
-  const config = getCurrentModelConfig();
   const settings = useSettingsStore.getState();
   const imageProviderConfig = settings.imageProvidersConfig?.[settings.imageProviderId];
   const videoProviderConfig = settings.videoProvidersConfig?.[settings.videoProviderId];
 
   return {
     'Content-Type': 'application/json',
-    'x-model': config.modelString || '',
-    'x-api-key': config.apiKey || '',
-    'x-base-url': config.baseUrl || '',
-    'x-provider-type': config.providerType || '',
+    ...getModelRequestHeaders(useStageStore.getState().stage?.useServerModel),
     // Image generation provider
     'x-image-provider': settings.imageProviderId || '',
     'x-image-model': settings.imageModelId || '',
@@ -80,6 +76,7 @@ function getApiHeaders(): HeadersInit {
 }
 
 function withThinkingConfig<T extends Record<string, unknown>>(body: T): T {
+  if (useStageStore.getState().stage?.useServerModel) return body;
   const { thinkingConfig } = getCurrentModelConfig();
   return thinkingConfig ? ({ ...body, thinkingConfig } as T) : body;
 }
@@ -391,12 +388,7 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
   useEffect(() => {
     const wasEnabled = previousTtsEnabledRef.current;
     previousTtsEnabledRef.current = ttsEnabled;
-    if (
-      wasEnabled ||
-      !ttsEnabled ||
-      !voiceNarrationEnabled ||
-      ttsBackfillRunningRef.current
-    ) {
+    if (wasEnabled || !ttsEnabled || !voiceNarrationEnabled || ttsBackfillRunningRef.current) {
       return;
     }
 

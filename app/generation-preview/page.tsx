@@ -29,7 +29,7 @@ import {
   cleanupOldImages,
   storeImages,
 } from '@/lib/utils/image-storage';
-import { getCurrentModelConfig } from '@/lib/utils/model-config';
+import { getCurrentModelConfig, getModelRequestHeaders } from '@/lib/utils/model-config';
 import { db } from '@/lib/utils/database';
 import { MAX_PDF_CONTENT_CHARS, MAX_VISION_IMAGES } from '@/lib/constants/generation';
 import { buildVideoManifestFromOutlines } from '@/lib/media/video-manifest';
@@ -49,7 +49,12 @@ import { createLogger } from '@/lib/logger';
 import { apiPath, assetPath } from '@/lib/app-paths';
 import { isProviderUsable } from '@/lib/store/settings-validation';
 import { splitLongSpeechActions } from '@/lib/audio/tts-utils';
-import { type GenerationSessionState, ALL_STEPS, getActiveSteps } from './types';
+import {
+  type GenerationSessionState,
+  ALL_STEPS,
+  getActiveSteps,
+  sessionUsesServerModel,
+} from './types';
 import { StepVisualizer } from './components/visualizers';
 import { resolveTaskEngineModeFromOutlineDoneEvent } from './vocational-mode';
 
@@ -234,8 +239,9 @@ function GenerationPreviewContent() {
   >([]);
   const agentRevealResolveRef = useRef<(() => void) | null>(null);
   const activeProviderConfig = providersConfig[providerId];
+  const useServerModel = sessionUsesServerModel(session);
   const hasUsableModelSelection =
-    !!providerId && !!modelId && isProviderUsable(activeProviderConfig);
+    useServerModel || (!!providerId && !!modelId && isProviderUsable(activeProviderConfig));
   const reviewOutlineEnabled = useSettingsStore((s) => s.reviewOutlineEnabled);
   const setReviewOutlineEnabled = useSettingsStore((s) => s.setReviewOutlineEnabled);
 
@@ -323,18 +329,14 @@ function GenerationPreviewContent() {
     };
   }, []);
 
-  // Get API credentials from localStorage
+  // Automatic iframe sessions resolve their model entirely from server env.
   const getApiHeaders = () => {
-    const modelConfig = getCurrentModelConfig();
     const settings = useSettingsStore.getState();
     const imageProviderConfig = settings.imageProvidersConfig?.[settings.imageProviderId];
     const videoProviderConfig = settings.videoProvidersConfig?.[settings.videoProviderId];
     return {
       'Content-Type': 'application/json',
-      'x-model': modelConfig.modelString,
-      'x-api-key': modelConfig.apiKey,
-      'x-base-url': modelConfig.baseUrl,
-      'x-provider-type': modelConfig.providerType || '',
+      ...getModelRequestHeaders(useServerModel),
       // Image generation provider
       'x-image-provider': settings.imageProviderId || '',
       'x-image-model': settings.imageModelId || '',
@@ -352,6 +354,7 @@ function GenerationPreviewContent() {
   };
 
   const withThinkingConfig = <T extends Record<string, unknown>>(body: T) => {
+    if (useServerModel) return body;
     const { thinkingConfig } = getCurrentModelConfig();
     return thinkingConfig ? { ...body, thinkingConfig } : body;
   };
@@ -540,6 +543,7 @@ function GenerationPreviewContent() {
       updatedAt: now,
       interactiveMode: true,
       teacherMode: undefined,
+      useServerModel: sessionUsesServerModel(currentSession) || undefined,
     };
 
     const outlines = sourceScenes.map(buildOutlineFromScene);
@@ -613,7 +617,12 @@ function GenerationPreviewContent() {
 
       scene.actions = actionData.actions as Action[];
       ensureTeacherInteractiveSpeechAction(scene);
-      const ttsResult = await generateTTSForExistingScene(stageId, scene, languageDirective, signal);
+      const ttsResult = await generateTTSForExistingScene(
+        stageId,
+        scene,
+        languageDirective,
+        signal,
+      );
       if (!ttsResult.success) {
         throw new Error(formatTeacherInteractiveTTSError(ttsResult));
       }
@@ -924,6 +933,7 @@ function GenerationPreviewContent() {
         updatedAt: Date.now(),
         interactiveMode: !!currentSession.requirements.interactiveMode,
         teacherMode: currentSession.teacherMode || undefined,
+        useServerModel: sessionUsesServerModel(currentSession) || undefined,
         taskEngineMode: currentSession.taskEngineMode === true,
       };
 

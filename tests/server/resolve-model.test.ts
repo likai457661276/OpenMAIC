@@ -54,6 +54,41 @@ describe('resolveModel — per-stage resolution order', () => {
     expect(r.modelString).toBe('openai:gpt-5.4-mini');
   });
 
+  it('uses env model and credentials for automatic requests despite client overrides', async () => {
+    process.env.DEFAULT_MODEL = 'qwen:qwen3.7-flash';
+    const { resolveModelFromRequest } = await import('@/lib/server/resolve-model');
+    const request = {
+      headers: new Headers({
+        'x-use-server-model': 'true',
+        'x-model': 'qwen:deepseek-v4-flash',
+        'x-api-key': 'parent-model-key',
+        'x-base-url': 'https://parent.example.com/models',
+        'x-provider-type': 'anthropic',
+      }),
+    } as Parameters<typeof resolveModelFromRequest>[0];
+    const result = await resolveModelFromRequest(
+      request,
+      { thinkingConfig: { mode: 'disabled' } },
+      'scene-outlines-stream',
+    );
+    expect(result.modelString).toBe('qwen:qwen3.7-flash');
+    expect(result.apiKey).toBe('server-key');
+    expect(result.baseUrl).toBeUndefined();
+    expect(result.thinkingConfig).toBeUndefined();
+    expect(mocks.getModelCalls.at(-1)?.providerType).toBeUndefined();
+  });
+
+  it('continues to respect env stage routing for automatic requests', async () => {
+    process.env.DEFAULT_MODEL = 'qwen:qwen3.7-flash';
+    process.env.MODEL_ROUTES = JSON.stringify({ 'scene-content': 'qwen:qwen3.7-plus' });
+    const { resolveModelFromRequest } = await import('@/lib/server/resolve-model');
+    const request = {
+      headers: new Headers({ 'x-use-server-model': 'true', 'x-model': 'openai:gpt-5.4' }),
+    } as Parameters<typeof resolveModelFromRequest>[0];
+    const result = await resolveModelFromRequest(request, {}, 'scene-content');
+    expect(result.modelString).toBe('qwen:qwen3.7-plus');
+  });
+
   it('uses the stage route over DEFAULT_MODEL', async () => {
     process.env.DEFAULT_MODEL = 'openai:gpt-5.4-mini';
     process.env.MODEL_ROUTES = JSON.stringify({ 'scene-content': 'openai:gpt-5.4' });

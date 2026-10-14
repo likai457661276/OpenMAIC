@@ -3,6 +3,8 @@ import type { SceneOutline } from '@/lib/types/generation';
 
 const mocks = vi.hoisted(() => ({
   getCurrentModelConfig: vi.fn(),
+  getModelRequestHeaders: vi.fn(),
+  stageState: vi.fn(),
   settingsState: vi.fn(),
   audioPut: vi.fn(),
   isTTSProviderEnabled: vi.fn(),
@@ -13,7 +15,10 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/lib/utils/model-config', () => ({
   getCurrentModelConfig: mocks.getCurrentModelConfig,
+  getModelRequestHeaders: mocks.getModelRequestHeaders,
 }));
+
+vi.mock('@/lib/store/stage', () => ({ useStageStore: { getState: mocks.stageState } }));
 
 vi.mock('@/lib/store/settings', () => ({
   useSettingsStore: {
@@ -78,6 +83,11 @@ describe('browser scene generation retry wrappers', () => {
     mockFetch.mockReset();
     mocks.audioPut.mockReset();
     mocks.getCurrentModelConfig.mockReturnValue({});
+    mocks.getModelRequestHeaders.mockReset();
+    mocks.getModelRequestHeaders.mockImplementation((server) =>
+      server ? { 'x-use-server-model': 'true' } : {},
+    );
+    mocks.stageState.mockReturnValue({ stage: null });
     mocks.settingsState.mockReturnValue({
       imageProviderId: '',
       imageProvidersConfig: {},
@@ -120,6 +130,34 @@ describe('browser scene generation retry wrappers', () => {
 
     expect(result).toMatchObject({ success: true, content: { elements: [] } });
     expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps automatic scene content and actions on server models after navigation', async () => {
+    const { fetchSceneContent, fetchSceneActions } =
+      await import('@/lib/hooks/use-scene-generator');
+    mocks.stageState.mockReturnValue({ stage: { useServerModel: true } });
+    mocks.getCurrentModelConfig.mockReturnValue({ thinkingConfig: { mode: 'disabled' } });
+    mockFetch
+      .mockResolvedValueOnce(jsonResponse(200, { success: true, content: { elements: [] } }))
+      .mockResolvedValueOnce(jsonResponse(200, { success: true, scene: {} }));
+
+    await fetchSceneContent({
+      outline,
+      allOutlines: [outline],
+      stageId: 'auto-stage',
+      stageInfo: { name: '自动教案' },
+    });
+    await fetchSceneActions({
+      outline,
+      allOutlines: [outline],
+      content: {},
+      stageId: 'auto-stage',
+    });
+
+    for (const [, request] of mockFetch.mock.calls) {
+      expect(request.headers['x-use-server-model']).toBe('true');
+      expect(JSON.parse(request.body)).not.toHaveProperty('thinkingConfig');
+    }
   });
 
   it('does not retry permanent scene action HTTP failures', async () => {

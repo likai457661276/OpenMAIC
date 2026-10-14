@@ -152,11 +152,16 @@ iframe.contentWindow?.postMessage(
     type: "AUTO_TEACHER_GENERATE",
     file_url: "https://qsh.example.com/files/lesson.pdf",
     courseware_name: "认识平面图形",
-    model: "qwen:deepseek-v4-flash"
+    token: "parent-issued-upload-token",
+    upload_url: "https://qsh.example.com/api/upload"
   },
   "https://openmaic.example.com"
 );
 ```
+
+自动教师链路的模型只由 OpenMAIC 服务端 env 决定，例如 `DEFAULT_MODEL=qwen:qwen3.7-flash`。父系统无需传 `model`；历史父页面即使传入旧模型，该字段也会被忽略。客户端自动生成请求使用 `x-use-server-model=true`，服务端据此忽略浏览器的模型、密钥、base URL、协议和 thinking 设置，按 `MODEL_ROUTES`（如配置）或 `DEFAULT_MODEL` 解析模型。该规则延续到大纲、首屏内容、动作及后续页面生成；普通手动课堂仍使用用户选择的模型。
+
+升级后必须重新构建并部署包含改动的镜像，并刷新父页面及 iframe。仅修改正式环境 env 或重启旧镜像，无法替换旧的 iframe 模型规则或大纲错误处理代码。大纲上游失败应返回带 HTTP 状态、供应商错误码与原始消息的错误 SSE；如果不存在的模型仍返回 `LLM returned empty response`，应检查部署版本、Nginx 路由及多实例是否一致。
 
 OpenMAIC 会回传：
 

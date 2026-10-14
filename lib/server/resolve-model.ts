@@ -140,7 +140,8 @@ function getThinkingConfigFromBody(body: unknown): ThinkingConfig | undefined {
 /**
  * Resolve a language model from standard request headers.
  *
- * Reads: x-model, x-api-key, x-base-url, x-provider-type
+ * Reads: x-model, x-api-key, x-base-url, x-provider-type.
+ * x-use-server-model=true discards client model, credentials and thinking config.
  * Note: requiresApiKey is derived server-side from the provider registry,
  * never from client headers, to prevent auth bypass.
  */
@@ -149,13 +150,14 @@ export async function resolveModelFromHeaders(
   stage?: LlmStage,
   thinkingConfig?: ThinkingConfig,
 ): Promise<ResolvedModel> {
+  const useServerModel = req.headers.get('x-use-server-model') === 'true';
   return resolveModel({
-    modelString: req.headers.get('x-model') || undefined,
+    modelString: useServerModel ? undefined : req.headers.get('x-model') || undefined,
     stage,
-    apiKey: req.headers.get('x-api-key') || undefined,
-    baseUrl: req.headers.get('x-base-url') || undefined,
-    providerType: req.headers.get('x-provider-type') || undefined,
-    thinkingConfig,
+    apiKey: useServerModel ? undefined : req.headers.get('x-api-key') || undefined,
+    baseUrl: useServerModel ? undefined : req.headers.get('x-base-url') || undefined,
+    providerType: useServerModel ? undefined : req.headers.get('x-provider-type') || undefined,
+    thinkingConfig: useServerModel ? undefined : thinkingConfig,
   });
 }
 

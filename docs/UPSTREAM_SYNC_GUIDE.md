@@ -69,7 +69,7 @@
 | 文件或目录 | 必须保留的当前分支行为 |
 |------|------------------------|
 | `lib/server/provider-config.ts` | 未配置 `DEFAULT_MODEL` 时回退到 `qwen:qwen3.7-flash`；同时支持环境变量和 `server-providers.yml`；默认模型必须出现在对应服务端 Provider 的公开模型列表中。 |
-| `lib/server/resolve-model.ts` | 模型解析顺序保留“阶段模型 → 请求模型 → `DEFAULT_MODEL` → 部署 fallback”；服务端托管 Provider 的 key 和 base URL 由服务端配置决定，客户端不得覆盖。 |
+| `lib/server/resolve-model.ts` | 普通请求的模型解析顺序保留“阶段模型 → 请求模型 → `DEFAULT_MODEL` → 部署 fallback”；带 `x-use-server-model=true` 的自动生成请求必须忽略客户端模型、凭证、连接方式和 thinking，直接按服务端 env 阶段路由或默认模型解析。服务端托管 Provider 的 key 和 base URL 由服务端配置决定，客户端不得覆盖。 |
 | `lib/ai/providers.ts`、`lib/ai/model-metadata.ts` | 保留 `qwen3.7-flash` 模型及其视觉、流式输出、工具调用和 Qwen thinking 参数适配；不得因模型目录合并漏掉 `enable_thinking` / `thinking_budget` 映射。其他 Provider 的协议兼容能力继续保留，合并官方新模型时采用并集。 |
 | `lib/store/settings.ts`、`app/api/server-providers/route.ts` | 客户端只接收可公开的 Provider、模型和 managed 状态，不得暴露 API key 或服务端 base URL；当前模型失效时应回退到服务端默认模型。 |
 | `lib/agent/client/use-agent-runtime.ts`、`app/api/agent/edit/route.ts` | `Edit with AI` 专业模式必须继续通过 `apiPath('/api/agent/edit')` 调用 SSE 接口，保留 `/bingo-agent-class` 子路径部署；同时继续随请求转发当前前端模型配置和 thinking 配置，避免在客户端模型可用时退回到缺失服务端 key 的 Provider。 |
@@ -135,7 +135,7 @@ pnpm exec tsc --noEmit
 | `app/auto-teacher/`、`app/auto-import-teacher/` | 两个入口不读取父窗口来源白名单，均应支持任意父站点通过带 `basePath` 的地址嵌入。 |
 | `components/auto-teacher/` | 只处理 `AUTO_TEACHER_GENERATE` 消息；不校验 `event.origin`，但仍须严格解析消息结构；重复任务不能并发执行；状态、成功和错误消息必须回传给原消息窗口及原 origin。 |
 | `lib/auto-teacher/origins.ts` | 来源列表只服务于服务端 ZIP/PDF 下载防护，不得重新用于 iframe 嵌入或 `postMessage` 来源校验。 |
-| `lib/auto-teacher/protocol.ts` | 保留教案内容与 ZIP 导入协议兼容：自动教案允许 `pdf_text`/`pdfText` 或 `file_url` 二选一，并要求 `token`、`upload_url`/`uploadUrl`；同时保留 `courseware_name`、`model`、`prompt`。ZIP 地址兼容 `zip_url`、`zipUrl`、`zipurl`，并保留 `teachType=teacher|classroom`、可选 `fileName`，以及用于保存回父系统的可选 `token`、`upload_url`/`uploadUrl` 成对字段。所有 URL 字段只允许 HTTP(S)。 |
+| `lib/auto-teacher/protocol.ts` | 保留教案内容与 ZIP 导入协议兼容：自动教案允许 `pdf_text`/`pdfText` 或 `file_url` 二选一，并要求 `token`、`upload_url`/`uploadUrl`；同时保留 `courseware_name`、`prompt`。父消息历史 `model` 字段仅兼容接收，不解析或应用，不能恢复旧的模型白名单或写死默认模型；自动教师模型由服务端 env 决定。ZIP 地址兼容 `zip_url`、`zipUrl`、`zipurl`，并保留 `teachType=teacher|classroom`、可选 `fileName`，以及用于保存回父系统的可选 `token`、`upload_url`/`uploadUrl` 成对字段。所有 URL 字段只允许 HTTP(S)。 |
 | `components/auto-teacher/auto-teacher-bridge.tsx`、`app/api/auto-teacher/parse-pdf-url/route.ts` | 自动教案入口优先消费父系统传入的教案文本；缺少文本但存在 `file_url` 时，必须进入 `parsing_pdf` 阶段，通过服务端代理下载并使用 `unpdf` 解析。下载时兼容转发父消息 token，但不得记录 token；保留逐次重定向 SSRF 校验、可信来源例外、50MB 大小限制和 Content-Type 校验。 |
 | `app/api/auto-teacher/download-zip/route.ts` | 保留服务端 ZIP 下载代理、逐次重定向 SSRF 校验、可信 ZIP origin 白名单、500MB 大小限制、Content-Type 校验及 `Cache-Control: no-store`。 |
 | `app/generation-preview/page.tsx`、`app/generation-preview/types.ts` | 保留 `teacherMode`、`teacherInteractiveConversion`、`autoTeacherBridge` 和 `originalRequirement`；自动教师生成禁用图片、视频和 TTS，生成完成后进入教师课件路由；自动教师的大纲生成、审阅大纲、生成失败等生成预览链路不得显示“返回首页”“返回修改需求”“返回重试”等返回入口；与官方新增生成状态字段采用并集，不能互相覆盖。 |
@@ -144,6 +144,8 @@ pnpm exec tsc --noEmit
 | `lib/app-paths.ts`、`next.config.ts`、`middleware.ts` | 保留 `basePath` URL 处理；静态与运行时响应头均使用 `Content-Security-Policy: frame-ancestors *`，且不能返回 `X-Frame-Options`，保证自动流程跳转后的所有页面仍可被任意父站点嵌入。 |
 
 环境变量仍遵循以下边界：
+
+自动教师生成模型不受父 iframe 或 localStorage 中旧模型选择影响：`components/auto-teacher/auto-teacher-bridge.tsx` 不再调用 `setModel`，自动会话及其产出的 `Stage` 保留 `useServerModel`。`app/generation-preview/page.tsx`、`lib/utils/model-config.ts` 和 `lib/hooks/use-scene-generator.ts` 必须在大纲、首屏与后续内容/动作请求中发送 `x-use-server-model=true`，不发送客户端 LLM 模型、凭证或 thinking。`lib/server/resolve-model.ts` 负责最终执行该规则；普通手动入口的选择行为继续保留。旧自动会话可根据 `autoTeacherEmbedded` / `autoTeacherBridge.enabled` 恢复服务端模型策略。上述文件、`app/generation-preview/types.ts`、`lib/types/stage.ts` 是相关上游合并冲突点，不得在更新 DSL 或生成后台逻辑时丢失该标记。
 
 - `NEXT_PUBLIC_AUTO_TEACHER_ALLOWED_ORIGINS`：兼容旧部署的可信下载来源配置，仅参与服务端 ZIP/PDF 来源集合；不再限制 iframe CSP 或 `postMessage`。
 - `AUTO_TEACHER_ALLOWED_ZIP_ORIGINS`：允许服务端下载 ZIP 的额外 origin；历史环境若仍配置了 `AUTO_TEACHER_ALLOWED_PDF_ORIGINS`，ZIP 下载代理可兼容读取，但自动教案生成不得使用它下载 PDF。
@@ -156,6 +158,14 @@ pnpm exec vitest run tests/auto-teacher/protocol.test.ts tests/api/auto-teacher-
 pnpm exec tsc --noEmit
 pnpm lint
 ```
+
+涉及自动教师模型来源时额外运行：
+
+```bash
+pnpm exec vitest run tests/utils/model-config.test.ts tests/server/resolve-model.test.ts tests/hooks/use-scene-generator-retry.test.ts tests/generation/outline-stream-errors.test.ts
+```
+
+部署验证必须分别覆盖直接页面及 iframe 入口：父系统传入旧 `model` 仍应使用 `DEFAULT_MODEL=qwen:qwen3.7-flash`；生成预览及后续课件请求都带服务端模型标记。正式镜像必须同时包含模型策略及大纲真实错误回传修复，不能只修改 env 并重启旧镜像。
 
 还应人工验证两条完整链路：
 

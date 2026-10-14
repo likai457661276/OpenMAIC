@@ -9,11 +9,8 @@ export const AUTO_TEACHER_ERROR_TYPE = 'AUTO_TEACHER_ERROR';
 export const AUTO_TEACHER_SAVE_SUCCESS_TYPE = 'AUTO_TEACHER_SAVE_SUCCESS';
 export const AUTO_TEACHER_SAVE_ERROR_TYPE = 'AUTO_TEACHER_SAVE_ERROR';
 
-export const AUTO_TEACHER_DEFAULT_MODEL = 'qwen:deepseek-v4-flash';
-export const AUTO_TEACHER_ALLOWED_MODELS = ['qwen:qwen3.7-plus', 'qwen:deepseek-v4-flash'] as const;
 export const AUTO_TEACHER_MAX_PDF_SIZE_BYTES = 50 * 1024 * 1024;
 
-export type AutoTeacherModel = (typeof AUTO_TEACHER_ALLOWED_MODELS)[number];
 export type AutoTeacherStage = 'received' | 'parsing_pdf' | 'preparing_session' | 'redirecting';
 export type AutoTeacherTeachType = 'teacher' | 'classroom';
 export type AutoImportTeacherStage =
@@ -35,6 +32,7 @@ export interface AutoTeacherGenerateMessage {
   token: string;
   upload_url: string;
   uploadUrl?: string;
+  /** Legacy parent parameter; ignored. Generation uses server env configuration. */
   model?: string;
   prompt?: string;
 }
@@ -46,10 +44,6 @@ export interface AutoTeacherPayload {
   uploadUrl: string;
   coursewareName?: string;
   prompt?: string;
-  model: AutoTeacherModel;
-  providerId: 'qwen';
-  modelId: 'qwen3.7-plus' | 'deepseek-v4-flash';
-  warning?: string;
 }
 
 export interface AutoImportTeacherPayload {
@@ -71,17 +65,6 @@ export function shouldHideEmbeddedClassroomBackButton(params: {
   return params.autoImport === '1' || params.autoTeacher === '1';
 }
 
-function parseAutoTeacherModelString(model: AutoTeacherModel): {
-  providerId: 'qwen';
-  modelId: 'qwen3.7-plus' | 'deepseek-v4-flash';
-} {
-  const [providerId, modelId] = model.split(':');
-  return {
-    providerId: providerId as 'qwen',
-    modelId: modelId as 'qwen3.7-plus' | 'deepseek-v4-flash',
-  };
-}
-
 export { getAutoTeacherAllowedPdfOrigins, parseOriginList };
 
 export function isAutoTeacherGenerateMessage(data: unknown): boolean {
@@ -90,34 +73,6 @@ export function isAutoTeacherGenerateMessage(data: unknown): boolean {
     typeof data === 'object' &&
     (data as { type?: unknown }).type === AUTO_TEACHER_MESSAGE_TYPE,
   );
-}
-
-export function normalizeAutoTeacherModel(model: unknown): {
-  model: AutoTeacherModel;
-  providerId: 'qwen';
-  modelId: 'qwen3.7-plus' | 'deepseek-v4-flash';
-  warning?: string;
-} {
-  if (typeof model === 'string') {
-    const normalized = model.trim();
-    if ((AUTO_TEACHER_ALLOWED_MODELS as readonly string[]).includes(normalized)) {
-      return {
-        model: normalized as AutoTeacherModel,
-        ...parseAutoTeacherModelString(normalized as AutoTeacherModel),
-      };
-    }
-    if (normalized) {
-      return {
-        model: AUTO_TEACHER_DEFAULT_MODEL,
-        ...parseAutoTeacherModelString(AUTO_TEACHER_DEFAULT_MODEL),
-        warning: `Unsupported model "${normalized}", falling back to ${AUTO_TEACHER_DEFAULT_MODEL}`,
-      };
-    }
-  }
-  return {
-    model: AUTO_TEACHER_DEFAULT_MODEL,
-    ...parseAutoTeacherModelString(AUTO_TEACHER_DEFAULT_MODEL),
-  };
 }
 
 export function parseAutoTeacherMessage(data: unknown): AutoTeacherPayload {
@@ -173,7 +128,6 @@ export function parseAutoTeacherMessage(data: unknown): AutoTeacherPayload {
     throw new Error('Missing required field: pdf_text or file_url');
   }
   const prompt = typeof payload.prompt === 'string' ? payload.prompt.trim() : '';
-  const { model, providerId, modelId, warning } = normalizeAutoTeacherModel(payload.model);
   return {
     ...(fileUrl ? { fileUrl: fileUrl.toString() } : {}),
     ...(pdfText ? { pdfText } : {}),
@@ -181,10 +135,6 @@ export function parseAutoTeacherMessage(data: unknown): AutoTeacherPayload {
     uploadUrl: uploadUrl.toString(),
     ...(coursewareName ? { coursewareName } : {}),
     ...(prompt ? { prompt } : {}),
-    model,
-    providerId,
-    modelId,
-    warning,
   };
 }
 

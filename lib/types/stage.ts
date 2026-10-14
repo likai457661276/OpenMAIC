@@ -58,6 +58,8 @@ export type { Scene as SceneShape } from '@openmaic/dsl';
 export interface Stage extends DslStage {
   /** Teacher classrooms use the teacher display route and separate history. */
   teacherMode?: boolean;
+  /** Continue automatic iframe generation with server env models after navigation. */
+  useServerModel?: boolean;
 }
 
 /**

@@ -48,9 +48,17 @@ export interface GenerationSessionState {
     sourceOrigin: string;
   };
   autoTeacherEmbedded?: boolean;
+  /** Automatic iframe generation follows server env model choices. */
+  useServerModel?: boolean;
   originalRequirement?: string;
   // Server-effective vocational mode from the outline generation done event.
   taskEngineMode?: boolean;
+}
+
+export function sessionUsesServerModel(session: GenerationSessionState | null): boolean {
+  return Boolean(
+    session?.useServerModel || session?.autoTeacherEmbedded || session?.autoTeacherBridge?.enabled,
+  );
 }
 
 export type GenerationStep = {

@@ -5,7 +5,6 @@ import {
   getAutoTeacherAllowedPdfOrigins,
   inferAutoTeacherPdfTitle,
   isAutoTeacherGenerateMessage,
-  normalizeAutoTeacherModel,
   parseAutoImportTeacherMessage,
   parseAutoTeacherMessage,
   shouldHideEmbeddedClassroomBackButton,
@@ -70,7 +69,7 @@ describe('auto-teacher protocol', () => {
     expect(isAutoTeacherGenerateMessage('AUTO_TEACHER_GENERATE')).toBe(false);
   });
 
-  it('accepts valid postMessage payload and normalizes model', () => {
+  it('accepts valid postMessage payload without adopting its model', () => {
     expect(
       parseAutoTeacherMessage({
         type: AUTO_TEACHER_MESSAGE_TYPE,
@@ -85,10 +84,6 @@ describe('auto-teacher protocol', () => {
       pdfText: '# 第一课时\n教学目标',
       token: 'token-123',
       uploadUrl: 'https://parent.example.com/api/upload',
-      model: 'qwen:deepseek-v4-flash',
-      modelId: 'deepseek-v4-flash',
-      providerId: 'qwen',
-      warning: undefined,
     });
   });
 
@@ -308,13 +303,34 @@ describe('auto-teacher protocol', () => {
     ).toThrow('Only HTTP(S) upload_url is allowed');
   });
 
-  it('falls back to default model for unsupported model', () => {
-    expect(normalizeAutoTeacherModel('gpt-5.4')).toEqual({
+  it.each([undefined, '', 'qwen:qwen3.7-flash', 'qwen:qwen3.7-plus', 'gpt-5.4'])(
+    'ignores parent model %s so server env controls generation',
+    (model) => {
+      const payload = parseAutoTeacherMessage({
+        type: AUTO_TEACHER_MESSAGE_TYPE,
+        pdf_text: '任意角教案',
+        token: 'test-token',
+        upload_url: 'https://parent.example.com/upload',
+        model,
+      });
+      expect(payload).not.toHaveProperty('model');
+      expect(payload).not.toHaveProperty('modelId');
+      expect(payload).not.toHaveProperty('providerId');
+    },
+  );
+
+  it('does not copy parent model credentials or thinking into the generation payload', () => {
+    const payload = parseAutoTeacherMessage({
+      type: AUTO_TEACHER_MESSAGE_TYPE,
+      pdf_text: '任意角教案',
+      token: 'test-token',
+      upload_url: 'https://parent.example.com/upload',
       model: 'qwen:deepseek-v4-flash',
-      modelId: 'deepseek-v4-flash',
-      providerId: 'qwen',
-      warning: 'Unsupported model "gpt-5.4", falling back to qwen:deepseek-v4-flash',
+      apiKey: 'parent-model-key',
+      thinkingConfig: { mode: 'disabled' },
     });
+    expect(payload).not.toHaveProperty('apiKey');
+    expect(payload).not.toHaveProperty('thinkingConfig');
   });
 
   it('builds a parent-text-driven teacher lesson prompt', () => {

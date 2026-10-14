@@ -46,7 +46,6 @@ export function AutoTeacherBridge() {
     const handleMessage = async (event: MessageEvent) => {
       if (!isAutoTeacherGenerateMessage(event.data)) return;
 
-      let warning: string | undefined;
       try {
         if (processingRef.current) {
           replyToParent(event, {
@@ -57,15 +56,13 @@ export function AutoTeacherBridge() {
         }
 
         const payload = parseAutoTeacherMessage(event.data);
-        warning = payload.warning;
 
         processingRef.current = true;
         setBridgeStatus('received');
-        replyToParent(event, { type: AUTO_TEACHER_STATUS_TYPE, stage: 'received', warning });
+        replyToParent(event, { type: AUTO_TEACHER_STATUS_TYPE, stage: 'received' });
 
         const settings = useSettingsStore.getState();
         await settings.fetchServerProviders();
-        useSettingsStore.getState().setModel(payload.providerId, payload.modelId);
         useSettingsStore.getState().setImageGenerationEnabled(false);
         useSettingsStore.getState().setVideoGenerationEnabled(false);
         useSettingsStore.getState().setTTSEnabled(false);
@@ -73,7 +70,7 @@ export function AutoTeacherBridge() {
         let rawPdfText = payload.pdfText || '';
         if (!rawPdfText && payload.fileUrl) {
           setBridgeStatus('parsing_pdf');
-          replyToParent(event, { type: AUTO_TEACHER_STATUS_TYPE, stage: 'parsing_pdf', warning });
+          replyToParent(event, { type: AUTO_TEACHER_STATUS_TYPE, stage: 'parsing_pdf' });
           const parseResponse = await fetch(apiPath('/api/auto-teacher/parse-pdf-url'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -97,7 +94,6 @@ export function AutoTeacherBridge() {
         replyToParent(event, {
           type: AUTO_TEACHER_STATUS_TYPE,
           stage: 'preparing_session',
-          warning,
         });
 
         const requirement = buildAutoTeacherRequirement(pdfText, payload.prompt);
@@ -119,6 +115,7 @@ export function AutoTeacherBridge() {
           previewPhase: 'preparing',
           teacherMode: true,
           autoTeacherEmbedded: true,
+          useServerModel: true,
           autoTeacherBridge: {
             enabled: true,
             token: payload.token,
@@ -135,9 +132,8 @@ export function AutoTeacherBridge() {
         replyToParent(event, {
           type: AUTO_TEACHER_STATUS_TYPE,
           stage: 'redirecting',
-          warning,
         });
-        replyToParent(event, { type: AUTO_TEACHER_READY_TYPE, nextPath, warning });
+        replyToParent(event, { type: AUTO_TEACHER_READY_TYPE, nextPath });
         router.push('/generation-preview');
       } catch (error) {
         processingRef.current = false;
